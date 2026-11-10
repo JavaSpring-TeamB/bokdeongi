@@ -1,0 +1,38 @@
+# 환경변수·시크릿
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Java / Gradle
+backend/build/
+backend/.gradle/
+backend/out/
+*.class
+*.log
+!backend/gradle/wrapper/gradle-wrapper.jar
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+*.egg-info/
+
+# 데이터 (원본·대용량은 커밋하지 않음)
+data-lab/data/raw/
+data-lab/data/tmp/
+*.parquet
+
+# 업로드 서류 (어떤 경우에도 커밋 금지)
+uploads/
+**/uploads/
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db

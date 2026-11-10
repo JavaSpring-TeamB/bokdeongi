@@ -1,0 +1,27 @@
+/* 공통 기본 스타일. 색은 tokens.css 변수만 사용한다 */
+* { box-sizing: border-box; }
+
+html { font-size: 100%; } /* 글자 크기 조절(COMM-02)은 이 값을 바꾼다 */
+
+body {
+  margin: 0;
+  background: var(--bd-bg);
+  color: var(--bd-text);
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  line-height: 1.6;
+}
+
+.container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+.muted { color: var(--bd-text-muted); }
+
+.btn-primary {
+  background: var(--bd-primary);
+  color: var(--bd-on-primary);
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary:hover { background: var(--bd-primary-hover); }

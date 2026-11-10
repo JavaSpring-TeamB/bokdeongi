@@ -1,0 +1,84 @@
+/* 복덩이 컬러 토큰 v1 — 라이트 기본, 다크는 기기 설정 또는 data-theme="dark" */
+:root {
+  --bd-bg: #F8FAFC;
+  --bd-surface: #FFFFFF;
+  --bd-surface-2: #F1F5F9;
+  --bd-border: #E2E8F0;
+  --bd-text: #1F2937;
+  --bd-text-muted: #64748B;
+  --bd-primary: #0F766E;
+  --bd-primary-hover: #115E59;
+  --bd-on-primary: #FFFFFF;
+  --bd-primary-soft: #E6F4F1;
+  --bd-primary-soft-text: #0F766E;
+  --bd-sub: #A7E3D8;
+  --bd-point: #F59E0B;
+  --bd-on-point: #1F2937;
+  --bd-point-soft: #FEF3C7;
+  --bd-point-soft-text: #92400E;
+  --bd-danger: #DC2626;
+  --bd-on-danger: #FFFFFF;
+  --bd-danger-soft: #FEE2E2;
+  --bd-danger-soft-text: #B91C1C;
+  --bd-success: #15803D;
+  --bd-success-soft: #DCFCE7;
+  --bd-success-soft-text: #166534;
+  --bd-neutral-soft: #F1F5F9;
+  --bd-neutral-soft-text: #475569;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bd-bg: #0E1719;
+    --bd-surface: #16222A;
+    --bd-surface-2: #1D2B33;
+    --bd-border: #2A3A42;
+    --bd-text: #E6EEF0;
+    --bd-text-muted: #9AACB0;
+    --bd-primary: #2BB8A6;
+    --bd-primary-hover: #5FD3C3;
+    --bd-on-primary: #04211E;
+    --bd-primary-soft: #123532;
+    --bd-primary-soft-text: #5FD3C3;
+    --bd-sub: #2E6B63;
+    --bd-point: #FBBF24;
+    --bd-on-point: #1F1302;
+    --bd-point-soft: #3A2A0C;
+    --bd-point-soft-text: #FCD34D;
+    --bd-danger: #F87171;
+    --bd-on-danger: #2A0606;
+    --bd-danger-soft: #3B1518;
+    --bd-danger-soft-text: #FCA5A5;
+    --bd-success: #4ADE80;
+    --bd-success-soft: #12301F;
+    --bd-success-soft-text: #86EFAC;
+    --bd-neutral-soft: #24323A;
+    --bd-neutral-soft-text: #B7C4C8;
+  }
+}
+:root[data-theme="dark"] {
+  --bd-bg: #0E1719;
+  --bd-surface: #16222A;
+  --bd-surface-2: #1D2B33;
+  --bd-border: #2A3A42;
+  --bd-text: #E6EEF0;
+  --bd-text-muted: #9AACB0;
+  --bd-primary: #2BB8A6;
+  --bd-primary-hover: #5FD3C3;
+  --bd-on-primary: #04211E;
+  --bd-primary-soft: #123532;
+  --bd-primary-soft-text: #5FD3C3;
+  --bd-sub: #2E6B63;
+  --bd-point: #FBBF24;
+  --bd-on-point: #1F1302;
+  --bd-point-soft: #3A2A0C;
+  --bd-point-soft-text: #FCD34D;
+  --bd-danger: #F87171;
+  --bd-on-danger: #2A0606;
+  --bd-danger-soft: #3B1518;
+  --bd-danger-soft-text: #FCA5A5;
+  --bd-success: #4ADE80;
+  --bd-success-soft: #12301F;
+  --bd-success-soft-text: #86EFAC;
+  --bd-neutral-soft: #24323A;
+  --bd-neutral-soft-text: #B7C4C8;
+}
