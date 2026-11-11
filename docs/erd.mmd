@@ -1,0 +1,123 @@
+erDiagram
+    users ||--o{ user_consents : "동의 이력"
+    users ||--o{ eligibility_results : "판정"
+    benefits ||--o{ eligibility_results : "판정"
+    users ||--o{ user_benefits : "관심·신청"
+    benefits ||--o{ user_benefits : "관심·신청"
+    benefits ||--o{ benefit_rules : "판정 규칙"
+    median_income_standards }o..o{ users : "소득 % 환산"
+    document_types }o..o{ benefits : "documents(jsonb)"
+    document_types }o..o{ users : "doc_records(jsonb)"
+    hashtags }o..o{ benefits : "hashtags(text[])"
+
+    users {
+        bigint id PK
+        varchar email UK
+        varchar kakao_id UK
+        varchar password_hash
+        integer token_version
+        smallint failed_login_count
+        timestamptz last_login_at
+        date birth_date
+        varchar region_code
+        bytea income_amount "암호화"
+        numeric median_income_pct
+        boolean has_house
+        smallint children_count
+        varchar welfare_status
+        text_array household_type_codes
+        text_array status_codes
+        bytea sensitive_enc "암호화"
+        jsonb answers
+        jsonb doc_records
+        integer profile_version
+        smallint profile_step
+    }
+    user_consents {
+        bigint id PK
+        bigint user_id FK
+        varchar consent_type
+        varchar doc_version
+        boolean agreed
+        timestamptz acted_at
+    }
+    median_income_standards {
+        smallint year PK
+        smallint household_size PK
+        integer monthly_amount
+    }
+    benefits {
+        bigint id PK
+        varchar service_id UK
+        varchar title
+        smallint age_min
+        smallint age_max
+        text_array y_codes
+        varchar rules_status
+        date apply_start
+        date apply_end
+        integer max_amount
+        integer annual_amount
+        numeric amount_confidence
+        jsonb exclusions
+        jsonb documents
+        text_array hashtags
+        text easy_text
+        varchar status
+        timestamptz api_modified_at
+    }
+    benefit_rules {
+        bigint id PK
+        bigint benefit_id FK
+        varchar field
+        varchar operator
+        jsonb value
+        varchar source
+        text source_quote
+        boolean verified
+    }
+    eligibility_results {
+        bigint id PK
+        bigint user_id FK
+        bigint benefit_id FK
+        varchar result
+        varchar previous_result
+        boolean near_miss
+        jsonb trace
+    }
+    user_benefits {
+        bigint id PK
+        bigint user_id FK
+        bigint benefit_id FK
+        boolean bookmarked
+        varchar app_status
+        smallint step
+        jsonb doc_checks
+    }
+    document_types {
+        bigint id PK
+        varchar name UK
+        text_array aliases
+        varchar issuer
+        integer default_validity_days
+        boolean ocr_supported
+    }
+    hashtags {
+        bigint id PK
+        varchar name UK
+        varchar category
+        varchar description
+        smallint sort_order
+        boolean active
+    }
+    search_logs {
+        bigint id PK
+        varchar keyword
+        integer result_count
+    }
+    sync_logs {
+        bigint id PK
+        varchar operation
+        varchar status
+        integer api_calls
+    }
