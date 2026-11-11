@@ -1,0 +1,16 @@
+# 줄바꿈을 LF로 통일한다. Windows에서 커밋해도 저장소에는 LF로 들어간다.
+# (gradlew가 CRLF로 들어가면 리눅스 CI에서 실행되지 않는다)
+* text=auto eol=lf
+
+# Windows 전용 스크립트만 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 바이너리
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.jar binary
