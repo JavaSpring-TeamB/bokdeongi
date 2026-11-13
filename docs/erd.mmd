@@ -1,4 +1,5 @@
 erDiagram
+    regions ||..o{ users : "region_code"
     users ||--o{ user_consents : "동의 이력"
     users ||--o{ eligibility_results : "판정"
     benefits ||--o{ eligibility_results : "판정"
@@ -6,8 +7,8 @@ erDiagram
     benefits ||--o{ user_benefits : "관심·신청"
     benefits ||--o{ benefit_rules : "판정 규칙"
     median_income_standards }o..o{ users : "소득 % 환산"
-    document_types }o..o{ benefits : "documents(jsonb)"
-    document_types }o..o{ users : "doc_records(jsonb)"
+    document_types }o..o{ benefits : "documents(json)"
+    document_types }o..o{ users : "doc_records(json)"
     hashtags }o..o{ benefits : "hashtags(text[])"
 
     users {
@@ -15,21 +16,24 @@ erDiagram
         varchar email UK
         varchar kakao_id UK
         varchar password_hash
+        varchar name
+        varchar phone_number
         integer token_version
         smallint failed_login_count
-        timestamptz last_login_at
+        datetime last_login_at
         date birth_date
         varchar region_code
-        bytea income_amount "암호화"
+        blob income_amount "암호화"
         numeric median_income_pct
         boolean has_house
         smallint children_count
         varchar welfare_status
-        text_array household_type_codes
-        text_array status_codes
-        bytea sensitive_enc "암호화"
-        jsonb answers
-        jsonb doc_records
+        json household_type_codes
+        json status_codes
+        blob sensitive_enc "암호화"
+        json answers
+        json interest_keywords
+        json doc_records
         integer profile_version
         smallint profile_step
     }
@@ -39,7 +43,7 @@ erDiagram
         varchar consent_type
         varchar doc_version
         boolean agreed
-        timestamptz acted_at
+        datetime acted_at
     }
     median_income_standards {
         smallint year PK
@@ -52,20 +56,20 @@ erDiagram
         varchar title
         smallint age_min
         smallint age_max
-        text_array y_codes
+        json y_codes
         varchar rules_status
-        jsonb unparsed_conditions
+        json unparsed_conditions
         date apply_start
         date apply_end
         integer max_amount
         integer annual_amount
         numeric amount_confidence
-        jsonb exclusions
-        jsonb documents
-        text_array hashtags
+        json exclusions
+        json documents
+        json hashtags
         text easy_text
         varchar status
-        timestamptz api_modified_at
+        datetime api_modified_at
     }
     benefit_rules {
         bigint id PK
@@ -73,7 +77,7 @@ erDiagram
         smallint rule_group
         varchar field
         varchar operator
-        jsonb value
+        json value
         varchar source
         text source_quote
         boolean verified
@@ -85,7 +89,7 @@ erDiagram
         varchar result
         varchar previous_result
         boolean near_miss
-        jsonb trace
+        json trace
     }
     user_benefits {
         bigint id PK
@@ -94,12 +98,12 @@ erDiagram
         boolean bookmarked
         varchar app_status
         smallint step
-        jsonb doc_checks
+        json doc_checks
     }
     document_types {
         bigint id PK
         varchar name UK
-        text_array aliases
+        json aliases
         varchar issuer
         integer default_validity_days
         boolean ocr_supported
@@ -122,4 +126,10 @@ erDiagram
         varchar operation
         varchar status
         integer api_calls
+    }
+    regions {
+        varchar region_code PK
+        varchar sido_name
+        varchar sigungu_name
+        smallint sort_order
     }
