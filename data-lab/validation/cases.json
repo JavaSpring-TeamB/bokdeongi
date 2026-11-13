@@ -1,0 +1,1250 @@
+{
+  "_comment": "검증 모듈 공용 테스트 벡터. Python(test_validator.py)과 Java 이식본이 같은 기대값으로 통과해야 한다 (D-58). 숫자는 문자열로 적는다.",
+  "numbers": [
+    {
+      "text": "월 최대 20만원",
+      "expected": [
+        "200000"
+      ]
+    },
+    {
+      "text": "지원금액 : 200천원(1가구당)",
+      "expected": [
+        "200000",
+        "1"
+      ]
+    },
+    {
+      "text": "월 19,250원",
+      "expected": [
+        "19250"
+      ]
+    },
+    {
+      "text": "2,000만원",
+      "expected": [
+        "20000000"
+      ]
+    },
+    {
+      "text": "1억 2천만원",
+      "expected": [
+        "100000000",
+        "20000000",
+        "120000000"
+      ]
+    },
+    {
+      "text": "1만 5천원",
+      "expected": [
+        "10000",
+        "5000",
+        "15000"
+      ]
+    },
+    {
+      "text": "20만, 30만",
+      "expected": [
+        "200000",
+        "300000"
+      ]
+    },
+    {
+      "text": "10만 20만원",
+      "expected": [
+        "100000",
+        "200000"
+      ]
+    },
+    {
+      "text": "5천 1만원",
+      "expected": [
+        "5000",
+        "10000"
+      ]
+    },
+    {
+      "text": "기준 중위소득 60% 이하",
+      "expected": [
+        "60"
+      ]
+    },
+    {
+      "text": "만 19〜34세",
+      "expected": [
+        "19",
+        "34"
+      ]
+    },
+    {
+      "text": "1,2순위",
+      "expected": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "text": "0.5%",
+      "expected": [
+        "0.5"
+      ]
+    },
+    {
+      "text": "2026.04.27~2026.05.29",
+      "expected": [
+        "2026",
+        "4",
+        "27",
+        "5",
+        "29"
+      ]
+    },
+    {
+      "text": "매년 01-01~01-31",
+      "expected": [
+        "1",
+        "31"
+      ]
+    },
+    {
+      "text": "",
+      "expected": []
+    }
+  ],
+  "dates": [
+    {
+      "text": "2026.04.27~2026.05.29",
+      "expected": [
+        [
+          2026,
+          4,
+          27,
+          true
+        ],
+        [
+          2026,
+          5,
+          29,
+          true
+        ]
+      ]
+    },
+    {
+      "text": "상반기 : 2025. 11. 12. ~ 11. 26.",
+      "expected": [
+        [
+          2025,
+          11,
+          12,
+          true
+        ],
+        [
+          2025,
+          11,
+          26,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "2026.12.1~1.31.",
+      "expected": [
+        [
+          2026,
+          12,
+          1,
+          true
+        ],
+        [
+          2027,
+          1,
+          31,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "2026. 7월 말~ 8월 말, 2027년 2월~3월(예정)",
+      "expected": [
+        [
+          2026,
+          7,
+          null,
+          true
+        ],
+        [
+          2026,
+          8,
+          null,
+          false
+        ],
+        [
+          2027,
+          2,
+          null,
+          true
+        ],
+        [
+          2027,
+          3,
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "2026. 4.  ~ 2026.  11.",
+      "expected": [
+        [
+          2026,
+          4,
+          null,
+          true
+        ],
+        [
+          2026,
+          11,
+          null,
+          true
+        ]
+      ]
+    },
+    {
+      "text": "매년 01-01~01-31",
+      "expected": [
+        [
+          null,
+          1,
+          1,
+          false
+        ],
+        [
+          null,
+          1,
+          31,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "2026년 3월 2일부터",
+      "expected": [
+        [
+          2026,
+          3,
+          2,
+          true
+        ]
+      ]
+    },
+    {
+      "text": "최대 12개월, 6개월 이내",
+      "expected": []
+    },
+    {
+      "text": "2026.13.40",
+      "expected": []
+    }
+  ],
+  "quote": [
+    {
+      "quote": "월 최대 20만원 임차료 지원",
+      "sources": [
+        "○ 월 최대 20만원 임차료 지원(최대 24개월)"
+      ],
+      "expected": true
+    },
+    {
+      "quote": "2026년 기준 지원금액 : 200천원",
+      "sources": [
+        "2026년 기준\n지원금액 : 200천원(1가구당)"
+      ],
+      "expected": true
+    },
+    {
+      "quote": "만 19~34세",
+      "sources": [
+        "(만 19〜34세 이하)"
+      ],
+      "expected": true
+    },
+    {
+      "quote": "내과 검진 : 고혈압 10,000원",
+      "sources": [
+        "\n - 내과 검진 : 고혈압 10,000원"
+      ],
+      "expected": true
+    },
+    {
+      "quote": "월 최대 30만원",
+      "sources": [
+        "월 최대 20만원"
+      ],
+      "expected": false
+    },
+    {
+      "quote": "만 19~34세 무주택자",
+      "sources": [
+        "만 19~34세",
+        "무주택자"
+      ],
+      "expected": false
+    },
+    {
+      "quote": "",
+      "sources": [
+        "아무 원문"
+      ],
+      "expected": false
+    },
+    {
+      "quote": "만19세이상",
+      "sources": [
+        "만 19세 이상인 자"
+      ],
+      "expected": true
+    }
+  ],
+  "validate": [
+    {
+      "name": "근거 문구가 원문에 없으면 버린다",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 20~39세",
+        "numbers": [
+          "20",
+          "39"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": [
+            "20",
+            "39"
+          ]
+        }
+      },
+      "sources": [
+        "만 19~34세 이하 청년"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": false,
+          "numbers": null,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "근거는 맞지만 값의 숫자가 다르면 버린다",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 19~34세",
+        "numbers": [
+          "19",
+          "39"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": [
+            "19",
+            "39"
+          ]
+        }
+      },
+      "sources": [
+        "만 19~34세 이하 청년"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "숫자만 확인되면 0.70",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 19~34세",
+        "numbers": [
+          "19",
+          "34"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": [
+            "19",
+            "34"
+          ]
+        }
+      },
+      "sources": [
+        "만 19~34세 이하 청년"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "숫자·코드·반복 모두 맞으면 1.00",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 19~34세",
+        "numbers": [
+          "19",
+          "34"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": [
+            "19",
+            "34"
+          ]
+        }
+      },
+      "sources": [
+        "만 19~34세 이하 청년"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "1.00",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": true,
+          "repeat": true
+        }
+      },
+      "code_rule": {
+        "field": "AGE",
+        "operator": "BETWEEN",
+        "values": [
+          "19",
+          "34"
+        ]
+      },
+      "repeat": {
+        "field": "AGE",
+        "rule": {
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": [
+            "19",
+            "34"
+          ]
+        }
+      }
+    },
+    {
+      "name": "코드보다 넓은 조건은 모순: 점수가 깎인다 (버리지는 않음)",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 19~34세",
+        "numbers": [
+          "19",
+          "34"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "LTE",
+          "values": [
+            "34"
+          ]
+        }
+      },
+      "sources": [
+        "만 19~34세 이하 청년"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": false,
+          "repeat": true
+        }
+      },
+      "code_rule": {
+        "field": "AGE",
+        "operator": "BETWEEN",
+        "values": [
+          "19",
+          "34"
+        ]
+      },
+      "repeat": {
+        "field": "AGE",
+        "rule": {
+          "field": "AGE",
+          "operator": "LTE",
+          "values": [
+            "34"
+          ]
+        }
+      }
+    },
+    {
+      "name": "숫자 없는 조건은 근거만 확인되면 0.50",
+      "purpose": "RULE",
+      "item": {
+        "field": "HAS_HOUSE",
+        "source_quote": "무주택자",
+        "rule": {
+          "field": "HAS_HOUSE",
+          "operator": "EQ",
+          "values": [
+            "false"
+          ]
+        }
+      },
+      "sources": [
+        "부모님과 별도 거주하는 무주택자"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.50",
+        "checks": {
+          "quote": true,
+          "numbers": null,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "숫자 없는 조건이 반복에서 같으면 0.65",
+      "purpose": "RULE",
+      "item": {
+        "field": "HAS_HOUSE",
+        "source_quote": "무주택자",
+        "rule": {
+          "field": "HAS_HOUSE",
+          "operator": "EQ",
+          "values": [
+            "false"
+          ]
+        }
+      },
+      "sources": [
+        "부모님과 별도 거주하는 무주택자"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.65",
+        "checks": {
+          "quote": true,
+          "numbers": null,
+          "code": null,
+          "repeat": true
+        }
+      },
+      "repeat": {
+        "field": "HAS_HOUSE",
+        "rule": {
+          "field": "HAS_HOUSE",
+          "operator": "EQ",
+          "values": [
+            "false"
+          ]
+        }
+      }
+    },
+    {
+      "name": "반복에서 값이 바뀌면 점수가 깎인다",
+      "purpose": "RULE",
+      "item": {
+        "field": "HAS_HOUSE",
+        "source_quote": "무주택자",
+        "rule": {
+          "field": "HAS_HOUSE",
+          "operator": "EQ",
+          "values": [
+            "false"
+          ]
+        }
+      },
+      "sources": [
+        "부모님과 별도 거주하는 무주택자"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.35",
+        "checks": {
+          "quote": true,
+          "numbers": null,
+          "code": null,
+          "repeat": false
+        }
+      },
+      "repeat": {
+        "field": "HAS_HOUSE",
+        "rule": {
+          "field": "HAS_HOUSE",
+          "operator": "EQ",
+          "values": [
+            "true"
+          ]
+        }
+      }
+    },
+    {
+      "name": "EXTRACT는 코드 비교를 하지 않는다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "max_amount",
+        "source_quote": "월 최대 20만원",
+        "numbers": [
+          "200000"
+        ],
+        "value": "200000"
+      },
+      "sources": [
+        "월 최대 20만원 임차료 지원"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      },
+      "code_rule": {
+        "field": "max_amount",
+        "operator": "EQ",
+        "values": [
+          "999"
+        ]
+      }
+    },
+    {
+      "name": "금액 단위 환산 (천원)",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "max_amount",
+        "source_quote": "지원금액 : 200천원",
+        "numbers": [
+          "200000"
+        ]
+      },
+      "sources": [
+        "2026년 기준\n지원금액 : 200천원(1가구당)"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "금액이 원문과 다르면 버린다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "max_amount",
+        "source_quote": "월 최대 20만원",
+        "numbers": [
+          "2000000"
+        ]
+      },
+      "sources": [
+        "월 최대 20만원 임차료 지원"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "연도를 이어받은 날짜",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_end",
+        "source_quote": "상반기 : 2025. 11. 12. ~ 11. 26.",
+        "dates": [
+          "2025-11-12",
+          "2025-11-26"
+        ]
+      },
+      "sources": [
+        "상반기 : 2025. 11. 12. ~ 11. 26. 하반기 : 2026. 5. 18. ~ 6. 2."
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "월·일을 뒤바꾸면 버린다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_end",
+        "source_quote": "2025. 11. 12. ~ 11. 26.",
+        "dates": [
+          "2025-12-11"
+        ]
+      },
+      "sources": [
+        "상반기 : 2025. 11. 12. ~ 11. 26."
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "근거에 적힌 연도와 다르면 버린다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_start",
+        "source_quote": "2026.04.27~2026.05.29",
+        "dates": [
+          "2025-04-27"
+        ]
+      },
+      "sources": [
+        "2026.04.27~2026.05.29"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "근거에 연도가 아예 없으면 추정값으로 통과 (DATA-04)",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_start",
+        "source_quote": "매년 01-01~01-31",
+        "dates": [
+          "2027-01-01"
+        ]
+      },
+      "sources": [
+        "매년 01-01~01-31"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "해를 넘기는 기간",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_end",
+        "source_quote": "2026.12.1~1.31.",
+        "dates": [
+          "2027-01-31"
+        ]
+      },
+      "sources": [
+        "접수기간: 2026.12.1~1.31."
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "쉬운 말: 원문 숫자만 쓰면 통과",
+      "purpose": "EASY",
+      "item": {
+        "field": "summary",
+        "text": "만 19살부터 34살까지 혼자 사는 청년에게 한 달에 최대 20만 원을 줘요."
+      },
+      "sources": [
+        "만 19~34세 이하",
+        "월 최대 20만원 임차료 지원(최대 24개월)"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "1.00",
+        "checks": {
+          "quote": null,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "쉬운 말: 계산해서 만든 숫자는 버린다",
+      "purpose": "EASY",
+      "item": {
+        "field": "summary",
+        "text": "1년에 최대 240만 원을 받을 수 있어요."
+      },
+      "sources": [
+        "월 최대 20만원 임차료 지원(최대 24개월)"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": null,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "소득: 코드 구간 안의 조건은 모순 아님",
+      "purpose": "RULE",
+      "item": {
+        "field": "INCOME_PCT",
+        "source_quote": "기준 중위소득 60% 이하",
+        "numbers": [
+          "60"
+        ],
+        "rule": {
+          "field": "INCOME_PCT",
+          "operator": "LTE",
+          "values": [
+            "60"
+          ]
+        }
+      },
+      "sources": [
+        "가구 소득이 기준 중위소득 60% 이하인 가구"
+      ],
+      "code_rule": {
+        "field": "INCOME_PCT",
+        "operator": "BETWEEN",
+        "values": [
+          "0",
+          "75"
+        ]
+      },
+      "repeat": {
+        "field": "INCOME_PCT",
+        "rule": {
+          "field": "INCOME_PCT",
+          "operator": "LTE",
+          "values": [
+            "60.0"
+          ]
+        }
+      },
+      "expected": {
+        "dropped": false,
+        "score": "1.00",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": true,
+          "repeat": true
+        }
+      }
+    },
+    {
+      "name": "두 번째 실행에 조건이 없으면 반복 불일치",
+      "purpose": "RULE",
+      "item": {
+        "field": "HAS_HOUSE",
+        "source_quote": "무주택자",
+        "rule": {
+          "field": "HAS_HOUSE",
+          "operator": "EQ",
+          "values": [
+            "false"
+          ]
+        }
+      },
+      "sources": [
+        "무주택자"
+      ],
+      "repeat": {
+        "field": "HAS_HOUSE"
+      },
+      "expected": {
+        "dropped": false,
+        "score": "0.35",
+        "checks": {
+          "quote": true,
+          "numbers": null,
+          "code": null,
+          "repeat": false
+        }
+      }
+    },
+    {
+      "name": "IN은 순서가 달라도 반복 일치",
+      "purpose": "RULE",
+      "item": {
+        "field": "HOUSEHOLD_TYPE",
+        "source_quote": "한부모·다자녀 가구",
+        "rule": {
+          "field": "HOUSEHOLD_TYPE",
+          "operator": "IN",
+          "values": [
+            "SINGLE_PARENT",
+            "MULTI_CHILD"
+          ]
+        }
+      },
+      "sources": [
+        "한부모·다자녀 가구"
+      ],
+      "code_rule": {
+        "field": "HOUSEHOLD_TYPE",
+        "operator": "IN",
+        "values": [
+          "MULTI_CHILD",
+          "SINGLE_PARENT",
+          "GRANDPARENT"
+        ]
+      },
+      "repeat": {
+        "field": "HOUSEHOLD_TYPE",
+        "rule": {
+          "field": "HOUSEHOLD_TYPE",
+          "operator": "IN",
+          "values": [
+            "MULTI_CHILD",
+            "SINGLE_PARENT"
+          ]
+        }
+      },
+      "expected": {
+        "dropped": false,
+        "score": "0.80",
+        "checks": {
+          "quote": true,
+          "numbers": null,
+          "code": true,
+          "repeat": true
+        }
+      }
+    },
+    {
+      "name": "값이 없는 출력끼리는 반복 일치로 치지 않는다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "exclusion_text",
+        "source_quote": "중복지원 불가"
+      },
+      "sources": [
+        "유사 서비스와 중복지원 불가"
+      ],
+      "repeat": {
+        "field": "exclusion_text",
+        "source_quote": "중복지원 불가"
+      },
+      "expected": {
+        "dropped": false,
+        "score": "0.35",
+        "checks": {
+          "quote": true,
+          "numbers": null,
+          "code": null,
+          "repeat": false
+        }
+      }
+    }
+  ],
+  "consistency": [
+    {
+      "llm": [
+        "AGE",
+        "BETWEEN",
+        "19",
+        "34"
+      ],
+      "code": [
+        "AGE",
+        "BETWEEN",
+        "19",
+        "34"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "AGE",
+        "BETWEEN",
+        "20",
+        "34"
+      ],
+      "code": [
+        "AGE",
+        "BETWEEN",
+        "19",
+        "34"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "AGE",
+        "BETWEEN",
+        "19",
+        "39"
+      ],
+      "code": [
+        "AGE",
+        "BETWEEN",
+        "19",
+        "34"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "AGE",
+        "LTE",
+        "34"
+      ],
+      "code": [
+        "AGE",
+        "BETWEEN",
+        "19",
+        "34"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "AGE",
+        "GTE",
+        "65"
+      ],
+      "code": [
+        "AGE",
+        "GTE",
+        "65"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "AGE",
+        "GTE",
+        "60"
+      ],
+      "code": [
+        "AGE",
+        "GTE",
+        "65"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "INCOME_PCT",
+        "LTE",
+        "60"
+      ],
+      "code": [
+        "INCOME_PCT",
+        "BETWEEN",
+        "0",
+        "75"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "INCOME_PCT",
+        "LTE",
+        "75"
+      ],
+      "code": [
+        "INCOME_PCT",
+        "BETWEEN",
+        "0",
+        "75"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "INCOME_PCT",
+        "LTE",
+        "100"
+      ],
+      "code": [
+        "INCOME_PCT",
+        "BETWEEN",
+        "0",
+        "75"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "INCOME_PCT",
+        "LTE",
+        "60"
+      ],
+      "code": [
+        "INCOME_PCT",
+        "BETWEEN",
+        "50",
+        "75"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "HOUSEHOLD_SIZE",
+        "EQ",
+        "2"
+      ],
+      "code": [
+        "HOUSEHOLD_SIZE",
+        "BETWEEN",
+        "1",
+        "4"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "HOUSEHOLD_TYPE",
+        "IN",
+        "SINGLE_PARENT"
+      ],
+      "code": [
+        "HOUSEHOLD_TYPE",
+        "IN",
+        "SINGLE_PARENT",
+        "MULTI_CHILD"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "HOUSEHOLD_TYPE",
+        "IN",
+        "SINGLE_PARENT",
+        "DISABLED"
+      ],
+      "code": [
+        "HOUSEHOLD_TYPE",
+        "IN",
+        "SINGLE_PARENT"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "GENDER",
+        "EQ",
+        "F"
+      ],
+      "code": [
+        "GENDER",
+        "IN",
+        "F"
+      ],
+      "expected": true
+    },
+    {
+      "llm": [
+        "HAS_HOUSE",
+        "EQ",
+        "false"
+      ],
+      "code": [
+        "HAS_HOUSE",
+        "EQ",
+        "true"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "INCOME_PCT",
+        "IN",
+        "LOW"
+      ],
+      "code": [
+        "INCOME_PCT",
+        "LTE",
+        "60"
+      ],
+      "expected": false
+    },
+    {
+      "llm": [
+        "AGE",
+        "IN",
+        "34"
+      ],
+      "code": [
+        "AGE",
+        "LTE",
+        "34"
+      ],
+      "expected": false
+    }
+  ]
+}
