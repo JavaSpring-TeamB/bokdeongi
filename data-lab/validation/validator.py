@@ -129,6 +129,8 @@ def extract_numbers(text: str | None) -> set[Decimal]:
 _DATE = re.compile(
     r"(?<![\d.])(?P<y1>(?:19|20)\d{2})\s*[.\-/]\s*(?P<m1>\d{1,2})(?:\s*[.\-/]\s*(?P<d1>\d{1,2}))?(?!\d)"  # 2026.04.27 / 2026. 4.
     r"|(?:(?P<y2>(?:19|20)\d{2})\s*년\s*)?(?P<m2>\d{1,2})\s*월(?:\s*(?P<d2>\d{1,2})\s*일)?"          # 2026년 4월 27일 / 8월
+    r"|(?:(?P<y3>(?:19|20)\d{2})\s*년\s*)?(?P<m5>\d{1,2})\s*[~〜～]\s*(?=\d{1,2}\s*월)"             # 3~5월의 3
+    r"|~\s*(?P<m4>\d{1,2})\.\s*(?P<d5>\d{1,2})(?![\d.])"                                            # ~3. 10 (끝 점 없음)
     r"|(?<![\d.,])(?P<m3>\d{1,2})(?:\.\s*(?P<d3>\d{1,2})\.|-(?P<d4>\d{1,2}))(?!\d)"                 # 11. 26. / 01-31
 )
 
@@ -143,21 +145,27 @@ class DateMention:
     explicit: bool
 
 
-def extract_dates(text: str | None) -> list[DateMention]:
+def extract_dates(text: str | None, base_year: int | None = None) -> list[DateMention]:
     """글 속 날짜를 순서대로 읽는다. 연도가 없으면 앞에 나온 연도를 이어받고, 월이 줄면 다음 해로 넘긴다.
 
     "2025. 11. 12. ~ 11. 26." → 2025-11-12, 2025-11-26
     "2026.12.1~1.31."         → 2026-12-01, 2027-01-31
-    "매년 01-01~01-31"        → 연도 없음
+    "매년 01-01~01-31"        → 연도 없음 (base_year=2026이면 2026으로 이어받음)
+
+    base_year: 원문에 연도가 없을 때 쓸 공고 등록·수정 연도 (DATA-04 연도 추정 규칙)
     """
     mentions: list[DateMention] = []
-    year: int | None = None
+    year: int | None = base_year
     prev_month: int | None = None
+    prev_end, prev_has_day = -1, False
     for match in _DATE.finditer(str(text or "")):
         g = match.groupdict()
-        y = g["y1"] or g["y2"]
-        month = int(g["m1"] or g["m2"] or g["m3"])
-        day_raw = g["d1"] or g["d2"] or g["d3"] or g["d4"]
+        # "~3. 10"은 바로 앞이 일까지 있는 날짜일 때만 날짜로 본다 ("1.5~3.5배"는 소수)
+        if g["m4"] and not (prev_has_day and match.start() == prev_end):
+            continue
+        y = g["y1"] or g["y2"] or g["y3"]
+        month = int(g["m1"] or g["m2"] or g["m3"] or g["m4"] or g["m5"])
+        day_raw = g["d1"] or g["d2"] or g["d3"] or g["d4"] or g["d5"]
         day = int(day_raw) if day_raw else None
         if not 1 <= month <= 12 or (day is not None and not 1 <= day <= 31):
             continue
@@ -169,6 +177,7 @@ def extract_dates(text: str | None) -> list[DateMention]:
                 year += 1
         mentions.append(DateMention(year, month, day, explicit))
         prev_month = month
+        prev_end, prev_has_day = match.end(), day is not None
     return mentions
 
 
@@ -289,7 +298,7 @@ class Validation:
     notes: list[str] = field(default_factory=list)
 
 
-def _numbers_check(item: Item, quote: str) -> tuple[bool | None, list[str]]:
+def _numbers_check(item: Item, quote: str, base_year: int | None = None) -> tuple[bool | None, list[str]]:
     """값의 숫자·날짜가 근거 문구에 있는가. 확인할 숫자가 없으면 None."""
     notes: list[str] = []
     if not item.numbers and not item.dates:
@@ -297,10 +306,16 @@ def _numbers_check(item: Item, quote: str) -> tuple[bool | None, list[str]]:
     found = extract_numbers(quote)
     for raw in item.numbers:
         number = canon(raw)
-        if number not in found:
-            notes.append(f"숫자 {number}이(가) 근거에 없음")
-            return False, notes
-    mentions = extract_dates(quote)
+        if number in found:
+            continue
+        # 정수 경계 환산: "35세 미만" → 34, "2명 초과" → 3 (조건 연산자가 이하·이상뿐이라서)
+        if number == number.to_integral_value() and (
+                ("미만" in quote and number + 1 in found) or ("초과" in quote and number - 1 in found)):
+            notes.append(f"숫자 {number}은(는) 미만·초과를 정수 경계로 바꾼 값")
+            continue
+        notes.append(f"숫자 {number}이(가) 근거에 없음")
+        return False, notes
+    mentions = extract_dates(quote, base_year)
     for date in item.dates:
         year, month, day = parse_label_date(date)
         # 월·일이 같은 날짜가 근거에 있어야 한다. 값이 월까지만이면 월만 본다
@@ -309,6 +324,8 @@ def _numbers_check(item: Item, quote: str) -> tuple[bool | None, list[str]]:
             notes.append(f"날짜 {date}의 월·일이 근거에 없음")
             return False, notes
         if year is None or any(m.year == year for m in same_day):
+            if year is not None and not any(m.explicit for m in mentions):
+                notes.append(f"날짜 {date}의 연도는 게시 연도 기준 추정값")
             continue
         if all(m.year is None for m in same_day):
             notes.append(f"날짜 {date}의 연도는 근거에 없어 추정값")  # DATA-04 연도 추정 규칙
@@ -327,13 +344,16 @@ def _score(checks: dict[str, bool | None]) -> Decimal:
 
 
 def validate(item: Item, purpose: Purpose, sources: list[str | None],
-             code_rule: Spec | None = None, repeat: Item | None = None) -> Validation:
+             code_rule: Spec | None = None, repeat: Item | None = None,
+             base_year: int | None = None) -> Validation:
     """LLM 출력 하나를 검증한다.
 
     sources:   공고 원문 필드들 (지원대상, 선정기준, 지원내용, 신청기한 ...)
     code_rule: 같은 필드를 지원조건 코드로 만든 조건 (DATA-02). 코드가 없는 필드면 None (RULE만 씀)
     repeat:    같은 공고를 다시 돌려 나온 같은 필드의 출력. 두 번째 실행에 그 필드가 없으면
                Item(field)처럼 빈 값을 넘긴다(불일치). 안 돌렸으면 None (D-60: RULE은 항상 2회)
+    base_year: 공고 등록·수정 연도. 원문에 연도가 없는 날짜는 이 연도(해를 넘기면 +1)와 같아야 한다.
+               None이면 연도를 확인하지 못하고 추정값 메모만 남긴다
     """
     checks: dict[str, bool | None] = {"quote": None, "numbers": None, "code": None, "repeat": None}
 
@@ -352,7 +372,7 @@ def validate(item: Item, purpose: Purpose, sources: list[str | None],
     if not checks["quote"]:
         return Validation(checks, Decimal("0.00"), True, "근거 문구가 원문에 없음")
 
-    checks["numbers"], notes = _numbers_check(item, item.source_quote or "")
+    checks["numbers"], notes = _numbers_check(item, item.source_quote or "", base_year)
     if checks["numbers"] is False:
         return Validation(checks, Decimal("0.00"), True, notes[-1], notes)
 

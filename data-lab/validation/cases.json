@@ -244,6 +244,73 @@
     {
       "text": "2026.13.40",
       "expected": []
+    },
+    {
+      "text": "상반기(3~5월 중), 하반기(9~11월 중)",
+      "expected": [
+        [
+          null,
+          3,
+          null,
+          false
+        ],
+        [
+          null,
+          5,
+          null,
+          false
+        ],
+        [
+          null,
+          9,
+          null,
+          false
+        ],
+        [
+          null,
+          11,
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "2026년 3~5월",
+      "expected": [
+        [
+          2026,
+          3,
+          null,
+          true
+        ],
+        [
+          2026,
+          5,
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "2026. 2. 24~3. 10",
+      "expected": [
+        [
+          2026,
+          2,
+          24,
+          true
+        ],
+        [
+          2026,
+          3,
+          10,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "1.5~3.5배",
+      "expected": []
     }
   ],
   "quote": [
@@ -1006,6 +1073,181 @@
           "numbers": null,
           "code": null,
           "repeat": false
+        }
+      }
+    },
+    {
+      "name": "미만은 정수 경계로 바꿔도 통과 (35세 미만 → 34)",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 15세 이상 35세 미만의 미취업자",
+        "numbers": [
+          "15",
+          "34"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": [
+            "15",
+            "34"
+          ]
+        }
+      },
+      "sources": [
+        "○ 만 15세 이상 35세 미만의 미취업자"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "미만이 없는데 1 차이 나면 버린다",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 15세 이상 35세 이하",
+        "numbers": [
+          "15",
+          "34"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": [
+            "15",
+            "34"
+          ]
+        }
+      },
+      "sources": [
+        "만 15세 이상 35세 이하"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "초과는 위로 1 (자녀 2명 초과 → 3)",
+      "purpose": "RULE",
+      "item": {
+        "field": "CHILDREN_COUNT",
+        "source_quote": "자녀 2명 초과 가구",
+        "numbers": [
+          "3"
+        ],
+        "rule": {
+          "field": "CHILDREN_COUNT",
+          "operator": "GTE",
+          "values": [
+            "3"
+          ]
+        }
+      },
+      "sources": [
+        "자녀 2명 초과 가구"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "연도 없는 원문: 게시 연도와 같으면 통과",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_start",
+        "source_quote": "매년 1월~3월",
+        "dates": [
+          "2026-01",
+          "2026-03"
+        ],
+        "value": "2026-01"
+      },
+      "sources": [
+        "매년 1월~3월"
+      ],
+      "base_year": 2026,
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "연도 없는 원문: 게시 연도와 다르면 버린다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_start",
+        "source_quote": "매년 1월~3월",
+        "dates": [
+          "2025-01"
+        ]
+      },
+      "sources": [
+        "매년 1월~3월"
+      ],
+      "base_year": 2026,
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "연도 없는 원문: 해를 넘기면 게시 연도+1",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "apply_end",
+        "source_quote": "11월~2월",
+        "dates": [
+          "2026-11",
+          "2027-02"
+        ]
+      },
+      "sources": [
+        "접수: 11월~2월"
+      ],
+      "base_year": 2026,
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
         }
       }
     }

@@ -23,6 +23,12 @@ SOURCE_FIELDS = ("title", "period_text", "target_text", "criteria_text", "conten
                  "apply_method_text", "required_docs_text", "official_docs_text", "self_docs_text")
 
 
+def base_year(label: dict[str, str]) -> int | None:
+    """라벨의 posted_year(공고 등록·수정 연도). 칸이 없으면 연도 추정을 확인하지 않는다."""
+    value = (label.get("posted_year") or "").strip()
+    return int(value) if value.isdigit() else None
+
+
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8-sig", newline="") as f:
         return list(csv.DictReader(f))
@@ -75,7 +81,7 @@ def run_wrong(gold_dir: Path) -> int:
         for item in items_from_label(label):
             for name, bad in wrong_variants(item):
                 total += 1
-                if validate(bad, Purpose.EXTRACT, sources).dropped:
+                if validate(bad, Purpose.EXTRACT, sources, base_year=base_year(label)).dropped:
                     caught += 1
                 else:
                     print(f"[놓침] {label['service_id']} / {bad.field} {name}: {bad.numbers or bad.dates}")
@@ -96,7 +102,7 @@ def run(gold_dir: Path) -> int:
         sources = [sample.get(name) for name in SOURCE_FIELDS]
         for item in items_from_label(label):
             checked += 1
-            result = validate(item, Purpose.EXTRACT, sources)
+            result = validate(item, Purpose.EXTRACT, sources, base_year=base_year(label))
             if result.dropped:
                 dropped += 1
                 print(f"[버림] {label['service_id']} {label['title'][:20]} / {item.field}: {result.reason}")

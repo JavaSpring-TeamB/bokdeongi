@@ -54,7 +54,8 @@ class SharedCases(unittest.TestCase):
         for case in CASES["validate"]:
             with self.subTest(name=case["name"]):
                 result = validate(to_item(case["item"]), Purpose(case["purpose"]), case["sources"],
-                                  to_spec(case.get("code_rule")), to_item(case.get("repeat")))
+                                  to_spec(case.get("code_rule")), to_item(case.get("repeat")),
+                                  case.get("base_year"))
                 expected = case["expected"]
                 self.assertEqual(result.dropped, expected["dropped"])
                 self.assertEqual(result.score, Decimal(expected["score"]))
