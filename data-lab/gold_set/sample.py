@@ -55,6 +55,7 @@ INPUT_COLUMNS = [
     ("service_field", "서비스분야"),
     ("user_type", "사용자구분"),
     ("org_name", "소관기관명"),
+    ("modified_at", "수정일시"),  # 연도 없는 신청기한에 붙일 게시 연도 (날짜 기준 v2)
     ("target_text", "지원대상"),
     ("criteria_text", "선정기준"),
     ("content_text", "지원내용"),
@@ -194,8 +195,9 @@ def main() -> None:
         print(f"{LABELS_PATH}가 이미 있어서 덮어쓰지 않았습니다.")
     else:
         label_rows = [{"service_id": r["service_id"], "title": r["title"], "period_class": r["period_class"],
+                       "posted_year": r["modified_at"][:4],  # 연도 없는 날짜의 기준 연도 (수정일시)
                        **{c: "" for c in LABEL_COLUMNS}} for r in rows]
-        write_csv(LABELS_PATH, ["service_id", "title", "period_class", *LABEL_COLUMNS], label_rows)
+        write_csv(LABELS_PATH, ["service_id", "title", "period_class", "posted_year", *LABEL_COLUMNS], label_rows)
         print(f"라벨 양식 → {LABELS_PATH}")
 
 
