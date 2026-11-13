@@ -1,6 +1,8 @@
 package com.bokdeongi.eligibility;
 
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * 판정 결과.
@@ -16,8 +18,20 @@ public record EligibilityResult(Verdict verdict, List<ConditionTrace> trace, Lis
         missingFields = List.copyOf(missingFields);
     }
 
-    /** 미충족 조건 수. 정확히 1개면 "아깝게 탈락" 후보 (BEN-05). */
+    /**
+     * 해당이 되려면 바꿔야 하는 최소 조건 수. 정확히 1개면 "아깝게 탈락" 후보 (BEN-05).
+     * 묶음이 있으면 (공통 조건 탈락 수) + (가장 덜 탈락한 묶음의 탈락 수) (D-62).
+     */
     public long failedCount() {
-        return trace.stream().filter(t -> t.outcome() == Outcome.FAIL).count();
+        Map<Integer, Long> failed = new TreeMap<>();
+        for (ConditionTrace t : trace) {
+            failed.merge(t.group(), t.outcome() == Outcome.FAIL ? 1L : 0L, Long::sum);
+        }
+        long common = failed.getOrDefault(0, 0L);
+        return common + failed.entrySet().stream()
+                .filter(e -> e.getKey() > 0)
+                .mapToLong(Map.Entry::getValue)
+                .min()
+                .orElse(0L);
     }
 }

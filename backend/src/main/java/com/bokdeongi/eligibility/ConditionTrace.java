@@ -11,6 +11,7 @@ package com.bokdeongi.eligibility;
  * @param reason      UNKNOWN일 때 이유, 아니면 null
  * @param sourceQuote 근거 원문 문구
  * @param boundary    경계값이라 조건부가 됐는지
+ * @param group       조건 묶음 (D-62). 화면에서 "다음 중 하나" 묶음을 보여 줄 때 쓴다
  */
 public record ConditionTrace(
         Long ruleId,
@@ -20,5 +21,12 @@ public record ConditionTrace(
         Outcome outcome,
         UnknownReason reason,
         String sourceQuote,
-        boolean boundary) {
+        boolean boundary,
+        int group) {
+
+    /** 공통 조건(묶음 0)의 근거. */
+    public ConditionTrace(Long ruleId, String field, String expected, String actual, Outcome outcome,
+            UnknownReason reason, String sourceQuote, boolean boundary) {
+        this(ruleId, field, expected, actual, outcome, reason, sourceQuote, boundary, 0);
+    }
 }

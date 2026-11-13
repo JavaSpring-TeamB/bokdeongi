@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 
 /**
@@ -19,6 +20,9 @@ import java.util.function.Predicate;
  *
  * <ul>
  *   <li>결합 규칙 (D-53): FAIL이 하나라도 있으면 INELIGIBLE, 없고 UNKNOWN이 있으면 CONDITIONAL, 전부 PASS면 ELIGIBLE</li>
+ *   <li>조건 묶음 (D-62): 묶음 0(공통)과, 1 이상 묶음들의 '또는'을 '그리고'로 잇는다.
+ *       '또는'은 한 묶음이라도 ELIGIBLE이면 ELIGIBLE, 모두 INELIGIBLE이면 INELIGIBLE, 나머지는 CONDITIONAL</li>
+ *   <li>규칙으로 못 바꾼 조건 (D-64): 그 묶음은 최대 CONDITIONAL</li>
  *   <li>미입력 (D-45): 회원 값이 null이면 UNKNOWN</li>
  *   <li>소득 경계 (D-54): 기준 ±5%p 안이면 UNKNOWN</li>
  *   <li>지원조건 코드 그룹 (D-48): JA_GROUP 규칙은 Y 코드 중 하나라도 해당하면 PASS</li>
@@ -28,8 +32,8 @@ public final class EligibilityJudge {
 
     /** D-54: 소득 % 경계 폭. */
     public static final BigDecimal INCOME_MARGIN = new BigDecimal("5");
-    /** LLM 규칙을 믿는 최소 신뢰도. 이보다 낮으면 UNKNOWN. */
-    public static final BigDecimal DEFAULT_MIN_CONFIDENCE = new BigDecimal("0.70");
+    /** LLM 규칙을 믿는 최소 신뢰도. 이보다 낮거나 비어 있으면 UNKNOWN. 0.80에서 시작해 정답셋 측정 후 조정 (D-61). */
+    public static final BigDecimal DEFAULT_MIN_CONFIDENCE = new BigDecimal("0.80");
 
     // 지원조건 JA 코드 분류 (노션 DATA-02 대응표, D-48·D-50)
     static final Set<String> JA03_SENSITIVE = Set.of("JA0301", "JA0302", "JA0303", "JA0328", "JA0329", "JA0330");
@@ -61,6 +65,8 @@ public final class EligibilityJudge {
     }
 
     /**
+     * @param rules           판정 규칙. 규칙으로 못 바꾼 조건(benefits.unparsed_conditions, rules_status = PARTIAL)은
+     *                        {@link Rule#unparsed(int, String)}로 만들어 함께 넘긴다 (D-64)
      * @param rulesIncomplete 공고 조건 구조화가 실패해 규칙이 빠졌을 수 있으면 true (benefits.rules_status = FAILED).
      *                        이 경우 다른 조건을 모두 만족해도 CONDITIONAL이다.
      */
@@ -82,8 +88,25 @@ public final class EligibilityJudge {
         return new EligibilityResult(combine(trace), trace, List.copyOf(missing));
     }
 
-    /** D-53 결합 규칙. */
+    /** D-53 + D-62 결합 규칙. 묶음 0은 '그리고', 1 이상 묶음끼리는 '또는'. */
     static Verdict combine(List<ConditionTrace> trace) {
+        Map<Integer, List<ConditionTrace>> groups = new TreeMap<>();
+        for (ConditionTrace t : trace) {
+            groups.computeIfAbsent(t.group(), g -> new ArrayList<>()).add(t);
+        }
+        Verdict common = allOf(groups.getOrDefault(0, List.of()));
+        List<Verdict> alternatives = groups.entrySet().stream()
+                .filter(e -> e.getKey() > 0)
+                .map(e -> allOf(e.getValue()))
+                .toList();
+        if (alternatives.isEmpty()) {
+            return common;
+        }
+        return and(common, anyOf(alternatives));
+    }
+
+    /** 한 묶음 안: FAIL > UNKNOWN > PASS (D-53). 조건이 없으면 ELIGIBLE. */
+    static Verdict allOf(List<ConditionTrace> trace) {
         boolean unknown = false;
         for (ConditionTrace t : trace) {
             if (t.outcome() == Outcome.FAIL) {
@@ -96,8 +119,26 @@ public final class EligibilityJudge {
         return unknown ? Verdict.CONDITIONAL : Verdict.ELIGIBLE;
     }
 
+    /** 묶음끼리 '또는': 하나라도 ELIGIBLE이면 ELIGIBLE, 모두 INELIGIBLE이면 INELIGIBLE. */
+    static Verdict anyOf(List<Verdict> verdicts) {
+        if (verdicts.contains(Verdict.ELIGIBLE)) {
+            return Verdict.ELIGIBLE;
+        }
+        return verdicts.stream().allMatch(v -> v == Verdict.INELIGIBLE) ? Verdict.INELIGIBLE : Verdict.CONDITIONAL;
+    }
+
+    static Verdict and(Verdict a, Verdict b) {
+        if (a == Verdict.INELIGIBLE || b == Verdict.INELIGIBLE) {
+            return Verdict.INELIGIBLE;
+        }
+        return a == Verdict.ELIGIBLE && b == Verdict.ELIGIBLE ? Verdict.ELIGIBLE : Verdict.CONDITIONAL;
+    }
+
     ConditionTrace evaluate(ProfileSnapshot p, Rule rule, LocalDate today) {
-        if (rule.fromLlm() && rule.confidence() != null && rule.confidence().compareTo(minConfidence) < 0) {
+        if (Rule.UNPARSED.equals(rule.field())) {
+            return unknown(rule, "원문 확인 필요", "-", UnknownReason.NEEDS_CHECK, false);
+        }
+        if (rule.fromLlm() && (rule.confidence() == null || rule.confidence().compareTo(minConfidence) < 0)) {
             return unknown(rule, describe(rule), "-", UnknownReason.LOW_CONFIDENCE, false);
         }
         String field = rule.field();
@@ -310,11 +351,11 @@ public final class EligibilityJudge {
 
     private static ConditionTrace result(Rule rule, String expected, String actual, boolean pass) {
         return new ConditionTrace(rule.id(), rule.field(), expected, actual, pass ? Outcome.PASS : Outcome.FAIL,
-                null, rule.sourceQuote(), false);
+                null, rule.sourceQuote(), false, rule.group());
     }
 
     private static ConditionTrace unknown(Rule rule, String expected, String actual, UnknownReason reason, boolean boundary) {
         return new ConditionTrace(rule.id(), rule.field(), expected, actual, Outcome.UNKNOWN, reason,
-                rule.sourceQuote(), boundary);
+                rule.sourceQuote(), boundary, rule.group());
     }
 }

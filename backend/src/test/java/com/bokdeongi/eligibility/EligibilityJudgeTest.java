@@ -3,6 +3,7 @@ package com.bokdeongi.eligibility;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -233,11 +234,29 @@ class EligibilityJudgeTest {
     }
 
     @Test
-    @DisplayName("LLM 규칙 신뢰도 0.7 미만은 조건부, 0.7은 정상 판정")
+    @DisplayName("LLM 규칙 신뢰도 0.8 미만은 조건부, 0.8은 정상 판정")
     void llmConfidence() {
         ProfileSnapshot p = ProfileSnapshot.empty().withHousing("MONTHLY", null);
-        assertEquals(UnknownReason.LOW_CONFIDENCE, trace(p, llmRule("HOUSING", Operator.IN, "0.69", "MONTHLY")).reason());
-        assertEquals(Outcome.PASS, outcome(p, llmRule("HOUSING", Operator.IN, "0.70", "MONTHLY")));
+        assertEquals(UnknownReason.LOW_CONFIDENCE, trace(p, llmRule("HOUSING", Operator.IN, "0.79", "MONTHLY")).reason());
+        assertEquals(Outcome.PASS, outcome(p, llmRule("HOUSING", Operator.IN, "0.80", "MONTHLY")));
+    }
+
+    @Test
+    @DisplayName("신뢰도가 비어 있는 LLM 규칙은 조건부, 코드 규칙은 신뢰도 없이 정상 판정")
+    void llmWithoutConfidence() {
+        ProfileSnapshot p = ProfileSnapshot.empty().withHousing("MONTHLY", null);
+        Rule noScore = new Rule(1L, "HOUSING", Operator.IN, List.of("MONTHLY"), "LLM", "공고 원문 근거", null);
+        assertEquals(UnknownReason.LOW_CONFIDENCE, trace(p, noScore).reason());
+        assertEquals(Outcome.PASS, outcome(p, rule("HOUSING", Operator.IN, "MONTHLY")));
+    }
+
+    @Test
+    @DisplayName("기준선은 생성자로 바꿀 수 있다 (정답셋 측정 후 조정)")
+    void customThreshold() {
+        ProfileSnapshot p = ProfileSnapshot.empty().withHousing("MONTHLY", null);
+        Rule r = llmRule("HOUSING", Operator.IN, "0.65", "MONTHLY");
+        assertEquals(Outcome.PASS, new EligibilityJudge(new BigDecimal("0.65")).evaluate(p, r, TODAY).outcome());
+        assertEquals(UnknownReason.LOW_CONFIDENCE, trace(p, r).reason());
     }
 
     @Test
@@ -259,5 +278,99 @@ class EligibilityJudgeTest {
         assertEquals("공고 원문 근거", t.sourceQuote());
         assertNull(t.reason());
         assertFalse(t.boundary());
+    }
+
+    // ---------- D-62 조건 묶음 · D-64 규칙으로 못 바꾼 조건 ----------
+
+    /** 정답셋 449000000119: 60~64세 또는 (14~59세 그리고 수급자) 또는 (14~59세 그리고 보훈). */
+    private static List<Rule> fluRules() {
+        return List.of(
+                rule("AGE", Operator.BETWEEN, "60", "64").withGroup(1),
+                rule("AGE", Operator.BETWEEN, "14", "59").withGroup(2),
+                rule("WELFARE", Operator.IN, "BASIC").withGroup(2),
+                rule("AGE", Operator.BETWEEN, "14", "59").withGroup(3),
+                rule("SENSITIVE", Operator.IN, "JA0329").withGroup(3));
+    }
+
+    private static ProfileSnapshot ageOn(int age) {
+        return ProfileSnapshot.empty().withBirthDate(TODAY.minusYears(age));
+    }
+
+    @Test
+    @DisplayName("묶음: 한 묶음이라도 전부 통과하면 해당")
+    void anyGroupEligible() {
+        assertEquals(Verdict.ELIGIBLE, judge.judge(ageOn(62), fluRules(), TODAY).verdict());
+        ProfileSnapshot basic = ageOn(30).withHousing(null, "BASIC");
+        assertEquals(Verdict.ELIGIBLE, judge.judge(basic, fluRules(), TODAY).verdict());
+    }
+
+    @Test
+    @DisplayName("묶음: 모든 묶음이 탈락이면 해당 없음, 하나라도 미확인이면 조건부")
+    void allGroupsFailOrUnknown() {
+        ProfileSnapshot none = ageOn(30).withHousing(null, "NONE").withStatus(Set.of(), Set.of());
+        assertEquals(Verdict.INELIGIBLE, judge.judge(none, fluRules(), TODAY).verdict());
+        ProfileSnapshot skipped = ageOn(30).withHousing(null, "NONE");   // 민감정보 건너뜀
+        assertEquals(Verdict.CONDITIONAL, judge.judge(skipped, fluRules(), TODAY).verdict());
+        assertEquals(Verdict.INELIGIBLE, judge.judge(ageOn(70), fluRules(), TODAY).verdict());
+    }
+
+    @Test
+    @DisplayName("묶음: 공통 조건(0번)이 탈락이면 다른 묶음이 통과해도 해당 없음")
+    void commonGroupFails() {
+        List<Rule> rules = List.of(rule("GENDER", Operator.IN, "F"),
+                rule("AGE", Operator.BETWEEN, "12", "17").withGroup(1),
+                rule("AGE", Operator.BETWEEN, "18", "26").withGroup(2));
+        ProfileSnapshot male = ageOn(15).withGender("M");
+        assertEquals(Verdict.INELIGIBLE, judge.judge(male, rules, TODAY).verdict());
+        assertEquals(Verdict.ELIGIBLE, judge.judge(ageOn(15).withGender("F"), rules, TODAY).verdict());
+    }
+
+    @Test
+    @DisplayName("묶음: 근거에 묶음 번호가 남는다")
+    void traceKeepsGroup() {
+        EligibilityResult r = judge.judge(ageOn(62), fluRules(), TODAY);
+        assertEquals(List.of(1, 2, 2, 3, 3), r.trace().stream().map(ConditionTrace::group).toList());
+    }
+
+    @Test
+    @DisplayName("아깝게 탈락: 묶음이 있으면 가장 덜 탈락한 묶음 기준")
+    void failedCountWithGroups() {
+        ProfileSnapshot p = ageOn(70).withHousing(null, "NONE").withStatus(Set.of(), Set.of());
+        // 1번 묶음 1개 탈락(나이), 2번 2개, 3번 2개 → 1
+        assertEquals(1, judge.judge(p, fluRules(), TODAY).failedCount());
+    }
+
+    @Test
+    @DisplayName("규칙으로 못 바꾼 조건: 나머지가 모두 통과해도 조건부, 근거에 원문이 남는다")
+    void unparsedMakesConditional() {
+        List<Rule> rules = List.of(rule("AGE", Operator.BETWEEN, "19", "34"), Rule.unparsed(0, "저소득층 우선"));
+        EligibilityResult r = judge.judge(ageOn(25), rules, TODAY);
+        assertEquals(Verdict.CONDITIONAL, r.verdict());
+        ConditionTrace t = r.trace().get(1);
+        assertEquals(UnknownReason.NEEDS_CHECK, t.reason());
+        assertEquals("저소득층 우선", t.sourceQuote());
+        assertEquals(Verdict.INELIGIBLE, judge.judge(ageOn(40), rules, TODAY).verdict());
+    }
+
+    @Test
+    @DisplayName("규칙으로 못 바꾼 조건이 '또는' 묶음이면, 다른 묶음이 탈락해도 해당 없음이 아니라 조건부")
+    void unparsedAlternativeKeepsChance() {
+        List<Rule> rules = List.of(rule("AGE", Operator.BETWEEN, "60", "64").withGroup(1),
+                Rule.unparsed(2, "의사 판단하에 필요한 자"));
+        assertEquals(Verdict.CONDITIONAL, judge.judge(ageOn(30), rules, TODAY).verdict());
+        assertEquals(Verdict.ELIGIBLE, judge.judge(ageOn(62), rules, TODAY).verdict());
+    }
+
+    @Test
+    @DisplayName("규칙으로 못 바꾼 조건은 신뢰도 기준선과 상관없이 원문 확인")
+    void unparsedIgnoresConfidence() {
+        ConditionTrace t = trace(ProfileSnapshot.empty(), Rule.unparsed(0, "모호한 기준"));
+        assertEquals(UnknownReason.NEEDS_CHECK, t.reason());
+    }
+
+    @Test
+    @DisplayName("묶음 번호는 0 이상")
+    void negativeGroupRejected() {
+        assertThrows(IllegalArgumentException.class, () -> rule("AGE", Operator.EQ, "1").withGroup(-1));
     }
 }
