@@ -9,9 +9,14 @@ import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.bokdeongi.backend.auth.dto.request.LoginRequest;
+import com.bokdeongi.backend.auth.dto.response.LoginResponse;
+import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
+import org.springframework.security.authentication.BadCredentialsException;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -23,7 +28,9 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserConsentRepository userConsentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
+    /* 회원가입 */
     @Transactional
     public SignupResponse signup(SignupRequest request) {
 
@@ -115,6 +122,56 @@ public class AuthService {
                 savedUser.getId(),
                 savedUser.getEmail(),
                 "회원가입이 완료되었습니다."
+        );
+    }
+
+    /* 로그인 */
+    @Transactional(readOnly = true)
+    public User authenticate(String email, String password) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new BadCredentialsException(
+                                "이메일 또는 비밀번호가 올바르지 않습니다."
+                        )
+                );
+
+        if (user.getPasswordHash() == null ||
+                !passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new BadCredentialsException(
+                    "이메일 또는 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        return user;
+    }
+
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request) {
+
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() ->
+                        new BadCredentialsException(
+                                "이메일 또는 비밀번호가 올바르지 않습니다."
+                        )
+                );
+
+        if (user.getPasswordHash() == null ||
+                !passwordEncoder.matches(
+                        request.password(),
+                        user.getPasswordHash()
+                )) {
+            throw new BadCredentialsException(
+                    "이메일 또는 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        String accessToken = jwtTokenProvider.generateAccessToken(user);
+
+        return new LoginResponse(
+                accessToken,
+                "Bearer",
+                1800
         );
     }
 }
