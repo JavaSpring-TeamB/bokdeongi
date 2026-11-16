@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# 테스트용 서류 이미지도 올리지 않는다 (가짜여도)
+samples/
+*.jpg
+*.jpeg
+*.png
+*.pdf

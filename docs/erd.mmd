@@ -54,6 +54,7 @@ erDiagram
         smallint age_max
         text_array y_codes
         varchar rules_status
+        jsonb unparsed_conditions
         date apply_start
         date apply_end
         integer max_amount
@@ -69,6 +70,7 @@ erDiagram
     benefit_rules {
         bigint id PK
         bigint benefit_id FK
+        smallint rule_group
         varchar field
         varchar operator
         jsonb value
