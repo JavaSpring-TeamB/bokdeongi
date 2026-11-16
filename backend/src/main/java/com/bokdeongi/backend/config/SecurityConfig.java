@@ -30,6 +30,48 @@ public class SecurityConfig {
 
     @Bean
     @Order(1)
+    public SecurityFilterChain kakaoSignupSecurityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+
+        http
+                .securityMatcher(
+                        "/api/auth/kakao/signup",
+                        "/api/auth/kakao/csrf"
+                )
+
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(
+                                CookieCsrfTokenRepository.withHttpOnlyFalse()
+                        )
+                        .csrfTokenRequestHandler(
+                                new CsrfTokenRequestAttributeHandler()
+                        )
+                )
+
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                )
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/auth/kakao/csrf"
+                        ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/auth/kakao/signup"
+                        ).permitAll()
+                        .anyRequest().denyAll()
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter
@@ -92,7 +134,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(2)
+    @Order(3)
     public SecurityFilterChain oauth2SecurityFilterChain(
             HttpSecurity http,
             CustomOAuth2UserService customOAuth2UserService,
