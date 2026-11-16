@@ -65,5 +65,8 @@ class DocumentExclusionRuleTest {
     void 괄호_안_예외_가능은_빼고_중복_불가를_찾는다() {
         assertEquals("타 사업과 중복지원 불가(단, 긴급지원은 중복 가능)",
                 ExclusionRuleExtractor.extract("", "", "○ 타 사업과 중복지원 불가(단, 긴급지원은 중복 가능)"));
+        assertEquals("타 사업 수혜자 제외(중복 수혜 불가, 단 긴급지원은 예외)",
+                ExclusionRuleExtractor.extract("- 타 사업 수혜자 제외(중복 수혜 불가, 단 긴급지원은 예외)", "", ""));
+        assertEquals("", ExclusionRuleExtractor.extract("", "", "○ 다른 바우처와 함께 사용(중복 가능)"));
     }
 }
