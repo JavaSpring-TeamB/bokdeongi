@@ -164,6 +164,21 @@ public class User {
         this.birthDate = birthDate;
     }
 
+    /* 카카오 회원 생성자 */
+    public static User createKakaoUser(
+            String kakaoId,
+            String nickname,
+            String email
+    ) {
+        User user = new User();
+
+        user.kakaoId = kakaoId;
+        user.nickname = nickname;
+        user.email = email;
+
+        return user;
+    }
+
     public Long getId() {
         return id;
     }
@@ -196,9 +211,7 @@ public class User {
         return failedLoginCount;
     }
 
-    public LocalDateTime getLockedUntil() {
-        return lockedUntil;
-    }
+    public LocalDateTime getLockedUntil() { return lockedUntil; }
 
     public Integer getTokenVersion() {
         return tokenVersion;
@@ -211,6 +224,8 @@ public class User {
     public LocalDate getBirthDate() {
         return birthDate;
     }
+
+    public String getKakaoId() { return kakaoId; }
 
     public void updateRefreshTokenHash(String refreshTokenHash) {
         this.refreshTokenHash = refreshTokenHash;

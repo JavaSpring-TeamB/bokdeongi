@@ -12,6 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import jakarta.servlet.http.Cookie;
 
 import java.io.IOException;
 import java.util.List;
@@ -30,17 +31,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // Authorization 헤더 조회
+        // 1. Authorization 헤더에서 JWT 확인
         String authorization = request.getHeader("Authorization");
+        String token = null;
 
-        // Bearer 토큰이 없으면 다음 필터로 이동
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        }
+
+        // 2. 헤더에 JWT가 없으면 쿠키에서 확인
+        if (token == null && request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("accessToken".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        // 3. JWT가 없으면 다음 필터로 이동
+        if (token == null || token.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        // Bearer 접두사를 제거하여 JWT 추출
-        String token = authorization.substring(7);
 
         // JWT가 유효하지 않으면 401 반환
         if (!jwtTokenProvider.validateToken(token)) {
