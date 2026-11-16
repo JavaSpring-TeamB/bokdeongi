@@ -37,6 +37,11 @@ const reviewDocuments = [
 let selectedDocumentId = 'income';
 let isReviewing = false;
 
+function isDevelopmentTestMode() {
+    const localPreview = window.location.protocol === 'file:' || ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    return localPreview && new URLSearchParams(window.location.search).get('devTest') === '1';
+}
+
 const reviewStorageKey = 'bokdeongi-review-file-meta';
 const $ = (selector) => document.querySelector(selector);
 
@@ -126,7 +131,8 @@ function render() {
     const selected = getSelectedDocument();
     const summary = getSummary();
     const summaryMessage = getSummaryMessage(summary);
-    const actionLabel = summary.canProceed ? '신청 안내로 이동' : '보완 후 다시 검토';
+    const developmentTestMode = isDevelopmentTestMode();
+    const actionLabel = summary.canProceed || developmentTestMode ? '신청 안내로 이동' : '보완 후 다시 검토';
     const queryString = window.location.search;
 
     $('#assist-content').innerHTML = renderSteps() +
@@ -167,7 +173,7 @@ function render() {
         '<p class="review-live-region" aria-live="polite"></p>' +
         '<div class="assist-actions">' +
         '<a class="btn btn-secondary" href="assist-documents.html' + queryString + '">이전 단계</a>' +
-        '<button class="btn" type="button" data-next ' + (summary.canProceed ? '' : 'aria-disabled="true"') + '>' + actionLabel + '</button>' +
+        '<button class="btn" type="button" data-next ' + (summary.canProceed || developmentTestMode ? '' : 'aria-disabled="true"') + '>' + actionLabel + '</button>' +
         '</div>';
 }
 
@@ -237,6 +243,11 @@ function handleNextStep() {
     const summary = getSummary();
 
     if (!summary.canProceed) {
+        if (isDevelopmentTestMode()) {
+            showToast('개발 테스트 모드로 신청 안내 화면을 표시합니다. 실제 OCR 검토 결과는 저장하지 않습니다.');
+            window.location.href = 'assist-guide.html' + window.location.search;
+            return;
+        }
         const firstNeedsFix = reviewDocuments.find((document) => document.status === '보완 필요');
 
         if (firstNeedsFix) {

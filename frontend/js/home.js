@@ -244,13 +244,6 @@ function bindEvents() {
       return;
     }
 
-    const unavailableLink = event.target.closest('[data-unavailable-page]');
-    if (unavailableLink) {
-      event.preventDefault();
-      showToast('이 페이지는 현재 준비 중입니다.');
-      return;
-    }
-
     const unavailableAction = event.target.closest('[data-unavailable-action]');
     if (unavailableAction) {
       showToast('상세 기능은 해당 페이지가 준비되면 이용할 수 있습니다.');

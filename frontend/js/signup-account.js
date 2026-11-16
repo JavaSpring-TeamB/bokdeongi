@@ -25,7 +25,7 @@ function validateEmail(showEmpty = true) {
     const value = input.value.trim();
     if (!value) { setFieldMessage('email', showEmpty ? '이메일을 입력해 주세요.' : ''); return false; }
     if (!input.validity.valid) { setFieldMessage('email', '이메일 형식을 확인해 주세요.'); return false; }
-    setFieldMessage('email', '이메일 형식이 올바릅니다. 중복 확인은 API 연동 후 진행됩니다.', true);
+    setFieldMessage('email', '이메일 형식이 올바릅니다.', true);
     return true;
 }
 

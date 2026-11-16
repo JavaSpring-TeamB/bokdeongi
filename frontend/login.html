@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>복덩이 | 로그인</title>
+    <meta name="description" content="복덩이에 로그인하고 맞춤 복지 혜택을 확인하세요.">
+    <link rel="stylesheet" href="./css/common.css">
+    <link rel="stylesheet" href="./css/signup-account.css">
+    <link rel="stylesheet" href="./css/login.css">
+    <script src="./js/login.js" defer></script>
+</head>
+<body class="signup-account-page">
+    <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+    <header class="site-header">
+        <div class="container site-header__inner">
+            <a class="site-brand" href="./index.html" aria-label="복덩이 홈"><span class="site-brand__mark" aria-hidden="true">☘</span><span class="site-brand__text"><strong>복덩이</strong></span></a>
+            <button class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation"><span></span><span></span><span></span></button>
+            <nav class="site-nav" id="site-navigation" aria-label="주요 메뉴"><a class="site-nav__link" href="./index.html">홈</a><a class="site-nav__link" href="benefit-list.html">복지 혜택 찾기</a><a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a><a class="site-nav__link" href="application-status.html">신청 현황</a><a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a><a class="site-nav__link" href="my-page.html">마이페이지</a><span class="mobile-auth-links"><a href="login.html" aria-current="page">로그인</a><a href="signup-account.html">회원가입</a></span></nav>
+            <div class="header-tools" aria-label="화면 설정"><button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기">가-</button><button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기">가+</button><button class="header-tool header-tool--theme" type="button" data-theme-toggle aria-pressed="false">다크 모드</button><div class="auth-links" aria-label="인증 메뉴"><a href="login.html" aria-current="page">로그인</a><a class="auth-links__signup" href="signup-account.html">회원가입</a></div></div>
+        </div>
+    </header>
+
+    <main id="main-content" class="container signup-account">
+        <div class="signup-account__shell login__shell">
+            <section class="signup-account__card login__card card" aria-labelledby="login-title">
+                <div class="login__brand" aria-hidden="true"><span>☘</span><strong>복덩이</strong></div>
+                <div class="login__heading"><h1 id="login-title">로그인</h1><p>복덩이에 로그인하고<br>나에게 맞는 복지 혜택을 만나보세요.</p></div>
+                <form id="login-form" novalidate>
+                    <p id="login-form-message" class="login__message" role="alert" aria-live="assertive" tabindex="-1"></p>
+                    <div class="login__field signup-form-control"><label for="login-email">이메일</label><input id="login-email" name="email" type="email" autocomplete="username" placeholder="이메일을 입력해 주세요." aria-describedby="login-form-message" required></div>
+                    <div class="login__field signup-form-control"><label for="login-password">비밀번호</label><div class="signup-password-field"><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="비밀번호를 입력해 주세요." aria-describedby="login-form-message" required><button class="signup-password-toggle" type="button" data-password-toggle="login-password" aria-label="비밀번호 표시" aria-pressed="false">◉</button></div></div>
+                    <div class="login__support"><button type="button" class="login__text-button" data-password-help>비밀번호 찾기</button><span aria-hidden="true">|</span><span>아직 회원이 아니신가요? <a href="signup-account.html">회원가입</a></span></div>
+                    <button id="login-submit" class="btn signup-account__submit login__submit" type="submit">로그인</button>
+                </form>
+                <div class="login__divider" aria-hidden="true"><span>또는</span></div>
+                <button class="btn login__kakao" type="button" data-kakao-login><span aria-hidden="true">●</span> 카카오로 시작하기</button>
+            </section>
+        </div>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
