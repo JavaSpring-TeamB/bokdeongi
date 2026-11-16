@@ -16,9 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bokdeongi.backend.auth.dto.request.LoginRequest;
 import com.bokdeongi.backend.auth.dto.response.LoginResponse;
 import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
-
-import java.util.HashSet;
+import com.bokdeongi.backend.auth.dto.request.KakaoSignupRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import java.util.Set;
+import java.util.HashSet;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.bokdeongi.backend.auth.dto.request.ConsentUpdateRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -43,8 +48,7 @@ public class AuthService {
                 "TERMS",
                 "PRIVACY",
                 "OPTIONAL_INFO",
-                "SENSITIVE",
-                "DOC_RECORD"
+                "SENSITIVE"
         );
 
         Set<String> consentTypes = new HashSet<>();
@@ -124,6 +128,108 @@ public class AuthService {
         );
     }
 
+    @Transactional
+    public SignupResponse kakaoSignup(
+            KakaoSignupRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        // 1. 카카오 인증 후 생성된 임시 세션 확인
+        HttpSession session = httpRequest.getSession(false);
+
+        if (session == null) {
+            throw new IllegalArgumentException("카카오 인증 정보가 없습니다.");
+        }
+
+        String kakaoId = (String) session.getAttribute("KAKAO_SIGNUP_ID");
+        Long createdAt = (Long) session.getAttribute("KAKAO_SIGNUP_CREATED_AT");
+        String nickname = (String) session.getAttribute("KAKAO_SIGNUP_NICKNAME");
+        String email = (String) session.getAttribute("KAKAO_SIGNUP_EMAIL");
+
+        if (kakaoId == null || createdAt == null) {
+            throw new IllegalArgumentException("카카오 인증 정보가 없습니다.");
+        }
+
+        // 2. 임시 가입 정보 유효기간 10분
+        long elapsed = System.currentTimeMillis() - createdAt;
+
+        if (elapsed < 0 || elapsed > 10 * 60 * 1000L) {
+            session.removeAttribute("KAKAO_SIGNUP_ID");
+            session.removeAttribute("KAKAO_SIGNUP_CREATED_AT");
+            session.removeAttribute("KAKAO_SIGNUP_NICKNAME");
+            session.removeAttribute("KAKAO_SIGNUP_EMAIL");
+            throw new IllegalArgumentException("카카오 인증 시간이 만료되었습니다.");
+        }
+
+        // 3. 필수 약관 및 중복 동의 검증
+        Set<String> allowedTypes = Set.of(
+                "TERMS", "PRIVACY", "OPTIONAL_INFO", "SENSITIVE"
+        );
+
+        Set<String> receivedTypes = new HashSet<>();
+
+        for (var consent : request.consents()) {
+            if (!allowedTypes.contains(consent.consentType())) {
+                throw new IllegalArgumentException("허용되지 않은 동의 항목입니다.");
+            }
+
+            if (!receivedTypes.add(consent.consentType())) {
+                throw new IllegalArgumentException("중복된 동의 항목입니다.");
+            }
+        }
+
+        for (String requiredType : Set.of("TERMS", "PRIVACY")) {
+            boolean agreed = request.consents().stream()
+                    .anyMatch(consent ->
+                            requiredType.equals(consent.consentType())
+                                    && Boolean.TRUE.equals(consent.agreed())
+                    );
+
+            if (!agreed) {
+                throw new IllegalArgumentException("필수 약관에 동의해야 합니다.");
+            }
+        }
+
+        // 4. 이미 가입된 카카오 회원인지 확인
+        if (userRepository.findByKakaoId(kakaoId).isPresent()) {
+            throw new IllegalArgumentException("이미 가입된 카카오 계정입니다.");
+        }
+
+        // 5. 카카오 회원 생성
+        User user = User.createKakaoUser(kakaoId, nickname, email);
+        User savedUser = userRepository.saveAndFlush(user);
+
+        // 6. 동의 이력 저장
+        for (var consent : request.consents()) {
+            userConsentRepository.save(
+                    new UserConsent(
+                            savedUser,
+                            consent.consentType(),
+                            consent.docVersion(),
+                            consent.agreed()
+                    )
+            );
+        }
+
+        // 7. DB 트랜잭션 커밋 성공 후 임시 가입 정보 제거
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        session.removeAttribute("KAKAO_SIGNUP_ID");
+                        session.removeAttribute("KAKAO_SIGNUP_CREATED_AT");
+                        session.removeAttribute("KAKAO_SIGNUP_NICKNAME");
+                        session.removeAttribute("KAKAO_SIGNUP_EMAIL");
+                    }
+                }
+        );
+
+        return new SignupResponse(
+                savedUser.getId(),
+                savedUser.getEmail(),
+                "카카오 회원가입이 완료되었습니다."
+        );
+    }
+
     /* 로그인 */
     @Transactional(readOnly = true)
     public User authenticate(String email, String password) {
@@ -171,6 +277,56 @@ public class AuthService {
                 accessToken,
                 "Bearer",
                 1800
+        );
+    }
+
+    /* 선택 동의 변경 및 철회 */
+    @Transactional
+    public void updateConsent(
+            Long userId,
+            ConsentUpdateRequest request
+    ) {
+        // 1. 변경 가능한 동의 유형 확인
+        Set<String> allowedTypes = Set.of(
+                "OPTIONAL_INFO",
+                "SENSITIVE"
+        );
+
+        if (!allowedTypes.contains(request.consentType())) {
+            throw new IllegalArgumentException(
+                    "변경할 수 없는 동의 항목입니다."
+            );
+        }
+
+        // 2. 회원 확인
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 회원입니다.")
+                );
+
+        // 3. 최신 동의 상태 조회
+        UserConsent latestConsent = userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId,
+                        request.consentType()
+                )
+                .orElse(null);
+
+        // 4. 이전 동의 상태와 동일한지 확인
+        if (latestConsent != null
+                && latestConsent.getAgreed().equals(request.agreed())
+                && latestConsent.getDocVersion().equals(request.docVersion())) {
+            return;
+        }
+
+        // 5. 기존 기록을 수정하지 않고 새로운 이력 저장
+        userConsentRepository.save(
+                new UserConsent(
+                        user,
+                        request.consentType(),
+                        request.docVersion(),
+                        request.agreed()
+                )
         );
     }
 }

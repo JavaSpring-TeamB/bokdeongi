@@ -15,6 +15,8 @@ import org.springframework.http.ResponseCookie;
 import java.time.Duration;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
+import java.util.Optional;
+import java.util.Map;
 
 import java.io.IOException;
 
@@ -55,24 +57,65 @@ public class OAuth2LoginSuccessHandler
 
         String kakaoId = String.valueOf(kakaoIdValue);
 
-        // 카카오 ID로 복덩이 회원 조회
-        User user = userRepository.findByKakaoId(kakaoId)
-                .orElse(null);
+        // 카카오 ID로 기존 회원 조회
+        Optional<User> existingUser = userRepository.findByKakaoId(kakaoId);
 
-        if (user == null) {
-            response.sendError(
-                    HttpServletResponse.SC_UNAUTHORIZED,
-                    "Kakao user not found"
+        // 신규 카카오 회원
+        if (existingUser.isEmpty()) {
+
+            // 카카오 계정 정보 추출
+            String nickname = null;
+            String email = null;
+
+            Object kakaoAccountValue = oauth2User.getAttribute("kakao_account");
+
+            if (kakaoAccountValue instanceof Map<?, ?> kakaoAccount) {
+
+                Object emailValue = kakaoAccount.get("email");
+
+                if (emailValue instanceof String emailString) {
+                    email = emailString;
+                }
+
+                Object profileValue = kakaoAccount.get("profile");
+
+                if (profileValue instanceof Map<?, ?> profile) {
+                    Object nicknameValue = profile.get("nickname");
+
+                    if (nicknameValue instanceof String nicknameString) {
+                        nickname = nicknameString;
+                    }
+                }
+            }
+
+            // 카카오 인증 정보를 서버 세션에 임시 저장
+            HttpSession session = request.getSession(true);
+
+            session.setAttribute("KAKAO_SIGNUP_ID", kakaoId);
+            session.setAttribute("KAKAO_SIGNUP_NICKNAME", nickname);
+            session.setAttribute("KAKAO_SIGNUP_EMAIL", email);
+            session.setAttribute(
+                    "KAKAO_SIGNUP_CREATED_AT",
+                    System.currentTimeMillis()
+            );
+
+            // 프론트엔드로 이동
+            response.sendRedirect(
+                    "http://localhost:63342/bokdeongi/frontend/index.html?kakaoSignup=true"
             );
             return;
         }
 
-        // 기존 JWT 발급 기능 재사용
+        // 기존 카카오 회원
+        User user = existingUser.get();
+
+        // JWT 발급
         String accessToken = jwtTokenProvider.generateAccessToken(user);
 
+        // JWT 쿠키 설정
         ResponseCookie cookie = ResponseCookie.from("accessToken", accessToken)
                 .httpOnly(true)
-                .secure(false) // 로컬 HTTP 개발 환경에서만
+                .secure(false) // 로컬 개발 환경
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofMinutes(30))
@@ -80,19 +123,19 @@ public class OAuth2LoginSuccessHandler
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-
-        // OAuth2 인증에 사용한 세션 제거
+        // OAuth2 인증 세션 제거
         HttpSession session = request.getSession(false);
 
         if (session != null) {
             session.invalidate();
         }
 
-        // 현재 요청의 인증 정보 제거
+        // 인증 정보 제거
         SecurityContextHolder.clearContext();
 
         // 프론트엔드로 이동
-        response.sendRedirect("http://localhost:63342/bokdeongi/frontend/index.html");
+        response.sendRedirect(
+                "http://localhost:63342/bokdeongi/frontend/index.html"
+        );
     }
 }
