@@ -51,4 +51,19 @@ class DocumentExclusionRuleTest {
     void 중복_가능이나_중복장애는_아니다() {
         assertEquals("", ExclusionRuleExtractor.extract("※ 개인 실손보험과 중복보장 가능", "1순위 장애인연금 수급자 또는 중복장애인", ""));
     }
+
+    @Test
+    void 구비_발급일_외국인이_있어도_서류는_남긴다() {
+        assertEquals(List.of("주민등록등본", "통장사본"), DocumentRuleExtractor.extract("구비서류 : 주민등록등본, 통장사본"));
+        assertEquals(List.of("신분증"), DocumentRuleExtractor.extract("신분증(주민등록증, 운전면허증, 외국인등록증)"));
+        assertEquals(List.of("가족관계증명서"), DocumentRuleExtractor.extract("발급일로부터 3개월 이내의 가족관계증명서"));
+        assertEquals(List.of("사업 신청서", "개인정보수집 이용 동의서"),
+                DocumentRuleExtractor.extract("○ 신청시 구비서류\n① 사업 신청서[서식 1호], 개인정보수집 이용 동의서[서식2호]"));
+    }
+
+    @Test
+    void 괄호_안_예외_가능은_빼고_중복_불가를_찾는다() {
+        assertEquals("타 사업과 중복지원 불가(단, 긴급지원은 중복 가능)",
+                ExclusionRuleExtractor.extract("", "", "○ 타 사업과 중복지원 불가(단, 긴급지원은 중복 가능)"));
+    }
 }

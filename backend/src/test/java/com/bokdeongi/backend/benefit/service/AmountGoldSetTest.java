@@ -12,6 +12,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import com.bokdeongi.backend.extraction.ExtractionValidator;
+
 /**
  * DATA-05: data-lab/gold_set 정답셋으로 금액 규칙 추출 정확도를 잰다.
  * LLM을 부르지 않으므로 CI에서 매번 돈다.
@@ -36,6 +38,10 @@ class AmountGoldSetTest {
             Map<String, String> label = labels.get(s.get("service_id"));
             AmountRuleExtractor.Result r = AmountRuleExtractor.extract(
                     s.get("content_text"), s.get("support_type"), s.get("title"));
+            if (r.maxAmount() != null) { // 숫자 읽기 기준은 검증 모듈 하나
+                assertTrue(ExtractionValidator.extractNumbers(s.get("content_text")).contains(ExtractionValidator.canon(r.maxAmount().toString())),
+                        s.get("title") + ": 검증 모듈이 읽지 못한 금액 " + r.maxAmount());
+            }
             Map<String, String> got = Map.of(
                     "max_amount", r.maxAmount() == null ? "" : r.maxAmount().toString(),
                     "amount_period", r.period() == null ? "" : r.period().name(),

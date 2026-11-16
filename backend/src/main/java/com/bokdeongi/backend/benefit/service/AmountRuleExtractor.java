@@ -2,10 +2,8 @@ package com.bokdeongi.backend.benefit.service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -117,18 +115,44 @@ public final class AmountRuleExtractor {
         } else if (period == Period.YEAR) {
             annual = best.value();
         } else {
-            annual = best.value() * timesPerYear(text);
+            annual = best.value() * timesPerYear(best.line(), text);
         }
         return new Result(best.value(), period, annual, best.line(), "규칙");
     }
 
-    /** "연 2회", "일년에 두 번", "설·추석" → 2. 없으면 1 */
-    static int timesPerYear(String text) {
-        Matcher m = TIMES.matcher(text);
+    /** 지급 횟수가 아닌 활동 횟수가 적힌 줄: "교육 연 2회", "방문 상담 연 4회" */
+    private static final Pattern ACTIVITY_LINE = Pattern.compile("교육|상담|점검|방문|모임|회의|행사|강좌|프로그램|평가");
+
+    /**
+     * "연 2회", "일년에 두 번", "설·추석" → 2. 없으면 1.
+     * 금액이 있는 줄을 먼저 보고, 없으면 교육·상담 같은 활동 횟수 줄은 빼고 공고 전체에서 찾는다.
+     */
+    static int timesPerYear(String amountLine, String text) {
+        Integer inLine = times(amountLine);
+        if (inLine != null) {
+            return inLine;
+        }
+        for (String line : text.split("\n")) {
+            if (ACTIVITY_LINE.matcher(line).find()) {
+                continue;
+            }
+            Integer t = times(line);
+            if (t != null) {
+                return t;
+            }
+        }
+        return 1;
+    }
+
+    private static Integer times(String line) {
+        if (line == null) {
+            return null;
+        }
+        Matcher m = TIMES.matcher(line);
         if (m.find()) {
             return Integer.parseInt(m.group(1) != null ? m.group(1) : m.group(2));
         }
-        return TWICE_WORDS.matcher(text).find() ? 2 : 1;
+        return TWICE_WORDS.matcher(line).find() ? 2 : null;
     }
 
     /** "원"으로 끝나는 금액. "1억 2천만원"처럼 단위가 이어지면 합친다 */
@@ -212,72 +236,6 @@ public final class AmountRuleExtractor {
         }
         g.appendTail(sb);
         return sb.toString();
-    }
-
-    /**
-     * validator.py extract_numbers와 같은 결과 (검증·테스트용).
-     * "7천5백만"처럼 띄어쓰기 없이 붙은 표기는 75,000,000 하나로만 읽는다 (B의 fix/B-DATA-03-sub-man-amount, D-84와 같은 규칙)
-     */
-    public static Set<BigDecimal> extractNumbers(String text) {
-        Set<BigDecimal> numbers = new LinkedHashSet<>();
-        if (text == null || text.isEmpty()) {
-            return numbers;
-        }
-        StringBuilder sb = new StringBuilder();
-        Matcher d = YMD.matcher(text);
-        while (d.find()) {
-            for (int g = 1; g <= 3; g++) {
-                if (d.group(g) != null) {
-                    numbers.add(canon(d.group(g)));
-                }
-            }
-            d.appendReplacement(sb, " ");
-        }
-        d.appendTail(sb);
-        String rest = sb.toString();
-        sb = new StringBuilder();
-        d = MD.matcher(rest);
-        while (d.find()) {
-            for (int g = 1; g <= 3; g++) {
-                if (d.group(g) != null) {
-                    numbers.add(canon(d.group(g)));
-                }
-            }
-            d.appendReplacement(sb, " ");
-        }
-        d.appendTail(sb);
-        rest = mergeSubGroups(sb.toString());
-
-        List<MatchResult> ms = new ArrayList<>();
-        Matcher m = NUMBER.matcher(rest);
-        while (m.find()) {
-            ms.add(new MatchResult(m.start(), m.end(), m.group(1), m.group(2), m.group(3)));
-        }
-        for (int i = 0; i < ms.size(); i++) {
-            MatchResult cur = ms.get(i);
-            BigDecimal number = canon(cur.digits() + (cur.fraction() == null ? "" : cur.fraction()));
-            if (cur.unit() == null) {
-                numbers.add(number);
-                continue;
-            }
-            BigDecimal total = number.multiply(BigDecimal.valueOf(UNITS.get(cur.unit())));
-            numbers.add(strip(total));
-            while (i + 1 < ms.size()) {
-                MatchResult nxt = ms.get(i + 1);
-                if (!rest.substring(cur.end(), nxt.start()).isBlank() || nxt.unit() == null
-                        || UNITS.get(nxt.unit()) >= UNITS.get(cur.unit())) {
-                    break;
-                }
-                BigDecimal part = canon(nxt.digits() + (nxt.fraction() == null ? "" : nxt.fraction()))
-                        .multiply(BigDecimal.valueOf(UNITS.get(nxt.unit())));
-                numbers.add(strip(part));
-                total = total.add(part);
-                cur = nxt;
-                i++;
-            }
-            numbers.add(strip(total));
-        }
-        return numbers;
     }
 
     private record MatchResult(int start, int end, String digits, String fraction, String unit) {

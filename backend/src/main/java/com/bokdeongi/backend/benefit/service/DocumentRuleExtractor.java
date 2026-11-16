@@ -8,7 +8,8 @@ import java.util.regex.Pattern;
  * 구비서류 칸에서 신청자가 직접 낼 서류 이름을 규칙으로 뽑는다. LLM을 부르지 않는다. (DATA-07)
  *
  * 1. "구비서류 없음", "해당없음", "제출 불필요"면 빈 목록
- * 2. 줄마다 나누고 ※·*로 시작하는 안내, 대리인·담당자 확인·선택사항 줄은 뺀다
+ * 2. 줄마다 나누고 ※·*로 시작하는 안내, 대리인·담당자 확인·선택사항·내려받기 줄은 뺀다
+ *    ("구비서류 :", "발급일로부터 3개월 이내의", "외국인등록증" 같은 말은 줄을 버리지 않고 그 부분만 지운다)
  * 3. 괄호 밖의 쉼표·빗금, " 및 "으로 다시 나눈다
  * 4. 글머리(○ ㅇ - ① 1.), 머리말("민원인:", "(필수서류)"), 괄호 설명, "1부", "등"을 지운다
  * 5. 서·증·원·본·카드·사본·영수증처럼 서류 이름으로 끝나는 것만 남긴다
@@ -17,7 +18,10 @@ import java.util.regex.Pattern;
 public final class DocumentRuleExtractor {
 
     private static final Pattern NONE = Pattern.compile("해당\\s*없음|구비서류\\s*없음|제출\\s*불필요|별도\\s*(제출\\s*)?없음|^\\s*없음\\s*$|서류\\s*없음");
-    private static final Pattern SKIP_LINE = Pattern.compile("^\\s*[※*]|대리인|담당자\\s*:|\\(선택|선택사항|발급일|원칙|구비|다운|서식|외국인");
+    private static final Pattern SKIP_LINE = Pattern.compile("^\\s*[※*]|대리인|담당자\\s*:|\\(선택|선택사항|다운로드|내려받");
+    /** 서류 이름이 아니라 묶음 제목인 것: "신청시 구비서류", "공통 제출서류" */
+    private static final Pattern GROUP_TITLE = Pattern.compile("(구비|제출|필요|공통|필수|추가|지참|첨부)\\s*서류$");
+    private static final Pattern BRACKET = Pattern.compile("\\[[^\\]]*\\]");
     private static final Pattern HEADER_LINE = Pattern.compile("^\\s*[○ㅇ-]?\\s*\\(?[가-힣\\s]{0,10}(공통서류|필수서류|제출서류|지참서류)\\)?\\s*:?\\s*$");
     private static final Pattern DOC_WORD = Pattern.compile("(서|증|원|본|카드|쿠폰|자료|통장|사본|기록지|내역서|영수증|서류)$");
     private static final Pattern AND = Pattern.compile("\\s+및\\s+");
@@ -38,7 +42,8 @@ public final class DocumentRuleExtractor {
             for (String part : splitTopLevel(line)) {
                 for (String piece : AND.split(PAREN.matcher(part).replaceAll(""))) {
                     String name = clean(piece);
-                    if (name.length() >= 2 && name.length() <= 30 && DOC_WORD.matcher(name).find() && !items.contains(name)) {
+                    if (name.length() >= 2 && name.length() <= 30 && DOC_WORD.matcher(name).find()
+                            && !GROUP_TITLE.matcher(name).find() && !items.contains(name)) {
                         items.add(name);
                     }
                 }
@@ -76,6 +81,7 @@ public final class DocumentRuleExtractor {
         t = t.replaceFirst("^\\([^)]*\\)\\s*", "");
         t = t.replaceFirst("^[^:：]{1,15}[:：]\\s*", "");
         t = PAREN.matcher(t).replaceAll("");
+        t = BRACKET.matcher(t).replaceAll(""); // "사업 신청서[서식 1호]"
         t = t.replace("*", "");
         t = t.replaceFirst("\\s*\\d+\\s*부$", "");
         if (t.contains("의 ") && t.length() > 8) {

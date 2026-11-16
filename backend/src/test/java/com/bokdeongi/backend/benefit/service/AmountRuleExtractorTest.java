@@ -2,53 +2,37 @@ package com.bokdeongi.backend.benefit.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.math.BigDecimal;
-import java.util.Set;
-import java.util.TreeSet;
 
 import org.junit.jupiter.api.Test;
 
 import com.bokdeongi.backend.benefit.service.AmountRuleExtractor.Period;
+import com.bokdeongi.backend.extraction.ExtractionValidator;
 import com.bokdeongi.backend.benefit.service.AmountRuleExtractor.Result;
 
 class AmountRuleExtractorTest {
 
-    /** data-lab/validation/cases.json의 numbers와 같은 값. cases.json이 바뀌면 같이 고친다 */
-    private static final String[][] NUMBER_CASES = {
-            {"월 최대 20만원", "200000"},
-            {"지원금액 : 200천원(1가구당)", "200000,1"},
-            {"월 19,250원", "19250"},
-            {"2,000만원", "20000000"},
-            {"1억 2천만원", "100000000,20000000,120000000"},
-            {"1만 5천원", "10000,5000,15000"},
-            {"20만, 30만", "200000,300000"},
-            {"10만 20만원", "100000,200000"},
-            {"5천 1만원", "5000,10000"},
-            {"기준 중위소득 60% 이하", "60"},
-            {"만 19〜34세", "19,34"},
-            {"1,2순위", "1,2"},
-            {"0.5%", "0.5"},
-            {"2026.04.27~2026.05.29", "2026,4,27,5,29"},
-            {"매년 01-01~01-31", "1,31"},
-            {"7천5백만원", "75000000"},
-            {"2백5십만원", "2500000"},
-            {"1천2백만 원", "12000000"},
-            {"3천5백원", "3500"},
-            {"1억 7천5백만원", "100000000,75000000,175000000"},
-            {"", ""},
-    };
-
+    /**
+     * 금액 숫자 읽기의 기준은 검증 모듈(ExtractionValidator.extractNumbers) 하나다.
+     * 규칙이 고른 금액은 검증 모듈이 같은 글에서 읽은 숫자 안에 있어야 한다.
+     */
     @Test
-    void 숫자_읽기는_검증_모듈과_같다() {
-        for (String[] c : NUMBER_CASES) {
-            Set<BigDecimal> expected = new TreeSet<>();
-            for (String v : c[1].split(",")) {
-                if (!v.isEmpty()) {
-                    expected.add(new BigDecimal(v));
-                }
-            }
-            assertEquals(expected, new TreeSet<>(AmountRuleExtractor.extractNumbers(c[0])), c[0]);
+    void 고른_금액은_검증_모듈이_읽은_숫자_안에_있다() {
+        String[][] cases = {
+                {"월 최대 20만원", "200000"},
+                {"지원금액 : 200천원(1가구당)", "200000"},
+                {"월 19,250원", "19250"},
+                {"7천5백만원 이내", "75000000"},
+                {"1인당 2백5십만원", "2500000"},
+                {"1천2백만 원", "12000000"},
+                {"3천5백원", "3500"},
+                {"최대 1억 7천5백만원", "175000000"},
+        };
+        for (String[] c : cases) {
+            Long picked = AmountRuleExtractor.extract(c[0], "현금").maxAmount();
+            assertEquals(Long.valueOf(c[1]), picked, c[0]);
+            assertTrue(ExtractionValidator.extractNumbers(c[0]).contains(ExtractionValidator.canon(c[1])), c[0]);
         }
     }
 
@@ -107,5 +91,12 @@ class AmountRuleExtractorTest {
         assertEquals(2_500_000L, AmountRuleExtractor.extract("1인당 2백5십만원 지원", "현금").maxAmount());
         assertEquals(175_000_000L, AmountRuleExtractor.extract("주택구입자금 최대 1억 7천5백만원 대출", "현금(융자)").maxAmount());
         assertEquals(15_000_000L, AmountRuleExtractor.extract("최대 1천5백만원", "현금").maxAmount());
+    }
+
+    @Test
+    void 연간_횟수는_교육_같은_활동_횟수와_헷갈리지_않는다() {
+        assertEquals(300_000L, AmountRuleExtractor.extract("○ 1인당 30만원 지원\n○ 역량강화 교육 연 2회 실시", "현금").annualAmount());
+        assertEquals(600_000L, AmountRuleExtractor.extract("○ 1인당 30만원 지원\n○ 지급시기: 연 2회(설, 추석)", "현금").annualAmount());
+        assertEquals(120_000L, AmountRuleExtractor.extract("○ 명절위문금 6만원(연 2회)", "현금").annualAmount());
     }
 }
