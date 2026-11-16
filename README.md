@@ -20,7 +20,7 @@ docs/         설계 문서 링크
 
 ```bash
 cp .env.example .env            # 값 채우기 (커밋 금지)
-docker compose up -d db         # PostgreSQL 18
+docker compose up -d db         # MySQL 9.7 (로컬에 MySQL을 설치해 HeidiSQL로 쓰면 생략)
 cd backend && ./gradlew bootRun
 ```
 

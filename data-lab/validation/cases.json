@@ -109,6 +109,38 @@
     {
       "text": "",
       "expected": []
+    },
+    {
+      "text": "최대 7천5백만원",
+      "expected": [
+        "75000000"
+      ]
+    },
+    {
+      "text": "1천2백만 원",
+      "expected": [
+        "12000000"
+      ]
+    },
+    {
+      "text": "3천5백원",
+      "expected": [
+        "3500"
+      ]
+    },
+    {
+      "text": "2백5십만원",
+      "expected": [
+        "2500000"
+      ]
+    },
+    {
+      "text": "1억 7천5백만원",
+      "expected": [
+        "100000000",
+        "75000000",
+        "175000000"
+      ]
     }
   ],
   "dates": [
@@ -304,6 +336,27 @@
           2026,
           3,
           10,
+          false
+        ]
+      ]
+    },
+    {
+      "text": "1.5~3.5배",
+      "expected": []
+    },
+    {
+      "text": "2026.1. ~ 12.(※예산 상황에 따라 변경 가능)",
+      "expected": [
+        [
+          2026,
+          1,
+          null,
+          true
+        ],
+        [
+          2026,
+          12,
+          null,
           false
         ]
       ]
@@ -1246,6 +1299,54 @@
         "checks": {
           "quote": true,
           "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "붙어 쓴 금액(7천5백만)은 합친 값으로 읽는다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "max_amount",
+        "source_quote": "최대 7천5백만원",
+        "numbers": [
+          "75000000"
+        ]
+      },
+      "sources": [
+        "주택구입자금 최대 7천5백만원 대출"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "붙어 쓴 금액의 일부만 읽은 값은 버린다",
+      "purpose": "EXTRACT",
+      "item": {
+        "field": "max_amount",
+        "source_quote": "최대 7천5백만원",
+        "numbers": [
+          "5000000"
+        ]
+      },
+      "sources": [
+        "주택구입자금 최대 7천5백만원 대출"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
           "code": null,
           "repeat": null
         }
