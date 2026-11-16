@@ -6,7 +6,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from check_labels import COLUMNS, check_row, check_service, run
+from check_labels import COLUMNS, check_row, check_service, check_warnings, run
 
 SOURCES = ["ㅇ (대상) 청년(만 19~34세 이하*)으로 부모님과 별도 거주하는 무주택자",
            "○ 만 15세 이상 35세 미만의 미취업자 ○ 기초생활수급자, 차상위계층"]
@@ -36,6 +36,7 @@ class CheckRow(unittest.TestCase):
                 source_quote="부모님과 별도 거주하는", question="부모님과 따로 살고 있나요?")
         self.ok(field="UNPARSED", source_quote="미취업자")
         self.ok(field="NONE")
+        self.ok(field="OUT_OF_SCOPE", source_quote="무주택자")
 
     def test_quote_must_be_in_source(self):
         self.bad("근거 문구가 원문에 없음", field="HAS_HOUSE", operator="EQ", values="false", source_quote="무주택 세대주")
@@ -54,16 +55,38 @@ class CheckRow(unittest.TestCase):
         self.bad("source_quote 필수", field="HAS_HOUSE", operator="EQ", values="false")
         self.bad("operator·values를 비운다", field="NONE", operator="EQ")
         self.bad("group은", group="a", field="NONE")
+        self.bad("근거 문구가 필요", field="OUT_OF_SCOPE")
+        self.bad("operator·values를 비운다", field="OUT_OF_SCOPE", operator="EQ", source_quote="무주택자")
         self.bad("question은 ANSWER에만", field="HAS_HOUSE", operator="EQ", values="false",
                  source_quote="무주택자", question="집이 없나요?")
 
     def test_unknown_service(self):
         self.assertEqual(check_row(row(field="NONE"), None), ["표본에 없는 service_id"])
 
+    def test_excel_mangled_id(self):
+        errors = check_row(row(service_id="5.44E+11", field="NONE"), None)
+        self.assertIn("엑셀", errors[0])
+
+
+class CheckWarnings(unittest.TestCase):
+    def test_card_needing_application_should_be_answer(self):
+        self.assertTrue(check_warnings(row(field="HOUSEHOLD_TYPE", operator="IN", values="JA0411",
+                                           source_quote="다둥이카드 소지자")))
+        self.assertEqual(check_warnings(row(field="ANSWER:has_dadungi_card", operator="EQ", values="Y",
+                                            source_quote="다둥이카드 소지자", question="다둥이카드를 가지고 있나요?")), [])
+
+    def test_card_issued_on_registration_is_fine(self):
+        self.assertEqual(check_warnings(row(field="SENSITIVE", operator="IN", values="JA0328",
+                                            source_quote="장애인복지카드 소지자")), [])
+        self.assertEqual(check_warnings(row(field="HAS_HOUSE", operator="EQ", values="true",
+                                            source_quote="주택 보유자")), [])
+
 
 class CheckService(unittest.TestCase):
     def test_none_alone(self):
         self.assertTrue(check_service([row(field="NONE"), row(field="AGE")]))
+        self.assertTrue(check_service([row(field="OUT_OF_SCOPE"), row(field="AGE")]))
+        self.assertEqual(check_service([row(field="OUT_OF_SCOPE")]), [])
 
     def test_single_alternative_group(self):
         self.assertTrue(check_service([row(group="1", field="AGE")]))
@@ -87,6 +110,26 @@ class Run(unittest.TestCase):
                 code = run(labels, samples)
             self.assertEqual(code, 1)
             self.assertIn("아직 라벨 없는 공고: B", out.getvalue())
+
+    def test_rejects_subscript_and_fullwidth_digits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            samples, labels = Path(tmp) / "samples.csv", Path(tmp) / "labels.csv"
+            with samples.open("w", encoding="utf-8", newline="") as f:
+                w = csv.DictWriter(f, ["service_id", "target_text"])
+                w.writeheader()
+                w.writerow({"service_id": "A", "target_text": SOURCES[0]})
+            with labels.open("w", encoding="utf-8", newline="") as f:
+                w = csv.DictWriter(f, COLUMNS)
+                w.writeheader()
+                w.writerow(row(service_id="A", group="\u2080", field="HAS_HOUSE", operator="EQ", values="false",
+                               source_quote="무주택자"))
+                w.writerow(row(service_id="A", field="SENSITIVE", operator="IN", values="JA\uff10328",
+                               source_quote="무주택자"))
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = run(labels, samples)
+            self.assertEqual(code, 1)
+            self.assertEqual(out.getvalue().count("전각·아래첨자"), 2)
 
 
 if __name__ == "__main__":
