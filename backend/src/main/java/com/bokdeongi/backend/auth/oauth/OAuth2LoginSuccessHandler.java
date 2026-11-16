@@ -15,6 +15,7 @@ import org.springframework.http.ResponseCookie;
 import java.time.Duration;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
+import java.util.Optional;
 
 import java.io.IOException;
 
@@ -55,17 +56,21 @@ public class OAuth2LoginSuccessHandler
 
         String kakaoId = String.valueOf(kakaoIdValue);
 
-        // 카카오 ID로 복덩이 회원 조회
-        User user = userRepository.findByKakaoId(kakaoId)
-                .orElse(null);
+        // 카카오 ID로 기존 회원 조회
+        Optional<User> existingUser = userRepository.findByKakaoId(kakaoId);
 
-        if (user == null) {
+        // 신규 카카오 회원
+        if (existingUser.isEmpty()) {
+            // TODO: 다음 단계에서 임시 가입 토큰 발급 및 약관 동의 화면 연결
             response.sendError(
-                    HttpServletResponse.SC_UNAUTHORIZED,
-                    "Kakao user not found"
+                    HttpServletResponse.SC_FORBIDDEN,
+                    "Kakao signup requires consent"
             );
             return;
         }
+
+        // 기존 카카오 회원
+        User user = existingUser.get();
 
         // 기존 JWT 발급 기능 재사용
         String accessToken = jwtTokenProvider.generateAccessToken(user);
@@ -77,8 +82,6 @@ public class OAuth2LoginSuccessHandler
                 .path("/")
                 .maxAge(Duration.ofMinutes(30))
                 .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 

@@ -1,13 +1,11 @@
 package com.bokdeongi.backend.auth.oauth;
 
-import com.bokdeongi.backend.auth.entity.User;
 import com.bokdeongi.backend.auth.repository.UserRepository;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.oauth2.core.OAuth2Error;
 
 import java.util.Map;
@@ -22,7 +20,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     @Override
-    @Transactional
     public OAuth2User loadUser(OAuth2UserRequest userRequest)
             throws OAuth2AuthenticationException {
 
@@ -66,26 +63,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             }
         }
 
-        // 4. 기존 카카오 회원 조회
-        if (userRepository.findByKakaoId(kakaoId).isEmpty()) {
-
-            // 5. 기존 이메일 회원과 중복되는지 확인
-            if (email != null && userRepository.existsByEmail(email)) {
-                throw new OAuth2AuthenticationException(
-                        new OAuth2Error("email_already_exists"),
-                        "이미 가입된 이메일입니다."
-                );
-            }
-
-            // 6. 신규 카카오 회원 저장
-            User newUser = User.createKakaoUser(
-                    kakaoId,
-                    nickname,
-                    email
-            );
-
-            userRepository.save(newUser);
-        }
+        /**
+         * 신규 카카오 회원은 약관 동의 완료 후 DB에 저장
+         * 기존 회원과 신규 회원의 분기는 OAuth2LoginSuccessHandler에서 처리
+          */
 
         // 7. 카카오 사용자 정보 반환
         return oauth2User;
