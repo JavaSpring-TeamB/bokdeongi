@@ -68,6 +68,10 @@ _YMD = re.compile(r"(?<![\d.])((?:19|20)\d{2})\s*[.\-/]\s*(\d{1,2})(?:\s*[.\-/]\
 _MD = re.compile(r"(?<![\d.,])(\d{1,2})(?:\.\s*(\d{1,2})\.|-(\d{1,2}))(?!\d)")
 # 쉼표는 세 자리 묶음일 때만 숫자 일부로 본다 ("1,2순위"는 1과 2)
 _NUMBER = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(억|천만|백만|십만|만|천|백)?")
+# 만 아래 자릿수가 띄어쓰기 없이 이어진 묶음: "7천5백", "1천2백3십4". 뒤의 만·억은 묶음 전체에 곱한다 ("7천5백만" = 7500만)
+_SUB_GROUP = re.compile(r"(?<![\d.,])(?:\d+[천백십])+(?:\d+(?=[만억]))?")
+_SUB_PART = re.compile(r"(\d+)([천백십])")
+_SUB_SCALE = {"천": 1000, "백": 100, "십": 10}
 
 
 def canon(value) -> Decimal:
@@ -78,11 +82,29 @@ def canon(value) -> Decimal:
     return number.normalize()
 
 
+def _merge_sub_group(match: re.Match) -> str:
+    """만 아래 자릿수 묶음을 숫자 하나로 바꾼다: "7천5백" → "7500".
+
+    "7천"과 "5백만"을 따로 읽으면 원문에 없는 7,000·5,000,000이 후보가 되어 틀린 값이 검증을 통과한다.
+    자릿수가 천 → 백 → 십 순서가 아니면 손대지 않는다.
+    """
+    run = match.group(0)
+    parts = _SUB_PART.findall(run)
+    tail = _SUB_PART.sub("", run)
+    scales = [_SUB_SCALE[unit] for _, unit in parts]
+    if len(parts) + bool(tail) < 2 or scales != sorted(set(scales), reverse=True):
+        return run  # "5천", "200천"처럼 하나뿐이면 기존 단위 읽기에 맡긴다
+    total = sum(int(digits) * _SUB_SCALE[unit] for digits, unit in parts)
+    if tail:
+        total += int(tail)
+    return str(total)
+
+
 def extract_numbers(text: str | None) -> set[Decimal]:
     """글 속 숫자를 모두 읽는다.
 
     "20만원"→200000, "200천원"→200000, "19,250원"→19250, "1억 2천만원"→120000000(부분 값도 포함),
-    "60%"→60, "2025. 11. 12."→2025·11·12, "01-31"→1·31.
+    "7천5백만원"→75000000(부분 값 없음), "60%"→60, "2025. 11. 12."→2025·11·12, "01-31"→1·31.
     단위가 붙은 숫자는 곱한 값만 넣는다 ("20만"에서 20은 넣지 않는다).
     """
     if not text:
@@ -96,6 +118,7 @@ def extract_numbers(text: str | None) -> set[Decimal]:
 
     text = _YMD.sub(take_date, text)
     text = _MD.sub(take_date, text)
+    text = _SUB_GROUP.sub(_merge_sub_group, text)
 
     matches = list(_NUMBER.finditer(text))
     i = 0
@@ -131,6 +154,7 @@ _DATE = re.compile(
     r"|(?:(?P<y2>(?:19|20)\d{2})\s*년\s*)?(?P<m2>\d{1,2})\s*월(?:\s*(?P<d2>\d{1,2})\s*일)?"          # 2026년 4월 27일 / 8월
     r"|(?:(?P<y3>(?:19|20)\d{2})\s*년\s*)?(?P<m5>\d{1,2})\s*[~〜～]\s*(?=\d{1,2}\s*월)"             # 3~5월의 3
     r"|~\s*(?P<m4>\d{1,2})\.\s*(?P<d5>\d{1,2})(?![\d.])"                                            # ~3. 10 (끝 점 없음)
+    r"|~\s*(?P<m6>\d{1,2})\.(?!\s*\d)"                                                             # 2026.1. ~ 12. (월까지만)
     r"|(?<![\d.,])(?P<m3>\d{1,2})(?:\.\s*(?P<d3>\d{1,2})\.|-(?P<d4>\d{1,2}))(?!\d)"                 # 11. 26. / 01-31
 )
 
@@ -158,13 +182,17 @@ def extract_dates(text: str | None, base_year: int | None = None) -> list[DateMe
     year: int | None = base_year
     prev_month: int | None = None
     prev_end, prev_has_day = -1, False
-    for match in _DATE.finditer(str(text or "")):
+    text = str(text or "")
+    for match in _DATE.finditer(text):
         g = match.groupdict()
         # "~3. 10"은 바로 앞이 일까지 있는 날짜일 때만 날짜로 본다 ("1.5~3.5배"는 소수)
         if g["m4"] and not (prev_has_day and match.start() == prev_end):
             continue
+        # "~ 12."는 바로 앞(점·공백만 사이)이 월까지만 있는 날짜일 때만 날짜로 본다 ("2026.1. ~ 12.")
+        if g["m6"] and not (prev_end >= 0 and not prev_has_day and not text[prev_end:match.start()].strip(" .\t")):
+            continue
         y = g["y1"] or g["y2"] or g["y3"]
-        month = int(g["m1"] or g["m2"] or g["m3"] or g["m4"] or g["m5"])
+        month = int(g["m1"] or g["m2"] or g["m3"] or g["m4"] or g["m5"] or g["m6"])
         day_raw = g["d1"] or g["d2"] or g["d3"] or g["d4"] or g["d5"]
         day = int(day_raw) if day_raw else None
         if not 1 <= month <= 12 or (day is not None and not 1 <= day <= 31):
