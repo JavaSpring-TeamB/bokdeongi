@@ -1,7 +1,6 @@
 package com.bokdeongi.backend.auth.oauth;
 
 import com.bokdeongi.backend.auth.entity.User;
-import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
 import com.bokdeongi.backend.auth.repository.UserRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +16,8 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.Optional;
 import java.util.Map;
+import com.bokdeongi.backend.auth.service.AuthService;
+import com.bokdeongi.backend.auth.dto.response.LoginResult;
 
 import java.io.IOException;
 
@@ -25,14 +26,14 @@ public class OAuth2LoginSuccessHandler
         implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthService authService;
 
     public OAuth2LoginSuccessHandler(
             UserRepository userRepository,
-            JwtTokenProvider jwtTokenProvider
+            AuthService authService
     ) {
         this.userRepository = userRepository;
-        this.jwtTokenProvider = jwtTokenProvider;
+        this.authService = authService;
     }
 
     @Override
@@ -109,8 +110,11 @@ public class OAuth2LoginSuccessHandler
         // 기존 카카오 회원
         User user = existingUser.get();
 
-        // JWT 발급
-        String accessToken = jwtTokenProvider.generateAccessToken(user);
+        // Access Token + Refresh Token 발급 및 DB 저장
+        LoginResult loginResult = authService.issueTokens(user.getId());
+
+        String accessToken = loginResult.loginResponse().accessToken();
+        String refreshToken = loginResult.refreshToken();
 
         // JWT 쿠키 설정
         ResponseCookie cookie = ResponseCookie.from("accessToken", accessToken)
@@ -122,6 +126,17 @@ public class OAuth2LoginSuccessHandler
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        // Refresh Token 쿠키 설정
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(false) // 로컬 개발 환경
+                .sameSite("Lax")
+                .path("/api/auth")
+                .maxAge(Duration.ofDays(7))
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
         // OAuth2 인증 세션 제거
         HttpSession session = request.getSession(false);

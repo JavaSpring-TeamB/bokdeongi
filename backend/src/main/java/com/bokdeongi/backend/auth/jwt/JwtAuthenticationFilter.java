@@ -25,6 +25,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserRepository userRepository;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return "POST".equalsIgnoreCase(request.getMethod())
+                && "/api/auth/refresh".equals(
+                request.getServletPath()
+        );
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -56,8 +64,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // JWT가 유효하지 않으면 401 반환
-        if (!jwtTokenProvider.validateToken(token)) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT");
+        if (!jwtTokenProvider.validateAccessToken(token)) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid Access Token");
             return;
         }
 
@@ -69,6 +77,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (user == null) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
+            Integer tokenVersion = jwtTokenProvider.getTokenVersion(token);
+
+            if (tokenVersion == null ||
+                    !tokenVersion.equals(user.getTokenVersion())) {
+                response.sendError(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "Token has been revoked"
+                );
                 return;
             }
 
@@ -87,11 +106,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 현재 요청의 인증 정보 등록
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            filterChain.doFilter(request, response);
-
         } catch (RuntimeException e) {
             SecurityContextHolder.clearContext();
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
         }
+
+        // JWT 인증 처리가 끝난 뒤 다음 필터 실행
+        filterChain.doFilter(request, response);
     }
 }
