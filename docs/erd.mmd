@@ -9,7 +9,7 @@ erDiagram
     median_income_standards }o..o{ users : "소득 % 환산"
     document_types }o..o{ benefits : "documents(json)"
     document_types }o..o{ users : "doc_records(json)"
-    hashtags }o..o{ benefits : "hashtags(text[])"
+    hashtags }o..o{ benefits : "hashtags(json)"
 
     users {
         bigint id PK
@@ -61,6 +61,8 @@ erDiagram
         json unparsed_conditions
         date apply_start
         date apply_end
+        varchar date_status
+        varchar date_precision
         integer max_amount
         integer annual_amount
         numeric amount_confidence
