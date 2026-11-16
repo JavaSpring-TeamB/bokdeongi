@@ -56,6 +56,9 @@ INPUT_COLUMNS = [
     ("user_type", "사용자구분"),
     ("org_name", "소관기관명"),
     ("modified_at", "수정일시"),  # 연도 없는 신청기한에 붙일 게시 연도 (날짜 기준 v2)
+    ("ja_codes", "_ja_codes"),  # 지원조건에서 Y인 코드 (해시태그 규칙용)
+    ("age_min", "JA0110"),
+    ("age_max", "JA0111"),
     ("target_text", "지원대상"),
     ("criteria_text", "선정기준"),
     ("content_text", "지원내용"),
@@ -81,12 +84,18 @@ def merge_records(raw_dir: Path = RAW_DIR) -> list[dict]:
     """serviceList와 serviceDetail을 서비스ID로 합친다. 같은 필드는 상세 값을 우선한다."""
     listing = {r.get(ID_KEY): r for r in load_records("serviceList", raw_dir)}
     details = {r.get(ID_KEY): r for r in load_records("serviceDetail", raw_dir)}
+    conditions = {r.get(ID_KEY): r for r in load_records("supportConditions", raw_dir)}
     merged = []
     for service_id, base in listing.items():
         record = dict(base)
         for key, value in details.get(service_id, {}).items():
             if is_filled(value):
                 record[key] = value
+        condition = conditions.get(service_id, {})
+        record["_ja_codes"] = ";".join(k for k, v in condition.items() if k.startswith("JA") and str(v).upper() == "Y")
+        for key in ("JA0110", "JA0111"):
+            if is_filled(condition.get(key)):
+                record[key] = condition[key]
         merged.append(record)
     if not merged:
         raise SystemExit(f"{raw_dir}에 수집된 파일이 없습니다. python data-lab/api_survey/collect.py를 먼저 실행하세요.")
