@@ -24,6 +24,11 @@ import java.util.HashSet;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.bokdeongi.backend.auth.dto.request.ConsentUpdateRequest;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import com.bokdeongi.backend.auth.dto.response.LoginResult;
 
 @Service
 @RequiredArgsConstructor
@@ -251,9 +256,10 @@ public class AuthService {
         return user;
     }
 
-    @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest request) {
+    @Transactional
+    public LoginResult login(LoginRequest request) {
 
+        // 1. 이메일로 사용자 조회
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() ->
                         new BadCredentialsException(
@@ -261,6 +267,7 @@ public class AuthService {
                         )
                 );
 
+        // 2. 비밀번호 검증
         if (user.getPasswordHash() == null ||
                 !passwordEncoder.matches(
                         request.password(),
@@ -271,13 +278,36 @@ public class AuthService {
             );
         }
 
+        // 3. 공통 토큰 발급 메서드 호출
+        return issueTokens(user.getId());
+    }
+
+    @Transactional
+    public LoginResult issueTokens(Long userId) {
+
+        // 1. 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 회원입니다.")
+                );
+
+        // 2. Access Token 발급
         String accessToken = jwtTokenProvider.generateAccessToken(user);
 
-        return new LoginResponse(
+        // 3. Refresh Token 발급
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user);
+
+        // 4. Refresh Token 해시 저장
+        user.updateRefreshTokenHash(hashRefreshToken(refreshToken));
+
+        // 5. 로그인 결과 반환
+        LoginResponse loginResponse = new LoginResponse(
                 accessToken,
                 "Bearer",
                 1800
         );
+
+        return new LoginResult(loginResponse, refreshToken);
     }
 
     /* 선택 동의 변경 및 철회 */
@@ -328,5 +358,92 @@ public class AuthService {
                         request.agreed()
                 )
         );
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+            byte[] hash = digest.digest(
+                    refreshToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            return HexFormat.of().formatHex(hash);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(
+                    "SHA-256 해시 알고리즘을 사용할 수 없습니다.", e
+            );
+        }
+    }
+
+    @Transactional
+    public LoginResult refresh(String refreshToken) {
+
+        // 1. Refresh Token 유효성 검사
+        if (refreshToken == null ||
+                !jwtTokenProvider.validateRefreshToken(refreshToken)) {
+            throw new BadCredentialsException("유효하지 않은 Refresh Token입니다.");
+        }
+
+        // 2. 사용자 조회
+        Long userId = jwtTokenProvider.getUserId(refreshToken);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new BadCredentialsException("사용자를 찾을 수 없습니다.")
+                );
+
+        // 3. DB에 저장된 해시값과 비교
+        String savedHash = user.getRefreshTokenHash();
+        String receivedHash = hashRefreshToken(refreshToken);
+
+        if (savedHash == null ||
+                !MessageDigest.isEqual(
+                        savedHash.getBytes(StandardCharsets.UTF_8),
+                        receivedHash.getBytes(StandardCharsets.UTF_8)
+                )) {
+            throw new BadCredentialsException("Refresh Token이 일치하지 않습니다.");
+        }
+
+        // 4. tokenVersion 검증
+        Integer tokenVersion = jwtTokenProvider.getTokenVersion(refreshToken);
+
+        if (tokenVersion == null ||
+                !tokenVersion.equals(user.getTokenVersion())) {
+            throw new BadCredentialsException("무효화된 Refresh Token입니다.");
+        }
+
+        // 5. 새 토큰 발급
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user);
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(user);
+
+        // 6. DB에 새 Refresh Token 해시 저장
+        user.updateRefreshTokenHash(hashRefreshToken(newRefreshToken));
+
+        // 7. 로그인 결과 반환
+        LoginResponse loginResponse = new LoginResponse(
+                newAccessToken,
+                "Bearer",
+                1800
+        );
+
+        return new LoginResult(loginResponse, newRefreshToken);
+    }
+
+    @Transactional
+    public void logout(Long userId) {
+
+        // 1. 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new BadCredentialsException("사용자를 찾을 수 없습니다.")
+                );
+
+        // 2. Refresh Token 무효화
+        user.clearRefreshTokenHash();
+
+        // 3. 기존 Access Token 무효화
+        user.increaseTokenVersion();
     }
 }

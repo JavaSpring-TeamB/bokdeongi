@@ -230,4 +230,8 @@ public class User {
     public void updateRefreshTokenHash(String refreshTokenHash) {
         this.refreshTokenHash = refreshTokenHash;
     }
+
+    public void increaseTokenVersion() { this.tokenVersion++; }
+
+    public void clearRefreshTokenHash() { this.refreshTokenHash = null; }
 }

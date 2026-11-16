@@ -82,11 +82,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleBadCredentials(
             BadCredentialsException e
     ) {
+        boolean isRefreshTokenError =
+                e.getMessage() != null
+                        && e.getMessage().contains("Refresh Token");
+
+        String code = isRefreshTokenError ? "AUTH_004" : "AUTH_002";
+
+        String message = isRefreshTokenError
+                ? "유효하지 않거나 만료된 Refresh Token입니다."
+                : "이메일 또는 비밀번호가 올바르지 않습니다.";
+
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiErrorResponse.of(
-                        "AUTH_002",
-                        "이메일 또는 비밀번호가 올바르지 않습니다."
-                ));
+                .body(ApiErrorResponse.of(code, message));
     }
 }
