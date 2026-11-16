@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko" data-theme="light">
+<html lang="ko">
 
 <head>
   <meta charset="utf-8">
@@ -37,14 +37,14 @@
         <a class="site-nav__link" href="application-status.html">신청 현황</a>
         <a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a>
         <a class="site-nav__link" href="my-page.html">마이페이지</a>
-        <span class="mobile-auth-links"><a href="login.html">로그인</a><a href="signup-account.html">회원가입</a></span>
+        <span class="mobile-auth-links" id="mobile-auth-links"><a href="login.html">로그인</a><a href="signup-account.html">회원가입</a></span>
       </nav>
 
       <div class="header-tools" aria-label="화면 설정">
         <button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기">가-</button>
         <button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기">가+</button>
         <button class="header-tool header-tool--theme" type="button" data-theme-toggle aria-pressed="false">다크 모드</button>
-        <div class="auth-links" aria-label="인증 메뉴">
+        <div class="auth-links" id="desktop-auth-links" aria-label="인증 메뉴">
           <a href="login.html">로그인</a>
           <a class="auth-links__signup" href="signup-account.html">회원가입</a>
         </div>
@@ -61,13 +61,13 @@
         </div>
         <div class="home-quick-links" aria-label="주요 바로가기">
           <a class="quick-link" href="benefit-list.html">
-            <svg class="quick-link__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4M8.5 11l1.6 1.6 3.4-3.5"></path></svg><span>복지 혜택 찾기</span><b aria-hidden="true">›</b>
+            <svg class="quick-link__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4M8.5 11l1.6 1.6 3.4-3.5"></path></svg><span>복지 혜택 찾기</span><b aria-hidden="true">›</b>
           </a>
           <a class="quick-link" href="application-status.html" data-login-required>
-            <svg class="quick-link__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 4.5h6M9 12l2 2 4-4"></path></svg><span>신청 현황 확인</span><b aria-hidden="true">›</b>
+            <svg class="quick-link__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 4.5h6M9 12l2 2 4-4"></path></svg><span>신청 현황 확인</span><b aria-hidden="true">›</b>
           </a>
           <a class="quick-link" href="my-page.html" data-login-required>
-            <svg class="quick-link__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19.5H7a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3h5"></path><circle cx="10" cy="6" r="3"></circle><path d="m15 18 4.8-4.8a1.7 1.7 0 0 0-2.4-2.4L12.6 15.6V18H15z"></path></svg><span>프로필 수정하기</span><b aria-hidden="true">›</b>
+            <svg class="quick-link__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19.5H7a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3h5"></path><circle cx="10" cy="6" r="3"></circle><path d="m15 18 4.8-4.8a1.7 1.7 0 0 0-2.4-2.4L12.6 15.6V18H15z"></path></svg><span>프로필 수정하기</span><b aria-hidden="true">›</b>
           </a>
         </div>
       </div>
@@ -78,29 +78,29 @@
 
       <div class="home-summary-grid">
         <article class="card home-summary-card" aria-labelledby="support-title">
-          <div class="card-heading"><span class="card-heading__icon" aria-hidden="true">▣</span><h2 id="support-title">받을 수 있는 지원금</h2><span class="info-mark" aria-label="지원금 산정 안내">i</span></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5h16v10H4z"></path><path d="M7 7.5V5h10v2.5"></path><path d="M8 12h8"></path><path d="M12 10v4"></path></svg><h2 id="support-title">받을 수 있는 지원금</h2><span class="info-mark" aria-label="지원금 산정 안내">i</span></div>
           <div id="support-summary" class="support-summary" aria-live="polite"></div>
         </article>
 
         <article class="card home-summary-card" aria-labelledby="benefit-title">
-          <div class="card-heading"><span class="card-heading__icon" aria-hidden="true">☘</span><h2 id="benefit-title">맞춤 혜택 요약</h2></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M12 12c-5 0-7-3-7-6 4 0 7 2 7 6Z"></path><path d="M12 16c5 0 7-3 7-6-4 0-7 2-7 6Z"></path></svg><h2 id="benefit-title">맞춤 혜택 요약</h2></div>
           <div id="benefit-summary" class="benefit-summary" aria-live="polite"></div>
         </article>
 
         <article class="card home-summary-card" aria-labelledby="weekly-title">
-          <div class="card-heading card-heading--between"><div class="card-heading__group"><span class="card-heading__icon" aria-hidden="true">▦</span><h2 id="weekly-title">이번 주 혜택 소식</h2></div><time id="weekly-period"></time></div>
+          <div class="card-heading card-heading--between"><div class="card-heading__group"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16M8 14h2M14 14h2M8 17h2"></path></svg><h2 id="weekly-title">이번 주 혜택 소식</h2></div><time id="weekly-period"></time></div>
           <div id="weekly-summary" class="weekly-summary" aria-live="polite"></div>
         </article>
       </div>
 
       <div class="home-detail-grid">
         <article class="card application-card" aria-labelledby="application-title">
-          <div class="card-heading"><span class="card-heading__icon" aria-hidden="true">▤</span><h2 id="application-title">내 신청 현황</h2></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l3 3v15H7z"></path><path d="M14 3v4h4M10 12h4M10 16h4"></path></svg><h2 id="application-title">내 신청 현황</h2></div>
           <div id="application-list" class="application-list" aria-live="polite"></div>
         </article>
 
         <section class="card calendar-card" aria-labelledby="calendar-title">
-          <div class="card-heading"><span class="card-heading__icon" aria-hidden="true">▦</span><h2 id="calendar-title">신청 일정 캘린더</h2></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16M8 14h2M14 14h2M8 17h2M14 17h2"></path></svg><h2 id="calendar-title">신청 일정 캘린더</h2></div>
           <div class="calendar-layout">
             <div class="calendar-widget">
               <div class="calendar-controls">
@@ -117,6 +117,7 @@
             </aside>
           </div>
           <div class="calendar-legend" aria-label="일정 범례"><span><i class="legend-dot legend-dot--start"></i>접수 시작</span><span><i class="legend-dot legend-dot--deadline"></i>신청 마감</span><span><i class="legend-dot legend-dot--result"></i>결과 발표</span></div>
+          <div class="calendar-date-notices" id="calendar-date-notices" aria-live="polite"></div>
         </section>
       </div>
 

@@ -35,25 +35,28 @@ const configs = {
 
 const state = {
     query: '',
-    filters: {
-        status: ['전체'],
-        category: ['전체'],
-        target: ['전체']
-    },
+    filters: { status: ['전체'], category: ['전체'], target: ['전체'] },
     screen: 'INITIAL'
 };
 
+const mockSession = {
+    // 실제 인증 전까지 localhost에서만 명시적으로 켜는 개발용 상태입니다.
+    isLoggedIn: ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        && new URLSearchParams(window.location.search).get('mockLogin') === 'true'
+};
 const $ = (selector) => document.querySelector(selector);
+let searchRequestId = 0;
 
 function toast(message) {
     const element = $('#toast');
-
     element.textContent = message;
     element.hidden = false;
     clearTimeout(toast.id);
-    toast.id = setTimeout(() => {
-        element.hidden = true;
-    }, 3000);
+    toast.id = setTimeout(() => { element.hidden = true; }, 3000);
+}
+
+function normalize(value) {
+    return value.toLocaleLowerCase('ko-KR').trim();
 }
 
 function isAllSelected(group) {
@@ -71,64 +74,58 @@ function updateFilter(group, value, checked) {
         state.filters[group] = checked ? ['전체'] : selections.filter((item) => item !== '전체');
     } else {
         const nextSelections = selections.filter((item) => item !== '전체');
-
-        if (checked) {
-            nextSelections.push(value);
-        } else {
-            state.filters[group] = nextSelections.filter((item) => item !== value);
-        }
-
-        if (checked) {
-            state.filters[group] = [...new Set(nextSelections)];
-        }
+        if (checked) nextSelections.push(value);
+        state.filters[group] = checked ? [...new Set(nextSelections)] : nextSelections.filter((item) => item !== value);
     }
 
-    if (state.filters[group].length === 0) {
-        state.filters[group] = ['전체'];
-    }
+    if (state.filters[group].length === 0) state.filters[group] = ['전체'];
+}
+
+function dateAtMidnight(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const date = new Date(value + 'T00:00:00');
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function deadlineInfo(benefit) {
+    const specialStatus = ['상시', '기관별 상이', '공고 확인 필요', '신청 불필요'].find((status) => benefit.deadline === status || benefit.status === status);
+    if (specialStatus) return { label: specialStatus, tone: 'unknown', filterStatus: benefit.status === '신청 마감' ? '신청 마감' : '신청 가능' };
+
+    const deadline = dateAtMidnight(benefit.deadline);
+    if (!deadline) return { label: benefit.status || '정보 확인 필요', tone: 'unknown', filterStatus: benefit.status || '신청 가능' };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysLeft = Math.round((deadline.getTime() - today.getTime()) / 86400000);
+    if (daysLeft < 0) return { label: '신청 마감', tone: 'closed', filterStatus: '신청 마감' };
+    if (benefit.status === '신청 예정') return { label: '신청 예정', tone: 'upcoming', filterStatus: '신청 예정' };
+    if (daysLeft === 0) return { label: 'D-Day', tone: 'closing', filterStatus: '신청 가능' };
+    if (daysLeft <= 3) return { label: 'D-' + daysLeft, tone: 'closing', filterStatus: '신청 가능' };
+    if (daysLeft <= 7) return { label: '마감 임박', tone: 'urgent', filterStatus: '신청 가능' };
+    return { label: '신청 가능', tone: 'available', filterStatus: '신청 가능' };
 }
 
 function matchesGroup(benefit, group) {
     const selections = state.filters[group];
-
-    if (selections.includes('전체')) {
-        return true;
-    }
-
-    if (group === 'status') {
-        return selections.includes(benefit.status);
-    }
-
-    if (group === 'category') {
-        return selections.includes(benefit.category);
-    }
-
+    if (selections.includes('전체')) return true;
+    if (group === 'status') return selections.includes(deadlineInfo(benefit).filterStatus);
+    if (group === 'category') return selections.includes(benefit.category);
     return selections.some((target) => benefit.target.includes(target));
 }
 
 function filtered() {
-    const query = state.query.toLocaleLowerCase('ko-KR');
-
+    const query = normalize(state.query);
     return benefits.filter((benefit) => {
-        const searchableText = [
-            benefit.title,
-            benefit.organization,
-            benefit.description,
-            ...benefit.hashtags
-        ].join(' ').toLocaleLowerCase('ko-KR');
-
-        return (
-            (!query || searchableText.includes(query)) &&
-            matchesGroup(benefit, 'status') &&
-            matchesGroup(benefit, 'category') &&
-            matchesGroup(benefit, 'target')
-        );
+        const searchableText = [benefit.title, benefit.organization, benefit.description, ...benefit.hashtags].map(normalize).join(' ');
+        return (!query || searchableText.includes(query))
+            && matchesGroup(benefit, 'status')
+            && matchesGroup(benefit, 'category')
+            && matchesGroup(benefit, 'target');
     });
 }
 
 function activeFilters() {
     const selected = Object.values(state.filters).flat().filter((value) => value !== '전체');
-
     return [state.query && '“' + state.query + '”', ...selected].filter(Boolean).join(' · ');
 }
 
@@ -140,160 +137,128 @@ function renderFilters() {
     const groups = Object.entries(configs).map(([group, items]) => {
         const options = items.map((item) => {
             const checked = state.filters[group].includes(item) ? ' checked' : '';
-
-            return [
-                '<label class="filter-option">',
-                '<input type="checkbox" name="' + group + '" value="' + item + '"' + checked + '>',
-                '<span>' + item + '</span>',
-                '</label>'
-            ].join('');
+            return '<label class="filter-option"><input type="checkbox" name="' + group + '" value="' + item + '"' + checked + '><span>' + item + '</span></label>';
         }).join('');
-
         return '<section class="filter-group"><h3>' + groupTitle(group) + '</h3><div class="filter-options">' + options + '</div></section>';
     }).join('');
-
     $('#filter-groups').innerHTML = groups;
+}
+
+function suggestedKeywords() {
+    return '<div class="suggested-keywords"><button type="button" data-keyword="청년">#청년</button><button type="button" data-keyword="주거지원">#주거지원</button><button type="button" data-keyword="취업지원">#취업지원</button></div>';
 }
 
 function empty(initial) {
     const title = initial ? '아직 검색 결과가 없어요.' : '검색 결과가 나오지 않아요.';
-    const description = initial
-        ? '검색어를 입력하거나, 원하는 조건을 선택해 복지 혜택을 찾아보세요.'
-        : '다른 검색어나 조건으로 다시 찾아보세요.';
-    const actions = initial
-        ? ''
-        : [
-            '<button id="empty-reset" class="btn btn-secondary" type="button">필터 초기화</button>',
-            '<div class="suggested-keywords">',
-            '<button type="button" data-keyword="청년">#청년</button>',
-            '<button type="button" data-keyword="주거지원">#주거지원</button>',
-            '<button type="button" data-keyword="취업지원">#취업지원</button>',
-            '</div>'
-        ].join('');
+    const description = initial ? '검색어를 입력하거나, 원하는 조건을 선택해 복지 혜택을 찾아보세요.' : '다른 검색어나 조건으로 다시 찾아보세요.';
+    const actions = initial ? '' : '<button id="empty-reset" class="btn btn-secondary" type="button">필터 초기화</button>' + suggestedKeywords();
     const imageAlt = initial ? '혜택 검색을 안내하는' : '검색 결과 없음을 안내하는';
-
-    return [
-        '<section class="state-panel"><div class="state-panel__inner">',
-        '<img src="img/benefit_list_logo.png" alt="' + imageAlt + ' 복덩이 캐릭터">',
-        '<h2>' + title + '</h2>',
-        '<p>' + description + '</p>',
-        actions,
-        '</div></section>'
-    ].join('');
+    return '<section class="state-panel"><div class="state-panel__inner"><img src="img/benefit_list_logo.png" alt="' + imageAlt + ' 복덩이 캐릭터"><h2>' + title + '</h2><p>' + description + '</p>' + actions + '</div></section>';
 }
 
-function documentIcon() {
-    return [
-        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">',
-        '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"></path>',
-        '<path d="M14 3v6h6"></path>',
-        '<path d="M8 13h8"></path>',
-        '<path d="M8 17h6"></path>',
-        '</svg>'
-    ].join('');
+function loading() {
+    return '<section class="state-panel state-panel--loading" aria-label="검색 결과 불러오는 중"><div class="state-panel__inner"><span class="loading-indicator" aria-hidden="true"></span><h2>검색 결과를 불러오는 중이에요.</h2><p>입력한 검색어와 조건을 확인하고 있어요.</p></div></section>';
+}
+
+function failure() {
+    return '<section class="state-panel state-panel--error"><div class="state-panel__inner"><h2>검색 결과를 불러오지 못했어요.</h2><p>검색어와 선택한 조건은 그대로 유지됩니다. 잠시 후 다시 시도해주세요.</p><button class="btn" type="button" data-retry-search>다시 시도</button></div></section>';
+}
+
+function bookmarkIcon(isSaved) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-6-4-6 4Z" fill="' + (isSaved ? 'currentColor' : 'none') + '"></path></svg>';
 }
 
 function card(benefit) {
-    const tone = benefit.status === '신청 예정'
-        ? ' status-badge--upcoming'
-        : benefit.status === '신청 마감'
-            ? ' status-badge--closed'
-            : '';
-    const targets = benefit.target.map((target) => '<span class="benefit-tag">' + target + '</span>').join('');
-    const hashtags = benefit.hashtags.map((hashtag) => '<button class="hash-tag" type="button" data-hashtag="' + hashtag + '">#' + hashtag + '</button>').join('');
+    const status = deadlineInfo(benefit);
+    const hashtags = [...new Set(benefit.hashtags)].map((hashtag) => '<button class="hash-tag" type="button" data-hashtag="' + hashtag + '">#' + hashtag + '</button>').join('');
     const savedClass = benefit.bookmarked ? ' is-saved' : '';
     const savedLabel = benefit.bookmarked ? '해제' : '저장';
     const deadline = benefit.deadline === '상시' ? '상시 신청' : '마감 ' + benefit.deadline;
+    return '<article class="benefit-card card"><div class="benefit-card__top"><span class="status-badge status-badge--' + status.tone + '">' + status.label + '</span><button class="bookmark-button' + savedClass + '" type="button" data-bookmark="' + benefit.id + '" aria-label="' + benefit.title + ' 관심 ' + savedLabel + '" aria-pressed="' + benefit.bookmarked + '">' + bookmarkIcon(benefit.bookmarked) + '</button></div><div class="benefit-card__body"><h3>' + benefit.title + '</h3><p class="benefit-card__description">' + benefit.organization + ' · ' + benefit.description + '</p><div class="benefit-card__meta"><strong>' + benefit.amount + '</strong><span>' + deadline + '</span></div></div><div class="benefit-card__footer"><div class="benefit-card__hashtags">' + hashtags + '</div><button class="btn benefit-card__detail" type="button" data-detail="' + benefit.id + '">상세 보기</button></div></article>';
+}
 
-    return [
-        '<article class="benefit-card card">',
-        '<span class="benefit-card__icon" aria-hidden="true">' + documentIcon() + '</span>',
-        '<div>',
-        '<div class="benefit-card__badges"><span class="status-badge' + tone + '">' + benefit.status + '</span></div>',
-        '<h3>' + benefit.title + '</h3>',
-        '<p class="benefit-card__description">' + benefit.organization + ' · ' + benefit.description + '</p>',
-        '<div class="benefit-card__meta"><strong>' + benefit.amount + '</strong><span aria-hidden="true">|</span><span>' + deadline + '</span></div>',
-        '<div class="benefit-card__tags"><span class="benefit-tag">' + benefit.category + '</span>' + targets + hashtags + '</div>',
-        '</div>',
-        '<div class="benefit-card__actions">',
-        '<button class="bookmark-button' + savedClass + '" type="button" data-bookmark="' + benefit.id + '" aria-label="' + benefit.title + ' 관심 ' + savedLabel + '" aria-pressed="' + benefit.bookmarked + '">🔖</button>',
-        '<button class="btn" type="button" data-detail="' + benefit.id + '">상세 보기</button>',
-        '</div>',
-        '</article>'
-    ].join('');
+function relevanceScore(benefit) {
+    const query = normalize(state.query);
+    if (!query) return 0;
+    if (normalize(benefit.title).includes(query)) return 4;
+    if (benefit.hashtags.some((hashtag) => normalize(hashtag).includes(query))) return 3;
+    if (normalize(benefit.organization).includes(query)) return 2;
+    return normalize(benefit.description).includes(query) ? 1 : 0;
 }
 
 function sortBenefits(list) {
     const sort = $('#sort-order').value;
-
     return list.sort((first, second) => {
-        if (sort === 'amount') {
-            return second.amountValue - first.amountValue;
-        }
-
-        if (sort === 'easy') {
-            return first.ease - second.ease;
-        }
-
+        if (sort === 'amount') return second.amountValue - first.amountValue;
+        if (sort === 'easy') return first.ease - second.ease;
         if (sort === 'deadline') {
-            if (first.deadline === '상시') {
-                return 1;
-            }
-
-            if (second.deadline === '상시') {
-                return -1;
-            }
-
+            if (first.deadline === '상시') return 1;
+            if (second.deadline === '상시') return -1;
             return first.deadline.localeCompare(second.deadline);
         }
-
-        return first.id - second.id;
+        return relevanceScore(second) - relevanceScore(first);
     });
 }
 
 function render() {
     const summary = $('#result-summary');
     const area = $('#result-area');
-
+    area.setAttribute('aria-busy', state.screen === 'LOADING');
     if (state.screen === 'INITIAL') {
         summary.textContent = '검색어 또는 조건을 선택해 혜택을 찾아보세요.';
         area.innerHTML = empty(true);
         return;
     }
-
+    if (state.screen === 'LOADING') {
+        summary.textContent = '검색 결과를 불러오는 중입니다.';
+        area.innerHTML = loading();
+        return;
+    }
+    if (state.screen === 'ERROR') {
+        summary.textContent = '검색 결과를 불러오지 못했습니다.';
+        area.innerHTML = failure();
+        return;
+    }
     const list = sortBenefits(filtered());
     const active = activeFilters();
-
     summary.textContent = (active ? active + ' · ' : '') + '검색 결과 ' + list.length + '건';
     area.innerHTML = list.length ? '<div class="benefit-list">' + list.map(card).join('') + '</div>' : empty(false);
+}
+
+function completeSearch(requestId) {
+    if (requestId !== searchRequestId) return;
+    try {
+        state.screen = 'RESULT';
+        render();
+    } catch (error) {
+        state.screen = 'ERROR';
+        render();
+        console.error('혜택 검색 결과를 표시하지 못했습니다.', error);
+    }
 }
 
 function runSearch(forceResult = false) {
     const query = $('#benefit-search-input').value.trim();
     const invalid = query.length === 1 || /^[^\p{L}\p{N}]+$/u.test(query);
-
     if (!query && !hasActiveFilters() && !forceResult) {
         $('#search-message').textContent = '검색어를 입력하거나 원하는 조건을 선택해주세요.';
         return;
     }
-
     if (query && invalid) {
         $('#search-message').textContent = '두 글자 이상의 검색어를 입력해주세요.';
         return;
     }
-
     $('#search-message').textContent = '';
     state.query = query;
-    state.screen = 'RESULT';
+    state.screen = 'LOADING';
+    const requestId = ++searchRequestId;
     render();
+    window.requestAnimationFrame(() => completeSearch(requestId));
 }
 
 function reset() {
-    state.filters = {
-        status: ['전체'],
-        category: ['전체'],
-        target: ['전체']
-    };
+    searchRequestId += 1;
+    state.filters = { status: ['전체'], category: ['전체'], target: ['전체'] };
     state.query = '';
     state.screen = 'INITIAL';
     $('#benefit-search-input').value = '';
@@ -302,10 +267,17 @@ function reset() {
     render();
 }
 
-function setup() {
-    let theme = localStorage.getItem('bokdeongi-theme') || 'light';
-    const themeButton = $('[data-theme-toggle]');
+function applyKeywordFromUrl() {
+    const keyword = new URLSearchParams(window.location.search).get('keyword');
+    if (keyword === null) return;
+    $('#benefit-search-input').value = keyword.trim();
+    runSearch();
+}
 
+function setup() {
+    const savedTheme = localStorage.getItem('bokdeongi-theme');
+    let theme = savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const themeButton = $('[data-theme-toggle]');
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.setProperty('--font-scale', localStorage.getItem('bokdeongi-font-scale') || 1);
     themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
@@ -313,76 +285,68 @@ function setup() {
     renderFilters();
     render();
 
-    $('#benefit-search-form').addEventListener('submit', (event) => {
-        event.preventDefault();
-        runSearch();
-    });
-
+    $('#benefit-search-form').addEventListener('submit', (event) => { event.preventDefault(); runSearch(); });
     document.addEventListener('change', (event) => {
         if (event.target.matches('#filter-groups input')) {
             updateFilter(event.target.name, event.target.value, event.target.checked);
             renderFilters();
             runSearch(true);
         }
-
-        if (event.target.id === 'sort-order' && state.screen !== 'INITIAL') {
-            render();
-        }
+        if (event.target.id === 'sort-order' && state.screen !== 'INITIAL') render();
     });
-
     document.addEventListener('click', (event) => {
         let target = event.target.closest('[data-keyword]');
-
         if (target) {
             $('#benefit-search-input').value = target.dataset.keyword;
             runSearch();
             return;
         }
-
         if (event.target.closest('#filter-reset, #empty-reset')) {
             reset();
             return;
         }
-
         target = event.target.closest('[data-hashtag]');
         if (target) {
             $('#benefit-search-input').value = target.dataset.hashtag;
             runSearch();
             return;
         }
-
+        if (event.target.closest('[data-retry-search]')) {
+            runSearch(true);
+            return;
+        }
         target = event.target.closest('[data-bookmark]');
         if (target) {
             const benefit = benefits.find((item) => item.id === Number(target.dataset.bookmark));
-
+            if (!benefit) return;
+            if (!mockSession.isLoggedIn) {
+                toast('관심 혜택은 로그인 후 저장할 수 있어요. 로그인 페이지로 이동합니다.');
+                window.setTimeout(() => { window.location.href = 'login.html'; }, 450);
+                return;
+            }
             benefit.bookmarked = !benefit.bookmarked;
-            toast(benefit.bookmarked ? '관심 혜택은 로그인 후 저장할 수 있어요.' : '관심 저장을 해제했어요.');
+            toast(benefit.bookmarked ? '개발용 관심 저장 상태로 표시했어요.' : '개발용 관심 저장을 해제했어요.');
             render();
             return;
         }
-
         if (event.target.closest('[data-detail]')) {
             toast('상세 페이지는 현재 준비 중입니다.');
             return;
         }
-
         if (event.target.closest('[data-unavailable-page]')) {
             event.preventDefault();
             toast('이 페이지는 현재 준비 중입니다.');
             return;
         }
-
         target = event.target.closest('[data-font-size]');
         if (target) {
             const currentScale = Number(localStorage.getItem('bokdeongi-font-scale') || 1);
             const adjustment = target.dataset.fontSize === 'increase' ? 0.1 : -0.1;
             const nextScale = Math.min(1.2, Math.max(0.9, Number((currentScale + adjustment).toFixed(2))));
-
             localStorage.setItem('bokdeongi-font-scale', nextScale);
             document.documentElement.style.setProperty('--font-scale', nextScale);
             return;
         }
-
         if (event.target.closest('[data-theme-toggle]')) {
             theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
             document.documentElement.dataset.theme = theme;
@@ -391,17 +355,16 @@ function setup() {
             themeButton.setAttribute('aria-pressed', theme === 'dark');
             return;
         }
-
         target = event.target.closest('.menu-toggle');
         if (target) {
             const navigation = $('#site-navigation');
             const open = !navigation.classList.contains('is-open');
-
             navigation.classList.toggle('is-open', open);
             target.setAttribute('aria-expanded', open);
             target.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
         }
     });
+    applyKeywordFromUrl();
 }
 
 document.addEventListener('DOMContentLoaded', setup);

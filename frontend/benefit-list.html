@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko" data-theme="light">
+<html lang="ko">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -55,6 +55,7 @@
             <div class="benefit-search-hero__search">
                 <form id="benefit-search-form" class="search-form" novalidate>
                     <label class="sr-only" for="benefit-search-input">복지 혜택 검색어</label>
+                    <span class="search-form__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg></span>
                     <input id="benefit-search-input" type="search" placeholder="어떤 복지 혜택을 찾고 계신가요?" autocomplete="off">
                     <button class="btn search-form__button" type="submit">검색하기</button>
                 </form>
@@ -78,7 +79,7 @@
                 </div>
                 <div id="filter-groups"></div>
             </aside>
-            <section class="benefit-results" aria-live="polite">
+            <section class="benefit-results" aria-live="polite" aria-atomic="true">
                 <div class="result-controls">
                     <p id="result-summary">검색어 또는 조건을 선택해 혜택을 찾아보세요.</p>
                     <label class="sort-select" for="sort-order">

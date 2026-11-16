@@ -9,6 +9,7 @@
   --color-primary: #176b45;
   --color-primary-hover: #115536;
   --color-primary-light: #eaf6ee;
+  --color-on-primary: #ffffff;
   --color-mint-light: #f3faf5;
   --color-white: #ffffff;
   --color-text: #222222;
@@ -70,8 +71,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 .site-brand__text { display: grid; gap: 2px; }
 .site-brand__text strong { font-size: 1.25rem; }
 .site-brand__text small { color: var(--color-text-secondary); font-size: var(--font-size-caption); white-space: nowrap; }
-.site-nav { display: flex; flex: 1; justify-content: center; height: 100%; gap: clamp(16px, 2.25vw, 36px); }
-.site-nav__link { display: inline-flex; position: relative; align-items: center; color: var(--color-text); font-size: .875rem; font-weight: 500; white-space: nowrap; }
+.site-nav { display: flex; flex: 1; justify-content: center; height: 100%; gap: clamp(10px, 1.25vw, 20px); }
+.site-nav__link { display: inline-flex; position: relative; align-items: center; color: var(--color-text); font-size: 1.25rem; font-weight: 650; white-space: nowrap; }
 .site-nav__link:hover, .site-nav__link.is-active { color: var(--color-primary); }
 .site-nav__link.is-active::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--color-primary); content: ""; }
 .header-tools { display: flex; align-items: center; gap: var(--space-xs); }
@@ -82,6 +83,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 .auth-links a:hover { color: var(--color-primary); }
 .auth-links__signup { padding: 5px 8px; border-radius: var(--radius-sm); background: var(--color-primary); color: #fff; }
 .auth-links__signup:hover { background: var(--color-primary-hover); color: #fff !important; }
+.auth-links__user { display: inline-flex; align-items: center; gap: 3px; color: var(--color-text); }
+.auth-links__user:hover { color: var(--color-primary); }
 .mobile-auth-links { display: none; }
 .menu-toggle { display: none; }
 
@@ -94,6 +97,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 @media (max-width: 1120px) {
   .site-brand { min-width: auto; }
   .site-brand__text small { display: none; }
+  .site-nav { gap: 12px; }
+  .site-nav__link { font-size: 1rem; }
   .header-tools { gap: 2px; }
   .header-tool--theme { display: none; }
 }
