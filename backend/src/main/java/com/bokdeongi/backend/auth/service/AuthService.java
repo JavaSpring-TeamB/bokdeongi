@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.bokdeongi.backend.auth.dto.request.LoginRequest;
 import com.bokdeongi.backend.auth.dto.response.LoginResponse;
 import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
-import org.springframework.security.authentication.BadCredentialsException;
 
 import java.util.HashSet;
 import java.util.Set;
