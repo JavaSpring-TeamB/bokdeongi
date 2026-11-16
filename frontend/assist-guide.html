@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>복덩이 | AI 신청 도우미 - 신청 안내</title>
+    <link rel="stylesheet" href="./css/common.css">
+    <link rel="stylesheet" href="./css/assist-eligibility.css">
+    <link rel="stylesheet" href="./css/assist-guide.css">
+    <script src="./js/assist-guide.js" defer></script>
+</head>
+<body class="assist-guide-page">
+    <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+
+    <header class="site-header">
+        <div class="container site-header__inner">
+            <a class="site-brand" href="./index.html" aria-label="복덩이 홈">
+                <span class="site-brand__mark" aria-hidden="true">☘</span>
+                <span class="site-brand__text"><strong>복덩이</strong></span>
+            </a>
+            <button class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <nav class="site-nav" id="site-navigation" aria-label="주요 메뉴">
+                <a class="site-nav__link" href="./index.html">홈</a>
+                <a class="site-nav__link is-active" href="benefit-list.html">복지 혜택 찾기</a>
+                <a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a>
+                <a class="site-nav__link" href="application-status.html">신청 현황</a>
+                <a class="site-nav__link" href="./easy-translator.html">쉬운 말 번역기</a>
+                <a class="site-nav__link" href="./my-page.html">마이페이지</a>
+            </nav>
+            <div class="header-tools">
+                <button class="header-tool" type="button" data-font-size="decrease">가-</button>
+                <button class="header-tool" type="button" data-font-size="increase">가+</button>
+                <button class="header-tool header-tool--theme" type="button" data-theme-toggle>다크 모드</button>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="container assist-page">
+        <p class="assist-breadcrumb">홈 <span aria-hidden="true">›</span> AI 신청 도우미 <span aria-hidden="true">›</span> 청년 월세 지원</p>
+
+        <section class="assist-banner guide-banner" aria-labelledby="guide-page-title">
+            <div class="guide-banner__copy">
+                <h1 id="guide-page-title">AI 신청 도우미 - 신청 안내</h1>
+                <p>이제 신청만 하면 돼요. 원하는 방법(온라인 또는 방문)으로 신청을 완료해주세요.</p>
+            </div>
+            <div class="guide-banner__character" role="img" aria-label="노트북으로 안내하는 복덩이 캐릭터"></div>
+        </section>
+
+        <div class="assist-steps guide-steps" aria-label="신청 도우미 진행 단계">
+            <div class="assist-step is-complete" data-step="✓">자격 확인</div>
+            <div class="assist-step is-complete" data-step="✓">서류 준비</div>
+            <div class="assist-step is-complete" data-step="✓">서류 검토</div>
+            <div class="assist-step is-current" data-step="4">신청 안내</div>
+        </div>
+
+        <div class="guide-layout">
+            <section class="guide-card guide-summary-card" aria-labelledby="guide-summary-title">
+                <h2 id="guide-summary-title">신청 준비 요약</h2>
+
+                <article class="guide-benefit-summary">
+                    <span class="guide-benefit-summary__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                    </span>
+                    <div>
+                        <h3 data-benefit-name>청년 월세 지원</h3>
+                        <p data-benefit-description>청년의 주거비 부담을 덜어주는 월세 지원 사업</p>
+                    </div>
+                    <span class="status-badge success" data-eligibility-status>신청 가능</span>
+                </article>
+
+                <dl class="guide-summary-list">
+                    <div>
+                        <dt><span aria-hidden="true">▧</span> 서류 검토 결과</dt>
+                        <dd data-review-status></dd>
+                    </div>
+                    <div>
+                        <dt><span aria-hidden="true">□</span> 신청 기간</dt>
+                        <dd data-application-period></dd>
+                    </div>
+                    <div>
+                        <dt><span aria-hidden="true">▤</span> 제출 방식</dt>
+                        <dd data-application-method></dd>
+                    </div>
+                </dl>
+
+                <section class="guide-documents" aria-labelledby="guide-documents-title">
+                    <h3 id="guide-documents-title">검토 완료한 서류 <span data-reviewed-document-count></span></h3>
+                    <ul data-reviewed-documents></ul>
+                </section>
+                <p class="guide-data-note">서류 검토 결과는 이전 단계의 결과를 받아 표시하며, 현재는 화면 설계 예시 데이터를 사용합니다.</p>
+            </section>
+
+            <section class="guide-card guide-method-card" aria-labelledby="guide-method-title">
+                <h2 id="guide-method-title">신청 방법 안내</h2>
+                <p class="guide-method-card__description">원하는 방법을 선택해 신청할 수 있어요.</p>
+
+                <div class="guide-method-tabs" role="tablist" aria-label="신청 방법 선택">
+                    <button id="online-tab" class="guide-method-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="online-panel" data-guide-tab="online">온라인 신청</button>
+                    <button id="visit-tab" class="guide-method-tab" type="button" role="tab" aria-selected="false" aria-controls="visit-panel" data-guide-tab="visit">방문 신청</button>
+                </div>
+
+                <section id="online-panel" class="guide-method-panel" role="tabpanel" aria-labelledby="online-tab">
+                    <h3>온라인 신청 방법</h3>
+                    <ol class="guide-process" data-online-process></ol>
+                    <button class="guide-official-link" type="button" data-official-apply aria-describedby="official-apply-help" disabled>
+                        정부24에서 신청하기 <span aria-hidden="true">↗</span>
+                    </button>
+                    <p id="official-apply-help" class="guide-link-help" data-official-apply-help>공식 접수처는 공고에서 확인해 주세요.</p>
+                    <aside class="guide-notice" aria-labelledby="guide-notice-title">
+                        <h3 id="guide-notice-title"><span aria-hidden="true">i</span> 신청 시 유의사항</h3>
+                        <ul>
+                            <li>신청은 1인 1회만 가능합니다.</li>
+                            <li>온라인 신청 시, 검토가 완료된 서류 파일을 첨부해야 해요.</li>
+                            <li>신청 완료 후에는 수정이 제한될 수 있으니 입력 내용을 꼭 확인해 주세요.</li>
+                        </ul>
+                    </aside>
+                </section>
+
+                <section id="visit-panel" class="guide-method-panel" role="tabpanel" aria-labelledby="visit-tab" hidden>
+                    <h3>방문 신청 안내</h3>
+                    <ol class="guide-visit-steps">
+                        <li>공식 공고에서 방문 접수 가능 여부를 확인해 주세요.</li>
+                        <li>검토 완료한 서류를 지참해 접수기관에 제출해 주세요.</li>
+                        <li>접수 확인증을 받아 보관해 주세요.</li>
+                    </ol>
+                    <dl class="guide-visit-info">
+                        <div><dt>접수기관</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
+                        <div><dt>주소 또는 위치</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
+                        <div><dt>운영시간</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
+                        <div><dt>문의처</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
+                        <div><dt>준비 서류</dt><dd data-visit-documents>검토 완료한 서류를 지참해 주세요.</dd></div>
+                    </dl>
+                    <p class="guide-visit-help">접수기관과 운영시간은 혜택별 공식 공고가 연동되면 실제 정보로 표시됩니다.</p>
+                </section>
+            </section>
+        </div>
+
+        <div class="assist-actions guide-actions">
+            <a class="btn btn-secondary" data-previous-step href="assist-review.html">이전 단계</a>
+            <button class="btn" type="button" data-application-complete>신청했습니다 <span aria-hidden="true">✓</span></button>
+        </div>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

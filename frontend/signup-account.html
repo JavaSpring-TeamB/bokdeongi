@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>복덩이 | 회원가입</title>
+    <meta name="description" content="복덩이 회원가입을 위한 계정 정보를 입력합니다.">
+    <link rel="stylesheet" href="./css/common.css">
+    <link rel="stylesheet" href="./css/signup-account.css">
+    <script src="./js/signup-account.js" defer></script>
+</head>
+<body class="signup-account-page">
+    <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+
+    <header class="site-header">
+        <div class="container site-header__inner">
+        <a class="site-brand" href="./index.html" aria-label="복덩이 홈"><span class="site-brand__mark" aria-hidden="true">☘</span><span class="site-brand__text"><strong>복덩이</strong></span></a>
+            <button class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation"><span></span><span></span><span></span></button>
+            <nav class="site-nav" id="site-navigation" aria-label="주요 메뉴">
+            <a class="site-nav__link" href="./index.html">홈</a>
+                <a class="site-nav__link" href="benefit-list.html">복지 혜택 찾기</a>
+                <a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a>
+                <a class="site-nav__link" href="application-status.html">신청 현황</a>
+                <a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a>
+                <a class="site-nav__link" href="my-page.html">마이페이지</a>
+                <span class="mobile-auth-links"><a href="login.html" data-unavailable-page>로그인</a><a href="signup-account.html" aria-current="page">회원가입</a></span>
+            </nav>
+            <div class="header-tools" aria-label="화면 설정">
+                <button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기">가-</button>
+                <button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기">가+</button>
+                <button class="header-tool header-tool--theme" type="button" data-theme-toggle aria-pressed="false">다크 모드</button>
+                <div class="auth-links" aria-label="인증 메뉴"><a href="login.html" data-unavailable-page>로그인</a><a class="auth-links__signup" href="signup-account.html" aria-current="page">회원가입</a></div>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="container signup-account">
+        <div class="signup-account__shell">
+            <section class="signup-account__intro" aria-labelledby="signup-page-title">
+                <p class="signup-account__breadcrumb">홈 <span aria-hidden="true">›</span> 회원가입</p>
+                <h1 id="signup-page-title">회원가입</h1>
+                <p class="signup-account__lead">복덩이와 함께 나에게 맞는<br>복지 혜택을 시작해보세요!</p>
+                <div class="signup-account__benefits">
+                    <article class="signup-account__benefit"><span aria-hidden="true">⌕</span><div><h2>나에게 맞는 복지 혜택 추천</h2><p>입력한 정보를 바탕으로 적합한 복지를 추천해요.</p></div></article>
+                    <article class="signup-account__benefit"><span aria-hidden="true">▤</span><div><h2>신청은 더 쉽게</h2><p>필요한 서류와 절차를 단계별로 안내해요.</p></div></article>
+                    <article class="signup-account__benefit"><span aria-hidden="true">♧</span><div><h2>신청 일정도 놓치지 않게</h2><p>중요한 마감일을 확인하고 관리해요.</p></div></article>
+                </div>
+            </section>
+
+            <section class="signup-account__card card" aria-labelledby="account-form-title">
+                <ol class="signup-steps" aria-label="회원가입 진행 단계">
+                    <li class="signup-step is-current" aria-current="step"><span>1</span><strong>계정 정보</strong></li>
+                    <li class="signup-step"><span>2</span><strong>약관 동의</strong></li>
+                    <li class="signup-step"><span>3</span><strong>프로필 입력</strong></li>
+                    <li class="signup-step"><span>4</span><strong>가입 완료</strong></li>
+                </ol>
+
+                <div class="signup-account__form-heading">
+                    <div><h2 id="account-form-title"><span aria-hidden="true">☘</span> 계정 정보 입력</h2><p>서비스 이용을 위한 계정 정보를 입력해주세요.</p></div>
+                    <p class="signup-account__required-note"><b aria-hidden="true">*</b> 필수 입력 항목입니다.</p>
+                </div>
+
+                <form id="signup-account-form" novalidate>
+                    <div class="signup-form-row">
+                        <label for="signup-email">이메일 <b aria-hidden="true">*</b></label>
+                        <div class="signup-form-control"><div class="signup-form-control__inline"><input id="signup-email" name="email" type="email" autocomplete="email" placeholder="example@bokdeongi.kr" aria-describedby="email-help email-message"><button class="btn btn-secondary signup-check-button" type="button" data-email-check>중복 확인</button></div><p id="email-help" class="signup-form-help">로그인에 사용할 이메일 주소예요.</p><p id="email-message" class="signup-form-message" aria-live="polite"></p></div>
+                    </div>
+                    <div class="signup-form-row">
+                        <label for="signup-password">비밀번호 <b aria-hidden="true">*</b></label>
+                        <div class="signup-form-control"><div class="signup-password-field"><input id="signup-password" name="password" type="password" autocomplete="new-password" placeholder="비밀번호를 입력하세요." aria-describedby="password-help password-message"><button class="signup-password-toggle" type="button" data-password-toggle="signup-password" aria-label="비밀번호 표시" aria-pressed="false">◉</button></div><p id="password-help" class="signup-form-help">8~20자의 영문, 숫자, 특수문자를 모두 포함해주세요.</p><p id="password-message" class="signup-form-message" aria-live="polite"></p></div>
+                    </div>
+                    <div class="signup-form-row">
+                        <label for="signup-password-confirm">비밀번호 확인 <b aria-hidden="true">*</b></label>
+                        <div class="signup-form-control"><div class="signup-password-field"><input id="signup-password-confirm" name="passwordConfirm" type="password" autocomplete="new-password" placeholder="비밀번호를 다시 입력하세요." aria-describedby="password-confirm-help password-confirm-message"><button class="signup-password-toggle" type="button" data-password-toggle="signup-password-confirm" aria-label="비밀번호 확인 표시" aria-pressed="false">◉</button></div><p id="password-confirm-help" class="signup-form-help">입력한 비밀번호와 동일하게 입력해주세요.</p><p id="password-confirm-message" class="signup-form-message" aria-live="polite"></p></div>
+                    </div>
+                    <div class="signup-form-row">
+                        <label for="signup-name">이름 <b aria-hidden="true">*</b></label>
+                        <div class="signup-form-control"><input id="signup-name" name="name" type="text" autocomplete="name" placeholder="이름을 입력하세요." aria-describedby="name-message"><p id="name-message" class="signup-form-message" aria-live="polite"></p></div>
+                    </div>
+                    <div class="signup-form-row">
+                        <label for="signup-phone">연락처 <small>선택</small></label>
+                        <div class="signup-form-control"><input id="signup-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="010-1234-5678" aria-describedby="phone-help phone-message"><p id="phone-help" class="signup-form-help">연락처는 선택 항목이며, 입력하지 않아도 회원가입할 수 있습니다.</p><p id="phone-message" class="signup-form-message" aria-live="polite"></p></div>
+                    </div>
+                    <button class="btn signup-account__submit" type="submit">다음 단계로 <span aria-hidden="true">›</span></button>
+                </form>
+            </section>
+        </div>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

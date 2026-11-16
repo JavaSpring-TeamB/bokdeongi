@@ -1,0 +1,485 @@
+.assist-guide-page .assist-page {
+    padding-bottom: var(--space-xxl);
+}
+
+.assist-guide-page .guide-banner {
+    position: relative;
+    display: flex;
+    min-height: 144px;
+    align-items: center;
+    overflow: hidden;
+    padding-right: 190px;
+}
+
+.guide-banner::before {
+    position: absolute;
+    top: 28px;
+    bottom: 28px;
+    left: 32px;
+    width: 4px;
+    border-radius: 999px;
+    background: var(--color-primary);
+    content: "";
+}
+
+.guide-banner__copy {
+    position: relative;
+    z-index: 1;
+    padding-left: 12px;
+}
+
+.assist-guide-page .guide-banner h1 {
+    font-size: var(--font-size-section-title);
+}
+
+.guide-banner__character {
+    position: absolute;
+    right: 24px;
+    bottom: 0;
+    width: 156px;
+    height: 128px;
+    background-image: url("../img/bokdeongi.png");
+    background-repeat: no-repeat;
+    background-position: -198px -39px;
+    background-size: 810px auto;
+}
+
+.assist-guide-page .guide-steps {
+    max-width: 760px;
+    margin: var(--space-md) auto var(--space-xl);
+}
+
+.assist-guide-page .guide-steps .assist-step {
+    position: relative;
+    z-index: 0;
+    min-width: 0;
+    flex: 1;
+}
+
+.assist-guide-page .guide-steps .assist-step:not(:last-child)::after {
+    z-index: -1;
+    top: 0;
+    left: 50%;
+    width: 100%;
+    margin: 16px 0 0;
+}
+
+.assist-guide-page .guide-steps .assist-step.is-complete:not(:last-child)::after {
+    background: var(--color-primary);
+}
+
+.assist-guide-page .guide-steps .assist-step.is-current::before {
+    border-color: var(--color-primary);
+    background: var(--color-white);
+    color: var(--color-primary);
+}
+
+.guide-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-md);
+    max-width: 1040px;
+    margin: 0 auto;
+}
+
+.guide-card {
+    min-width: 0;
+    padding: var(--space-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-white);
+}
+
+.guide-card > h2 {
+    margin: 0;
+    font-size: var(--font-size-card-title);
+}
+
+.guide-benefit-summary {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--color-mint-light);
+}
+
+.guide-benefit-summary__icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: var(--radius-sm);
+    background: var(--color-white);
+    color: var(--color-primary);
+}
+
+.guide-benefit-summary__icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.guide-benefit-summary h3,
+.guide-benefit-summary p {
+    margin: 0;
+}
+
+.guide-benefit-summary h3 {
+    font-size: var(--font-size-description);
+}
+
+.guide-benefit-summary p {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+}
+
+.guide-summary-list {
+    margin: var(--space-md) 0 0;
+    font-size: var(--font-size-caption);
+}
+
+.guide-summary-list div {
+    display: grid;
+    grid-template-columns: minmax(116px, .9fr) minmax(0, 1.1fr);
+    gap: var(--space-sm);
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.guide-summary-list dt {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+.guide-summary-list dt span {
+    margin-right: 6px;
+    color: var(--color-primary);
+}
+
+.guide-summary-list dd {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.guide-summary-list .guide-summary-list__success {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.guide-documents {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--color-primary-light);
+}
+
+.guide-documents h3 {
+    margin: 0;
+    font-size: var(--font-size-description);
+}
+
+.guide-documents ul {
+    display: grid;
+    gap: 4px;
+    margin: var(--space-sm) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-caption);
+}
+
+.guide-documents li::before {
+    margin-right: 6px;
+    color: var(--color-primary);
+    content: "✓";
+}
+
+.guide-data-note {
+    margin: var(--space-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: .75rem;
+    line-height: 1.5;
+}
+
+.guide-method-card__description {
+    margin: 4px 0 var(--space-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+}
+
+.guide-method-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.guide-method-tab {
+    min-height: 42px;
+    border: 0;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-white);
+    color: var(--color-text);
+    font-size: var(--font-size-caption);
+    font-weight: 700;
+}
+
+.guide-method-tab:last-child {
+    border-right: 0;
+}
+
+.guide-method-tab.is-active {
+    background: var(--color-primary);
+    color: var(--color-white);
+}
+
+.guide-method-tab:disabled {
+    cursor: not-allowed;
+    color: var(--color-text-secondary);
+    opacity: .6;
+}
+
+.guide-method-panel {
+    margin-top: var(--space-md);
+}
+
+.guide-method-panel > h3 {
+    margin: 0 0 var(--space-sm);
+    font-size: var(--font-size-description);
+}
+
+.guide-process {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--space-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.guide-process li {
+    position: relative;
+    display: grid;
+    min-height: 82px;
+    align-content: center;
+    justify-items: center;
+    gap: 6px;
+    padding: var(--space-sm) 4px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.guide-process li:not(:last-child)::after {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    right: -8px;
+    color: var(--color-text-secondary);
+    content: "›";
+    font-size: 1.25rem;
+    transform: translateY(-50%);
+}
+
+.guide-process__icon {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    color: var(--color-primary);
+}
+
+.guide-process__icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.guide-official-link {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-white);
+    font-size: var(--font-size-caption);
+    font-weight: 700;
+}
+
+.guide-official-link:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.guide-official-link:disabled {
+    cursor: not-allowed;
+    background: var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.guide-link-help,
+.guide-visit-help {
+    margin: 6px 0 0;
+    color: var(--color-text-secondary);
+    font-size: .75rem;
+    line-height: 1.5;
+}
+
+.guide-notice {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-size: var(--font-size-caption);
+}
+
+.guide-notice h3 {
+    margin: 0;
+    font-size: var(--font-size-caption);
+}
+
+.guide-notice h3 span {
+    margin-right: 4px;
+    color: var(--color-primary);
+}
+
+.guide-notice ul {
+    margin: var(--space-xs) 0 0;
+    padding-left: 18px;
+    line-height: 1.55;
+}
+
+.guide-visit-steps {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    padding-left: 20px;
+    font-size: var(--font-size-caption);
+}
+
+.guide-visit-info {
+    margin: var(--space-md) 0 0;
+    border-top: 1px solid var(--color-border);
+    font-size: var(--font-size-caption);
+}
+
+.guide-visit-info div {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: var(--space-sm);
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.guide-visit-info dt {
+    color: var(--color-text-secondary);
+}
+
+.guide-visit-info dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+.assist-guide-page .guide-actions {
+    max-width: 1040px;
+    justify-content: flex-end;
+    margin: var(--space-md) auto 0;
+}
+
+.assist-guide-page .guide-actions .btn-secondary {
+    border-color: var(--color-border);
+}
+
+@media (max-width: 900px) {
+    .guide-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767px) {
+    .assist-guide-page .guide-banner {
+        min-height: 152px;
+        padding-right: 116px;
+    }
+
+    .guide-banner::before {
+        left: 20px;
+    }
+
+    .guide-banner__character {
+        right: -18px;
+        width: 138px;
+        height: 112px;
+        background-size: 710px auto;
+        background-position: -174px -34px;
+    }
+
+    .assist-guide-page .guide-banner h1 {
+        font-size: var(--font-size-card-title);
+    }
+
+    .assist-guide-page .guide-steps {
+        margin-bottom: var(--space-lg);
+    }
+
+    .assist-guide-page .guide-steps .assist-step {
+        font-size: .7rem;
+    }
+
+    .guide-card {
+        padding: var(--space-md);
+    }
+
+    .guide-benefit-summary {
+        grid-template-columns: 36px minmax(0, 1fr);
+    }
+
+    .guide-benefit-summary .status-badge {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .guide-summary-list div {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+
+    .guide-process {
+        grid-template-columns: 1fr;
+    }
+
+    .guide-process li {
+        min-height: 52px;
+        grid-template-columns: 28px 1fr;
+        justify-items: start;
+        padding-left: var(--space-md);
+        text-align: left;
+    }
+
+    .guide-process li:not(:last-child)::after {
+        top: auto;
+        right: auto;
+        bottom: -13px;
+        left: 21px;
+        transform: rotate(90deg);
+    }
+
+    .guide-process__icon {
+        grid-row: 1;
+    }
+
+    .guide-visit-info div {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+}

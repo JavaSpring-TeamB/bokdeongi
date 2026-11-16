@@ -36,3 +36,8 @@ uploads/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Frontend - Dependencies & Build
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/

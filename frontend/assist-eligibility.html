@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>복덩이 | AI 신청 도우미</title>
+    <link rel="stylesheet" href="./css/common.css">
+    <link rel="stylesheet" href="./css/assist-eligibility.css">
+    <script src="./js/assist-eligibility.js" defer></script>
+</head>
+<body class="assist-eligibility-page">
+    <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+    <header class="site-header">
+        <div class="container site-header__inner">
+        <a class="site-brand" href="./index.html" aria-label="복덩이 홈"><span class="site-brand__mark" aria-hidden="true">☘</span><span class="site-brand__text"><strong>복덩이</strong></span></a>
+            <button class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation"><span></span><span></span><span></span></button>
+            <nav class="site-nav" id="site-navigation" aria-label="주요 메뉴">
+            <a class="site-nav__link" href="./index.html">홈</a>
+                <a class="site-nav__link is-active" href="benefit-list.html">복지 혜택 찾기</a>
+                <a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a>
+                <a class="site-nav__link" href="application-status.html">신청 현황</a>
+            <a class="site-nav__link" href="./easy-translator.html">쉬운 말 번역기</a>
+            <a class="site-nav__link" href="./my-page.html">마이페이지</a>
+            </nav>
+            <div class="header-tools"><button class="header-tool" type="button" data-font-size="decrease">가-</button><button class="header-tool" type="button" data-font-size="increase">가+</button><button class="header-tool header-tool--theme" type="button" data-theme-toggle>다크 모드</button></div>
+        </div>
+    </header>
+    <main id="main-content" class="container assist-page">
+        <p class="assist-breadcrumb">홈 <span aria-hidden="true">›</span> 신청 도우미</p>
+        <section class="assist-banner"><h1>AI 신청 도우미 - 자격 확인</h1><p>신청 자격을 확인하고 부족한 정보만 추가로 입력해요.</p></section>
+        <div id="assist-content"></div>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

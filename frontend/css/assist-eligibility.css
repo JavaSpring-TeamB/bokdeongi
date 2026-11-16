@@ -1,0 +1,36 @@
+.assist-page { padding: var(--space-lg) 0 var(--space-xxl); }
+.assist-breadcrumb { margin: 0 0 var(--space-md); color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.assist-banner { padding: 28px 32px; border-radius: var(--radius-lg); background: linear-gradient(100deg, var(--color-primary-light), var(--color-mint-light)); }
+.assist-banner h1 { margin: 0; font-size: var(--font-size-page-title); }
+.assist-banner p { margin: 4px 0 0; color: var(--color-text-secondary); }
+.assist-content { max-width: 1040px; margin: var(--space-xl) auto 0; }
+.assist-steps { display: flex; justify-content: center; margin-bottom: var(--space-xl); }
+.assist-step { display: grid; min-width: 148px; justify-items: center; color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: 600; }
+.assist-step::before { display: grid; width: 32px; height: 32px; place-items: center; margin-bottom: 6px; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-white); content: attr(data-step); }
+.assist-step:not(:last-child)::after { position: absolute; width: 115px; height: 1px; margin: 16px 0 0 148px; background: var(--color-border); content: ""; }
+.assist-step.is-current { color: var(--color-primary); }
+.assist-step.is-current::before { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-white); }
+.assist-info, .assist-status, .assist-question, .assist-tip { padding: var(--space-md); border-radius: var(--radius-lg); }
+.assist-info { display: flex; gap: var(--space-sm); background: var(--color-primary-light); font-size: var(--font-size-caption); }
+.assist-card { margin-top: var(--space-lg); padding: var(--space-lg); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-white); }
+.assist-card h2 { margin: 0 0 var(--space-md); font-size: var(--font-size-card-title); }
+.assist-table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.assist-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: var(--font-size-caption); }
+.assist-table th, .assist-table td { padding: 14px; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: top; }
+.assist-table thead { background: var(--color-surface); color: var(--color-text-secondary); }
+.assist-table tbody tr:last-child th, .assist-table tbody tr:last-child td { border-bottom: 0; }
+.status-badge { display: inline-flex; padding: 3px 8px; border-radius: 999px; font-weight: 700; }
+.status-badge.success { background: var(--color-primary-light); color: var(--color-primary); }
+.status-badge.warning { background: #fdf3d8; color: var(--color-warning); }
+.evidence { margin: 8px 0 0; color: var(--color-text-secondary); }
+.assist-question { margin-top: var(--space-lg); border: 1px solid #ead39a; background: #fffdf4; }
+.assist-question h2 { margin: -16px -16px var(--space-md); padding: 12px 16px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: #fdf3d8; font-size: var(--font-size-description); }
+.assist-question fieldset { display: flex; flex-wrap: wrap; gap: var(--space-md); border: 0; padding: 0; margin: var(--space-md) 0; }
+.assist-question label { display: inline-flex; gap: 6px; align-items: center; }
+.assist-status { display: grid; grid-template-columns: auto 1fr; gap: var(--space-sm); margin-top: var(--space-lg); border: 1px solid #ead39a; background: #fffdf4; }
+.assist-status h2, .assist-status p { margin: 0; }
+.assist-status p { grid-column: 2; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.assist-actions { display: flex; justify-content: center; gap: var(--space-sm); margin-top: var(--space-xl); }
+.assist-actions .btn { border: 1px solid var(--color-primary); background: var(--color-primary); color: var(--color-white); }
+.assist-actions .btn-secondary { background: var(--color-white); color: var(--color-text); }
+@media (max-width: 767px) { .assist-banner { padding: 24px 20px; } .assist-steps { justify-content: space-between; } .assist-step { min-width: auto; font-size: 0.75rem; } .assist-step:not(:last-child)::after { display: none; } .assist-actions { flex-direction: column; } .assist-actions .btn { width: 100%; } }

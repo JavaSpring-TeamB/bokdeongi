@@ -1,0 +1,389 @@
+.benefit-recommend-page {
+    --recommend-warning-light: #fdf3d8;
+    --recommend-danger-light: #fce8e8;
+    --recommend-theme: var(--color-primary);
+    --recommend-theme-light: var(--color-primary-light);
+    overflow-x: hidden;
+}
+
+.benefit-recommend-page[data-status="conditional"] {
+    --recommend-theme: var(--color-warning);
+    --recommend-theme-light: var(--recommend-warning-light);
+}
+
+.benefit-recommend-page[data-status="near-miss"] {
+    --recommend-theme: var(--color-danger);
+    --recommend-theme-light: var(--recommend-danger-light);
+}
+
+.recommend-page {
+    padding: var(--space-lg) 0 var(--space-xxl);
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.recommend-breadcrumb {
+    margin: 0 0 var(--space-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    text-align: right;
+}
+
+.recommend-banner {
+    display: flex;
+    min-height: 144px;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 28px 32px;
+    border-radius: var(--radius-lg);
+    background: var(--recommend-theme-light);
+    transition: background-color .18s ease;
+}
+
+.recommend-banner__bar {
+    width: 4px;
+    height: 52px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--recommend-theme);
+    transition: background-color .18s ease;
+}
+
+.recommend-banner h1 {
+    margin: 0;
+    font-size: var(--font-size-page-title);
+}
+
+.recommend-banner h1 em {
+    color: var(--recommend-theme);
+    font-style: normal;
+    transition: color .18s ease;
+}
+
+.recommend-banner p {
+    margin: var(--space-xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-description);
+}
+
+.recommend-tabs {
+    display: flex;
+    gap: var(--space-xl);
+    overflow-x: auto;
+    margin-top: var(--space-sm);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.recommend-tab {
+    position: relative;
+    min-height: 48px;
+    flex: 0 0 auto;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--font-size-caption);
+    font-weight: 600;
+}
+
+.recommend-tab::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: transparent;
+    content: "";
+    transition: background-color .18s ease;
+}
+
+.recommend-tab.is-active {
+    color: var(--recommend-theme);
+}
+
+.recommend-tab.is-active::after {
+    background: var(--recommend-theme);
+}
+
+.recommend-controls {
+    display: flex;
+    min-height: 60px;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.recommend-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.recommend-select select {
+    min-height: 36px;
+    padding: 0 30px 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-white);
+    color: var(--color-text);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-total {
+    margin: 0;
+    font-size: var(--font-size-caption);
+}
+
+.recommend-total strong {
+    color: var(--recommend-theme);
+}
+
+.recommend-results > div {
+    display: grid;
+    gap: var(--space-sm);
+}
+
+.recommend-card {
+    display: grid;
+    grid-template-columns: 62px minmax(230px, 1.15fr) minmax(280px, .95fr) auto;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-white);
+}
+
+.recommend-card__icon {
+    display: grid;
+    width: 62px;
+    height: 62px;
+    place-items: center;
+    border-radius: var(--radius-md);
+    background: var(--color-mint-light);
+    color: var(--color-primary);
+}
+
+.recommend-card__icon svg,
+.recommend-card__bookmark svg {
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.recommend-card__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.recommend-status-badge,
+.recommend-category-badge {
+    display: inline-flex;
+    min-height: 23px;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: .75rem;
+    font-weight: 700;
+}
+
+.recommend-status-badge {
+    background: var(--recommend-theme-light);
+    color: var(--recommend-theme);
+}
+
+.recommend-category-badge {
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+}
+
+.recommend-card h3 {
+    margin: 4px 0 2px;
+    font-size: var(--font-size-description);
+}
+
+.recommend-card__description {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__details {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    padding-left: var(--space-md);
+    border-left: 1px solid var(--color-border);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__detail {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+}
+
+.recommend-card__detail span:first-child {
+    flex: 0 0 auto;
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.recommend-card__notice {
+    padding: var(--space-sm) 10px;
+    border: 1px solid var(--recommend-theme);
+    border-radius: var(--radius-sm);
+    background: var(--recommend-theme-light);
+    color: var(--color-text);
+}
+
+.recommend-card__notice strong {
+    display: block;
+    color: var(--recommend-theme);
+}
+
+.recommend-card__notice span {
+    display: block;
+    margin-top: 2px;
+    font-size: .75rem;
+    line-height: 1.45;
+}
+
+.recommend-card__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.recommend-card__bookmark {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-white);
+    color: var(--color-primary);
+}
+
+.recommend-card__bookmark:hover {
+    border-color: var(--color-primary);
+}
+
+.benefit-recommend-page .recommend-card .btn {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-white);
+    font-size: var(--font-size-caption);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.benefit-recommend-page .recommend-card .btn:hover {
+    background: var(--color-primary-hover);
+}
+
+@media (max-width: 1024px) {
+    .recommend-card {
+        grid-template-columns: 56px minmax(0, 1fr) auto;
+    }
+
+    .recommend-card__icon {
+        width: 56px;
+        height: 56px;
+    }
+
+    .recommend-card__details {
+        grid-column: 2 / -1;
+        padding-top: var(--space-sm);
+        padding-left: 0;
+        border-top: 1px solid var(--color-border);
+        border-left: 0;
+    }
+
+    .recommend-card__actions {
+        grid-column: 3;
+        grid-row: 1;
+    }
+}
+
+@media (max-width: 767px) {
+    .recommend-page {
+        padding-top: var(--space-md);
+    }
+
+    .recommend-breadcrumb {
+        text-align: left;
+    }
+
+    .recommend-banner {
+        min-height: 152px;
+        padding: 24px 20px;
+    }
+
+    .recommend-banner h1 {
+        font-size: var(--font-size-card-title);
+    }
+
+    .recommend-tabs {
+        gap: var(--space-lg);
+    }
+
+    .recommend-controls {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: var(--space-md) 0;
+    }
+
+    .recommend-card {
+        grid-template-columns: 48px minmax(0, 1fr);
+        gap: var(--space-sm);
+    }
+
+    .recommend-card__icon {
+        width: 48px;
+        height: 52px;
+    }
+
+    .recommend-card__icon svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .recommend-card__details,
+    .recommend-card__actions {
+        grid-column: 1 / -1;
+    }
+
+    .recommend-card__actions {
+        grid-row: auto;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 430px) {
+    .recommend-filters,
+    .recommend-select,
+    .recommend-select select {
+        width: 100%;
+    }
+}
