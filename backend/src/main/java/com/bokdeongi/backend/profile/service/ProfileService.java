@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import com.bokdeongi.backend.profile.entity.Region;
+import com.bokdeongi.backend.profile.repository.RegionRepository;
 
 import java.math.BigDecimal;
 import java.time.Year;
@@ -34,9 +36,11 @@ public class ProfileService {
     private final UserConsentRepository userConsentRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final String sensitiveConsentVersion;
+    private final RegionRepository regionRepository;
 
     public ProfileService(
             UserRepository userRepository,
+            RegionRepository regionRepository,
             ObjectMapper objectMapper,
             FieldEncryptionService fieldEncryptionService,
             UserConsentRepository userConsentRepository,
@@ -44,6 +48,7 @@ public class ProfileService {
             @Value("${app.consent.sensitive-version}") String sensitiveConsentVersion
     ) {
         this.userRepository = userRepository;
+        this.regionRepository = regionRepository;
         this.objectMapper = objectMapper;
         this.fieldEncryptionService = fieldEncryptionService;
         this.userConsentRepository = userConsentRepository;
@@ -114,12 +119,27 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
+        Region region = regionRepository.findById(request.regionCode())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "존재하지 않는 지역 코드입니다."
+                ));
+
+        // 시·도 대표 코드는 선택할 수 없으며, 세종특별자치시는 예외로 허용한다.
+        if (region.getSigunguName() == null
+                && !"36110".equals(region.getRegionCode())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "시군구까지 선택해야 합니다."
+            );
+        }
+
         user.updateProfileStep1(
                 request.birthDate(),
                 request.gender(),
-                request.regionCode(),
-                request.sidoName(),
-                request.sigunguName()
+                region.getRegionCode(),
+                region.getSidoName(),
+                region.getSigunguName()
         );
 
         // 프로필 변경 이벤트 발행
