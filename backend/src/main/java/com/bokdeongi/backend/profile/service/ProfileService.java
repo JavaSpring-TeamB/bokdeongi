@@ -1,27 +1,29 @@
 package com.bokdeongi.backend.profile.service;
 
 import com.bokdeongi.backend.auth.entity.User;
+import com.bokdeongi.backend.auth.entity.UserConsent;
+import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
+import com.bokdeongi.backend.common.crypto.FieldEncryptionService;
+import com.bokdeongi.backend.eligibility.service.ProfileChangedEvent;
+import com.bokdeongi.backend.profile.dto.request.ProfileStep1Request;
+import com.bokdeongi.backend.profile.dto.request.ProfileStep2Request;
+import com.bokdeongi.backend.profile.dto.request.ProfileStep3Request;
+import com.bokdeongi.backend.profile.dto.request.ProfileStep4Request;
 import com.bokdeongi.backend.profile.dto.response.ProfileResponse;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import com.bokdeongi.backend.profile.dto.request.ProfileStep1Request;
-import com.bokdeongi.backend.common.crypto.FieldEncryptionService;
-import com.bokdeongi.backend.profile.dto.request.ProfileStep2Request;
-import java.math.BigDecimal;
-import com.bokdeongi.backend.profile.dto.request.ProfileStep3Request;
-import java.time.Year;
-import java.util.Set;
-import com.bokdeongi.backend.auth.entity.UserConsent;
-import com.bokdeongi.backend.auth.repository.UserConsentRepository;
-import com.bokdeongi.backend.profile.dto.request.ProfileStep4Request;
-import org.springframework.beans.factory.annotation.Value;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
+import java.time.Year;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class ProfileService {
@@ -30,6 +32,7 @@ public class ProfileService {
     private final ObjectMapper objectMapper;
     private final FieldEncryptionService fieldEncryptionService;
     private final UserConsentRepository userConsentRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final String sensitiveConsentVersion;
 
     public ProfileService(
@@ -37,12 +40,14 @@ public class ProfileService {
             ObjectMapper objectMapper,
             FieldEncryptionService fieldEncryptionService,
             UserConsentRepository userConsentRepository,
+            ApplicationEventPublisher applicationEventPublisher,
             @Value("${app.consent.sensitive-version}") String sensitiveConsentVersion
     ) {
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.fieldEncryptionService = fieldEncryptionService;
         this.userConsentRepository = userConsentRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
         this.sensitiveConsentVersion = sensitiveConsentVersion;
     }
 
@@ -97,22 +102,18 @@ public class ProfileService {
 
     /**
      * PROF-01: 프로필 1단계 기본 정보 저장.
-     *
-     * 로그인한 회원의 생년월일, 성별, 거주지를 저장한다.
      */
     @Transactional
     public ProfileResponse saveProfileStep1(
             Long userId,
             ProfileStep1Request request
     ) {
-        // 1. 회원 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
                 ));
 
-        // 2. 프로필 1단계 정보 갱신
         user.updateProfileStep1(
                 request.birthDate(),
                 request.gender(),
@@ -121,7 +122,11 @@ public class ProfileService {
                 request.sigunguName()
         );
 
-        // 3. 변경된 프로필 응답 반환
+        // 프로필 변경 이벤트 발행
+        applicationEventPublisher.publishEvent(
+                new ProfileChangedEvent(userId)
+        );
+
         return getProfile(userId);
     }
 
@@ -139,7 +144,6 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
-        // 1단계 입력 완료 여부 확인
         if (user.getProfileStep() == null
                 || user.getProfileStep() < 1) {
             throw new ResponseStatusException(
@@ -202,7 +206,6 @@ public class ProfileService {
             );
         }
 
-        // 가구 유형 목록을 JSON 배열 문자열로 변환
         String householdTypeCodesJson;
 
         try {
@@ -226,6 +229,11 @@ public class ProfileService {
                 householdTypeCodesJson
         );
 
+        // 프로필 변경 이벤트 발행
+        applicationEventPublisher.publishEvent(
+                new ProfileChangedEvent(userId)
+        );
+
         return getProfile(userId);
     }
 
@@ -243,7 +251,6 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
-        // 2단계 완료 여부 확인
         if (user.getProfileStep() == null
                 || user.getProfileStep() < 2) {
             throw new ResponseStatusException(
@@ -264,7 +271,6 @@ public class ProfileService {
         if (request.childrenCount() > 0) {
             Short birthYear = request.youngestChildBirthYear();
 
-            // 막내 자녀 출생 연도 범위 검증
             if (birthYear == null
                     || birthYear < 1900
                     || birthYear > Year.now().getValue()) {
@@ -274,7 +280,6 @@ public class ProfileService {
                 );
             }
 
-            // 회원 생년월일보다 자녀 출생 연도가 빠른지 확인
             if (user.getBirthDate() != null
                     && birthYear < user.getBirthDate().getYear()) {
                 throw new ResponseStatusException(
@@ -307,7 +312,6 @@ public class ProfileService {
             );
         }
 
-        // 현재 상황 코드를 JSON 배열 문자열로 변환
         String statusCodesJson;
 
         try {
@@ -327,14 +331,16 @@ public class ProfileService {
                 request.welfareStatus()
         );
 
+        // 프로필 변경 이벤트 발행
+        applicationEventPublisher.publishEvent(
+                new ProfileChangedEvent(userId)
+        );
+
         return getProfile(userId);
     }
 
     /**
      * PROF-01: 프로필 4단계 특수 상황 저장.
-     *
-     * 민감정보 동의 이력과 암호화 데이터를
-     * 하나의 트랜잭션에서 처리한다.
      */
     @Transactional
     public ProfileResponse saveProfileStep4(
@@ -347,7 +353,6 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
-        // 3단계 완료 여부 확인
         if (user.getProfileStep() == null
                 || user.getProfileStep() < 3) {
             throw new ResponseStatusException(
@@ -356,7 +361,6 @@ public class ProfileService {
             );
         }
 
-        // 서버에서 관리하는 동의 문서 버전 사용
         String currentDocVersion = sensitiveConsentVersion;
 
         if (!currentDocVersion.equals(request.consentDocVersion())) {
@@ -376,15 +380,12 @@ public class ProfileService {
                 );
             }
 
-
-            // D-43 기준 민감정보 JA 코드 검증
             Set<String> allowedSensitiveCodes = Set.of(
                     "JA0301", "JA0302", "JA0303",
                     "JA0328", "JA0329", "JA0330",
                     "JA0401", "JA0402"
             );
 
-            // 허용되지 않은 코드 검증
             if (request.sensitiveCodes().stream()
                     .anyMatch(code -> !allowedSensitiveCodes.contains(code))) {
                 throw new ResponseStatusException(
@@ -393,7 +394,6 @@ public class ProfileService {
                 );
             }
 
-            // 중복 코드 검증
             if (request.sensitiveCodes().size()
                     != Set.copyOf(request.sensitiveCodes()).size()) {
                 throw new ResponseStatusException(
@@ -402,8 +402,8 @@ public class ProfileService {
                 );
             }
 
-            // 민감정보 JA 코드 목록을 JSON 문자열로 변환
             String sensitiveCodesJson;
+
             try {
                 sensitiveCodesJson =
                         objectMapper.writeValueAsString(
@@ -438,20 +438,20 @@ public class ProfileService {
                 )
         );
 
-        // 미동의 시 기존 민감정보도 제거
+        // 미동의 시 기존 민감정보 제거
         user.updateProfileStep4(encryptedSensitiveCodes);
+
+        // 프로필 변경 이벤트 발행
+        applicationEventPublisher.publishEvent(
+                new ProfileChangedEvent(userId)
+        );
 
         return getProfile(userId);
     }
 
     /**
      * PROF-01: 프로필 최종 완료 처리.
-     *
-     * 필수 입력 단계(1~3단계)가 완료되었는지 확인하고,
-     * 프로필 완료 시각을 기록한다.
-     *
-     * 4단계 민감정보 입력은 선택 사항이므로
-     * 완료 조건에 포함하지 않는다.
+     * 4단계는 선택 사항이다.
      */
     @Transactional
     public ProfileResponse completeProfile(Long userId) {
@@ -462,7 +462,6 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
-        // 필수 입력 단계 완료 여부 확인
         if (user.getProfileStep() == null
                 || user.getProfileStep() < 3) {
             throw new ResponseStatusException(
@@ -471,7 +470,6 @@ public class ProfileService {
             );
         }
 
-        // 완료 시각 기록 (이미 완료한 경우 기존 시각 유지)
         user.completeProfile();
 
         return getProfile(userId);
@@ -479,7 +477,6 @@ public class ProfileService {
 
     /**
      * DB의 JSON 코드 목록을 List로 변환.
-     *
      * NULL은 미입력, []는 해당 없음으로 구분한다.
      */
     private List<String> parseCodes(String json) {
