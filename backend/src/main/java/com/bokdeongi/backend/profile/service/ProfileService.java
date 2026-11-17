@@ -193,6 +193,15 @@ public class ProfileService {
             );
         }
 
+        // 가구 유형 JA 코드 중복 검증
+        if (request.householdTypeCodes().size()
+                != Set.copyOf(request.householdTypeCodes()).size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "가구 유형 코드는 중복 선택할 수 없습니다."
+            );
+        }
+
         // 가구 유형 목록을 JSON 배열 문자열로 변환
         String householdTypeCodesJson;
 
@@ -255,12 +264,22 @@ public class ProfileService {
         if (request.childrenCount() > 0) {
             Short birthYear = request.youngestChildBirthYear();
 
+            // 막내 자녀 출생 연도 범위 검증
             if (birthYear == null
                     || birthYear < 1900
                     || birthYear > Year.now().getValue()) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "막내 자녀의 출생 연도를 확인해 주세요."
+                );
+            }
+
+            // 회원 생년월일보다 자녀 출생 연도가 빠른지 확인
+            if (user.getBirthDate() != null
+                    && birthYear < user.getBirthDate().getYear()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "막내 자녀의 출생 연도는 회원 출생 연도보다 빠를 수 없습니다."
                 );
             }
         }

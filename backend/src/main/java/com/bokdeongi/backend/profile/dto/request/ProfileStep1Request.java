@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 import java.time.LocalDate;
 
@@ -17,7 +18,10 @@ public record ProfileStep1Request(
         LocalDate birthDate,
 
         @NotBlank(message = "성별은 필수입니다.")
-        @Size(max = 1, message = "성별 코드는 1자여야 합니다.")
+        @Pattern(
+                regexp = "M|F",
+                message = "성별은 M 또는 F만 입력할 수 있습니다."
+        )
         String gender,
 
         @NotBlank(message = "거주 지역 코드는 필수입니다.")
