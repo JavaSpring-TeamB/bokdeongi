@@ -23,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.bokdeongi.backend.auth.dto.request.PasswordChangeRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -71,6 +72,43 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(result.loginResponse());
+    }
+
+
+    /**
+     * 로그인한 이메일 회원의 비밀번호 변경.
+     *
+     * 현재 비밀번호 검증 후 새 비밀번호로 변경한다.
+     * 변경 성공 시 Refresh Token 쿠키를 만료시킨다.
+     */
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody PasswordChangeRequest request
+    ) {
+        // 1. 인증된 회원 ID 확인
+        Long userId = getAuthenticatedUserId(authentication);
+
+        // 2. 비밀번호 변경
+        authService.changePassword(userId, request);
+
+        // 3. 기존 Refresh Token 쿠키 만료
+        ResponseCookie refreshCookie =
+                expireCookie("refreshToken", "/api/auth");
+
+        // 4. 카카오 로그인 등에서 사용한 Access Token 쿠키도 만료
+        ResponseCookie accessCookie =
+                expireCookie("accessToken", "/");
+
+        // 5. 변경 성공 후 재로그인 필요
+        return ResponseEntity.noContent()
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshCookie.toString(),
+                        accessCookie.toString()
+                )
+                .build();
     }
 
     /**

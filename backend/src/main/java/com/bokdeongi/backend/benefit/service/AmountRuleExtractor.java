@@ -14,9 +14,11 @@ import java.util.regex.Pattern;
  * "20만원" → 200000, "200천원" → 200000, "19,250원" → 19250, "1억 2천만원" → 120000000.
  *
  * 1. 지원내용에서 "원"으로 끝나는 금액을 모두 찾는다
- * 2. 금액이 아닌 것은 뺀다: 단가(ha당·톤당·/톤), 사업비·예산, 조건 기준(3만원 이상·1억원 이하)
+ * 2. 금액이 아닌 것은 뺀다: 단가(ha당·톤당·/톤, 같은 줄 앞에 "ha당"), 사업비·예산, 조건 기준(3만원 이상·1억원 이하),
+ *    이용자가 내는 돈(본인부담금·자부담, 그 줄에 지원·감면이 없을 때)
  * 3. 남은 것 중 가장 큰 값이 max_amount. 대상별로 다르면("초 20만원, 중고 30만원") 큰 쪽
  * 4. 금액 바로 앞에 "월", "매월"이 있으면 MONTH, "연", "연간"이 있으면 YEAR, 아니면 ONCE
+ *    범위("매월 300천원~500천원")면 범위 앞을 본다
  * 5. 연간 금액: MONTH ×12, YEAR 그대로, ONCE × 연 횟수("연 2회", "일년에 두 번", "설·추석"). 보험·융자는 비움
  * 6. 현물은 "지원금액"처럼 금액이라고 적힌 줄이 있을 때만 적는다
  */
@@ -48,7 +50,14 @@ public final class AmountRuleExtractor {
     // ---- 금액 고르기
     /** 금액 앞뒤에 오면 단가라서 뺀다 */
     private static final Pattern UNIT_PRICE_BEFORE = Pattern.compile("(ha|헥타르|톤|kg|㎡|m2|평|두|마리|주|개|시간|회|km)\\s*당\\s*$");
-    private static final Pattern UNIT_PRICE_AFTER = Pattern.compile("^\\s*(/|당\\b|per)");
+    private static final Pattern UNIT_PRICE_AFTER = Pattern.compile("^\\s*(/\\s*(ha|헥타르|톤|kg|㎡|m2|평|두|마리|주|개|시간|회|km)|당\\b|per)");
+    /** 같은 줄에서 금액보다 앞에 단가 기준이 나오면 그 뒤 금액은 단가다: "ha당 논 25만원, 채소 55만원" */
+    private static final Pattern UNIT_PRICE_IN_LINE = Pattern.compile("(ha|헥타르|톤|kg|㎡|m2|평|두|마리)\\s*당");
+    /** 이용자가 내는 돈. 같은 줄에 지원·감면 같은 말이 없을 때만 뺀다 */
+    private static final Pattern USER_PAYS = Pattern.compile("본인\\s*부담|자부담|이용자\\s*부담|이용료|수수료");
+    private static final Pattern SUPPORT_WORD = Pattern.compile("지원|감면|경감|환급|면제|보조");
+    /** 금액 앞의 범위 시작 부분: "300천원~", "30만~" */
+    private static final Pattern RANGE_HEAD = Pattern.compile("[\\d,.]+\\s*(억|천만|백만|십만|만|천|백)?\\s*원?\\s*[~∼〜]\\s*$");
     /** 이 말이 있는 줄의 금액은 지원금이 아니다 */
     private static final Pattern NOT_SUPPORT_LINE = Pattern.compile("총\\s*사업비|사업비|사업\\s*규모|예산|국비|지방비|도비|시비|군비|기금");
     /** 금액 바로 앞에 오면 자격 기준(매출·소득·재산·가격)이라서 뺀다 */
@@ -84,6 +93,13 @@ public final class AmountRuleExtractor {
                     || NOT_SUPPORT_LINE.matcher(money.line()).find()) {
                 continue;
             }
+            String lineBefore = text.substring(text.lastIndexOf('\n', money.start() - 1) + 1, money.start());
+            if (UNIT_PRICE_IN_LINE.matcher(lineBefore).find()) {
+                continue;
+            }
+            if (USER_PAYS.matcher(money.line()).find() && !SUPPORT_WORD.matcher(money.line()).find()) {
+                continue;
+            }
             candidates.add(money);
         }
         if (candidates.isEmpty()) {
@@ -103,7 +119,9 @@ public final class AmountRuleExtractor {
                 best = m;
             }
         }
-        String before = text.substring(Math.max(0, best.start() - 8), best.start());
+        String before = text.substring(Math.max(0, best.start() - 30), best.start());
+        before = RANGE_HEAD.matcher(before).replaceFirst(""); // "매월 300천원~500천원"은 "매월"을 본다
+        before = before.substring(Math.max(0, before.length() - 8));
         Period period = MONTHLY_BEFORE.matcher(before).find() ? Period.MONTH
                 : YEARLY_BEFORE.matcher(before).find() ? Period.YEAR : Period.ONCE;
 

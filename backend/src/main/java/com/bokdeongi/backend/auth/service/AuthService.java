@@ -23,7 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
+import com.bokdeongi.backend.common.exception.AccountLockedException;
+import com.bokdeongi.backend.auth.dto.request.PasswordChangeRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -64,6 +65,7 @@ public class AuthService {
     private final UserConsentRepository userConsentRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final LoginAttemptService loginAttemptService;
 
     /* ==================== 일반 회원가입 ==================== */
 
@@ -231,21 +233,39 @@ public class AuthService {
     }
 
     /**
-     * 일반 로그인.
+     * 일반 이메일 로그인.
      *
-     * 회원 인증 후 Access Token과 Refresh Token을 발급한다.
+     * 로그인 실패 횟수와 계정 잠금 상태를 확인한 후
+     * 인증에 성공하면 Access Token과 Refresh Token을 발급한다.
      */
     @Transactional
     public LoginResult login(LoginRequest request) {
 
-        // 1. 이메일 및 비밀번호 검증
-        User user = authenticate(
-                request.email(),
-                request.password()
-        );
+        // 1. 별도 트랜잭션에서 로그인 검증 및 실패 기록 처리
+        LoginAttemptService.LoginAttemptResult result =
+                loginAttemptService.attempt(
+                        request.email(),
+                        request.password()
+                );
 
-        // 2. JWT 발급
-        return issueTokens(user.getId());
+        // 2. 계정이 잠긴 경우
+        if (result.status()
+                == LoginAttemptService.LoginStatus.LOCKED) {
+            throw new AccountLockedException(
+                    "로그인 5회 실패로 계정이 잠겼습니다. 1분 후 다시 시도해주세요."
+            );
+        }
+
+        // 3. 이메일 또는 비밀번호가 올바르지 않은 경우
+        if (result.status()
+                != LoginAttemptService.LoginStatus.SUCCESS) {
+            throw new BadCredentialsException(
+                    "이메일 또는 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        // 4. 인증 성공 시 기존 JWT 발급 로직 사용
+        return issueTokens(result.userId());
     }
 
     /**
@@ -265,6 +285,69 @@ public class AuthService {
                 );
 
         return createLoginResult(user);
+    }
+
+
+    /* ==================== 비밀번호 변경 ==================== */
+
+    /**
+     * 로그인한 이메일 회원의 비밀번호를 변경한다.
+     *
+     * 현재 비밀번호 검증 후 새 비밀번호를 암호화하여 저장한다.
+     * 변경 성공 시 기존 인증 토큰을 무효화하도록 처리한다.
+     */
+    @Transactional
+    public void changePassword(
+            Long userId,
+            PasswordChangeRequest request
+    ) {
+        // 1. 회원 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new BadCredentialsException(
+                                "사용자를 찾을 수 없습니다."
+                        )
+                );
+
+        // 2. 카카오 전용 계정 등 비밀번호가 없는 회원 제한
+        if (user.getPasswordHash() == null) {
+            throw new IllegalArgumentException(
+                    "비밀번호 변경을 지원하지 않는 계정입니다."
+            );
+        }
+
+        // 3. 현재 비밀번호 검증
+        if (!passwordEncoder.matches(
+                request.currentPassword(),
+                user.getPasswordHash()
+        )) {
+            throw new BadCredentialsException(
+                    "현재 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        // 4. 기존 비밀번호와 새 비밀번호 동일 여부 확인
+        if (passwordEncoder.matches(
+                request.newPassword(),
+                user.getPasswordHash()
+        )) {
+            throw new IllegalArgumentException(
+                    "기존 비밀번호와 다른 비밀번호를 입력해주세요."
+            );
+        }
+
+        // 5. 새 비밀번호 암호화
+        String encodedPassword =
+                passwordEncoder.encode(request.newPassword());
+
+        // 6. 비밀번호 변경
+        user.changePassword(encodedPassword);
+
+        // 7. 기존 Refresh Token 무효화
+        user.clearRefreshTokenHash();
+
+        // 8. 토큰 버전 증가
+        user.increaseTokenVersion();
     }
 
     /* ==================== 약관 동의 변경 ==================== */

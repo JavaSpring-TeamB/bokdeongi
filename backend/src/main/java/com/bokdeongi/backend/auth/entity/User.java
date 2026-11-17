@@ -293,6 +293,226 @@ public class User {
         return kakaoId;
     }
 
+    /* ==================== 프로필 조회 ==================== */
+
+    public String getGender() {
+        return gender;
+    }
+
+    public String getRegionCode() {
+        return regionCode;
+    }
+
+    public String getSidoName() {
+        return sidoName;
+    }
+
+    public String getSigunguName() {
+        return sigunguName;
+    }
+
+    public Short getHouseholdSize() {
+        return householdSize;
+    }
+
+    public String getIncomeInputType() {
+        return incomeInputType;
+    }
+
+    public byte[] getIncomeAmount() {
+        return incomeAmount == null ? null : incomeAmount.clone();
+    }
+
+    public Short getIncomeBaseYear() {
+        return incomeBaseYear;
+    }
+
+    public BigDecimal getMedianIncomePct() {
+        return medianIncomePct;
+    }
+
+    public String getHousingType() {
+        return housingType;
+    }
+
+    public Boolean getHasHouse() {
+        return hasHouse;
+    }
+
+    public String getMaritalStatus() {
+        return maritalStatus;
+    }
+
+    public Short getChildrenCount() {
+        return childrenCount;
+    }
+
+    public Short getYoungestChildBirthYear() {
+        return youngestChildBirthYear;
+    }
+
+    public String getWelfareStatus() {
+        return welfareStatus;
+    }
+
+    public String getHouseholdTypeCodes() {
+        return householdTypeCodes;
+    }
+
+    public String getStatusCodes() {
+        return statusCodes;
+    }
+
+    public byte[] getSensitiveEnc() {
+        return sensitiveEnc == null ? null : sensitiveEnc.clone();
+    }
+
+    public Integer getProfileVersion() {
+        return profileVersion;
+    }
+
+    public Short getProfileStep() {
+        return profileStep;
+    }
+
+    public LocalDateTime getProfileCompletedAt() {
+        return profileCompletedAt;
+    }
+
+    /* ==================== 프로필 정보 변경 ==================== */
+
+    /**
+     * PROF-01: 프로필 1단계 기본 정보 저장.
+     *
+     * 생년월일, 성별, 거주지를 갱신하고
+     * 1단계 완료 상태를 기록한다.
+     */
+    public void updateProfileStep1(
+            LocalDate birthDate,
+            String gender,
+            String regionCode,
+            String sidoName,
+            String sigunguName
+    ) {
+        this.birthDate = birthDate;
+        this.gender = gender;
+        this.regionCode = regionCode;
+        this.sidoName = sidoName;
+        this.sigunguName = sigunguName;
+
+        // 이전에 완료한 단계가 있다면 진행 상태를 낮추지 않는다.
+        if (this.profileStep == null || this.profileStep < 1) {
+            this.profileStep = 1;
+        }
+
+        this.profileVersion++;
+    }
+
+    /**
+     * PROF-01: 프로필 2단계 가구 정보 저장.
+     *
+     * 소득 금액은 Service에서 암호화한 후 전달한다.
+     * householdTypeCodes는 JSON 문자열로 전달한다.
+     */
+    public void updateProfileStep2(
+            Short householdSize,
+            String incomeInputType,
+            byte[] encryptedIncomeAmount,
+            BigDecimal medianIncomePct,
+            String housingType,
+            Boolean noHouse,
+            String householdTypeCodes
+    ) {
+        this.householdSize = householdSize;
+        this.incomeInputType = incomeInputType;
+        this.incomeAmount = encryptedIncomeAmount == null
+                ? null
+                : encryptedIncomeAmount.clone();
+        this.medianIncomePct = medianIncomePct;
+        this.hasHouse = !noHouse;
+        this.housingType = housingType;
+        this.householdTypeCodes = householdTypeCodes;
+
+        // 이전에 완료한 단계는 유지한다.
+        if (this.profileStep == null || this.profileStep < 2) {
+            this.profileStep = 2;
+        }
+
+        this.profileVersion++;
+    }
+
+    /**
+     * PROF-01: 프로필 3단계 나의 상황 정보 갱신.
+     */
+    public void updateProfileStep3(
+            String statusCodes,
+            String maritalStatus,
+            Short childrenCount,
+            Short youngestChildBirthYear,
+            String welfareStatus
+    ) {
+        this.statusCodes = statusCodes;
+        this.maritalStatus = maritalStatus;
+        this.childrenCount = childrenCount;
+        this.youngestChildBirthYear = youngestChildBirthYear;
+        this.welfareStatus = welfareStatus;
+
+        // 이전에 완료한 단계는 유지한다.
+        if (this.profileStep == null || this.profileStep < 3) {
+            this.profileStep = 3;
+        }
+
+        // 프로필 변경 이력 관리
+        this.profileVersion++;
+    }
+
+    /**
+     * PROF-01: 프로필 4단계 특수 상황 정보 갱신.
+     *
+     * 민감정보는 Service에서 암호화한 후 전달한다.
+     * null은 미동의 또는 입력 건너뛰기를 의미한다.
+     * 암호화된 빈 배열은 동의 후 '해당 없음'을 의미한다.
+     */
+    public void updateProfileStep4(byte[] encryptedSensitiveCodes) {
+        this.sensitiveEnc = encryptedSensitiveCodes == null
+                ? null
+                : encryptedSensitiveCodes.clone();
+
+        // 이전에 완료한 단계는 유지한다.
+        if (this.profileStep == null || this.profileStep < 4) {
+            this.profileStep = 4;
+        }
+
+        this.profileVersion++;
+    }
+
+    /**
+     * 민감정보 동의 철회 시 저장된 데이터를 삭제한다.
+     */
+    public void clearSensitiveInfo() {
+        this.sensitiveEnc = null;
+        this.profileVersion++;
+    }
+
+    /**
+     * PROF-01: 프로필 최종 완료 처리.
+     *
+     * 필수 프로필 입력 단계(1~3단계)가 완료된 경우
+     * 프로필 완료 시각을 기록한다.
+     */
+    public void completeProfile() {
+        if (this.profileStep == null || this.profileStep < 3) {
+            throw new IllegalStateException(
+                    "프로필 필수 입력 단계를 먼저 완료해야 합니다."
+            );
+        }
+
+        if (this.profileCompletedAt == null) {
+            this.profileCompletedAt = LocalDateTime.now();
+            this.profileVersion++;
+        }
+    }
+
     /* ==================== 인증 정보 변경 ==================== */
 
     /**
@@ -314,5 +534,43 @@ public class User {
      */
     public void clearRefreshTokenHash() {
         this.refreshTokenHash = null;
+    }
+
+    /**
+     * 비밀번호 인증 실패 횟수를 증가시킨다.
+     * 5회에 도달하면 1분간 계정을 잠근다.
+     */
+    public void recordFailedLogin(LocalDateTime now) {
+        short nextCount = (short) (failedLoginCount + 1);
+        this.failedLoginCount = nextCount;
+
+        if (nextCount >= 5) {
+            this.lockedUntil = now.plusMinutes(1);
+        }
+    }
+
+    /**
+     * 현재 계정 잠금 여부를 확인한다.
+     */
+    public boolean isLoginLocked(LocalDateTime now) {
+        return lockedUntil != null && now.isBefore(lockedUntil);
+    }
+
+    /**
+     * 로그인 성공 또는 잠금 만료 시 실패 기록을 초기화한다.
+     */
+    public void resetLoginFailures() {
+        this.failedLoginCount = 0;
+        this.lockedUntil = null;
+    }
+
+    /**
+     * 비밀번호 해시를 변경한다.
+     *
+     * 암호화는 Service에서 수행하고,
+     * Entity에는 암호화된 비밀번호만 저장한다.
+     */
+    public void changePassword(String encodedPassword) {
+        this.passwordHash = encodedPassword;
     }
 }

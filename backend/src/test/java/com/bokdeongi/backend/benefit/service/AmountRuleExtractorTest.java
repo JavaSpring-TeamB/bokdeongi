@@ -99,4 +99,29 @@ class AmountRuleExtractorTest {
         assertEquals(600_000L, AmountRuleExtractor.extract("○ 1인당 30만원 지원\n○ 지급시기: 연 2회(설, 추석)", "현금").annualAmount());
         assertEquals(120_000L, AmountRuleExtractor.extract("○ 명절위문금 6만원(연 2회)", "현금").annualAmount());
     }
+
+    @Test
+    void 범위의_주기는_범위_앞에서_찾는다() {
+        Result r = AmountRuleExtractor.extract("○ 아동 1인당 매월 300천원~500천원 연령별 차등 지급", "현금");
+        assertEquals(500_000L, r.maxAmount());
+        assertEquals(Period.MONTH, r.period());
+        assertEquals(6_000_000L, r.annualAmount());
+    }
+
+    @Test
+    void 금액_뒤_빗금이_단위가_아니면_단가가_아니다() {
+        assertEquals(200_000L, AmountRuleExtractor.extract("- 지원금액 : 임신부 1인 최대 20만원 / 서비스 이용 회별 초과비용은 본인부담", "현금").maxAmount());
+        assertNull(AmountRuleExtractor.extract("지원단가 60만원/ha", "현금").maxAmount());
+    }
+
+    @Test
+    void 같은_줄_앞에_ha당이_있으면_단가다() {
+        assertNull(AmountRuleExtractor.extract("- 지원기준 : ha당 논 25만원, 채소특작 55만원, 과실 60만원", "현금").maxAmount());
+    }
+
+    @Test
+    void 본인부담금은_지원_금액이_아니다() {
+        assertNull(AmountRuleExtractor.extract("○ 본인부담금\n- 기준중위소득 75% 이하 본인부담금 월 30,000원", "서비스(돌봄)").maxAmount());
+        assertEquals(500_000L, AmountRuleExtractor.extract("의료비 본인부담금 최대 50만원 지원", "현금").maxAmount());
+    }
 }
