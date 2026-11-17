@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>복덩이 | 회원가입 약관 동의</title>
+    <meta name="description" content="복덩이 회원가입을 위한 약관 동의 내용을 확인합니다.">
+    <link rel="stylesheet" href="./css/common.css">
+    <link rel="stylesheet" href="./css/signup-account.css">
+    <link rel="stylesheet" href="./css/signup-consent.css">
+    <script src="./js/signup-consent.js" defer></script>
+</head>
+<body class="signup-account-page">
+    <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+
+    <header class="site-header">
+        <div class="container site-header__inner">
+            <a class="site-brand" href="./index.html" aria-label="복덩이 홈"><img class="site-brand__mark" src="./img/복덩이_로고.png" alt="복덩이 캐릭터 로고"><span class="site-brand__text"><strong>복덩이</strong></span></a>
+            <button class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation"><span></span><span></span><span></span></button>
+            <nav class="site-nav" id="site-navigation" aria-label="주요 메뉴">
+                <a class="site-nav__link" href="./index.html">홈</a>
+                <a class="site-nav__link" href="benefit-list.html">복지 혜택 찾기</a>
+                <a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a>
+                <a class="site-nav__link" href="application-status.html">신청 현황</a>
+                <a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a>
+                <a class="site-nav__link" href="my-page.html">마이페이지</a>
+                <span class="mobile-auth-links"><a href="login.html">로그인</a><a href="signup-account.html" aria-current="page">회원가입</a></span>
+            </nav>
+            <div class="header-tools" aria-label="화면 설정">
+                <button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기">가-</button>
+                <button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기">가+</button>
+                <button class="header-tool header-tool--theme" type="button" data-theme-toggle aria-pressed="false">다크 모드</button>
+                <div class="auth-links" aria-label="인증 메뉴"><a href="login.html">로그인</a><a class="auth-links__signup" href="signup-account.html" aria-current="page">회원가입</a></div>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="container signup-account">
+        <div class="signup-account__shell">
+            <section class="signup-account__intro" aria-labelledby="signup-page-title">
+                <p class="signup-account__breadcrumb">홈 <span aria-hidden="true">›</span> 회원가입</p>
+                <h1 id="signup-page-title">회원가입</h1>
+                <p class="signup-account__lead">복덩이와 함께 나에게 맞는<br>복지 혜택을 시작해보세요!</p>
+                <div class="signup-account__benefits">
+                    <article class="signup-account__benefit"><span aria-hidden="true">⌕</span><div><h2>나에게 맞는 복지 혜택 추천</h2><p>입력한 정보를 바탕으로 적합한 복지를 추천해요.</p></div></article>
+                    <article class="signup-account__benefit"><span aria-hidden="true">▤</span><div><h2>신청은 더 쉽게</h2><p>필요한 서류와 절차를 단계별로 안내해요.</p></div></article>
+                    <article class="signup-account__benefit"><span aria-hidden="true">♧</span><div><h2>신청 일정도 놓치지 않게</h2><p>중요한 마감일을 확인하고 관리해요.</p></div></article>
+                </div>
+            </section>
+
+            <section class="signup-account__card signup-consent card" aria-labelledby="consent-form-title">
+                <ol class="assist-steps assist-steps--icon signup-steps" aria-label="회원가입 진행 단계">
+                    <li class="assist-step is-complete"><span class="assist-step__icon" aria-label="1단계 완료">✓</span><strong class="assist-step__label">계정 정보</strong></li>
+                    <li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">2</span><strong class="assist-step__label">약관 동의</strong></li>
+                    <li class="assist-step"><span class="assist-step__icon" aria-hidden="true">3</span><strong class="assist-step__label">프로필 입력</strong></li>
+                    <li class="assist-step"><span class="assist-step__icon" aria-hidden="true">4</span><strong class="assist-step__label">가입 완료</strong></li>
+                </ol>
+
+                <div class="signup-account__form-heading">
+                    <div><h2 id="consent-form-title"><span aria-hidden="true">☘</span> 약관 동의</h2><p>서비스 이용을 위해 약관 및 개인정보 처리 내용을 확인해 주세요.</p></div>
+                </div>
+
+                <form id="signup-consent-form" novalidate>
+                    <fieldset class="signup-consent__fieldset">
+                        <legend class="signup-consent__sr-only">약관 동의 항목</legend>
+                        <div class="signup-consent__all">
+                            <input id="consent-all" type="checkbox">
+                            <label for="consent-all"><strong>전체 약관에 동의합니다.</strong><span>필수 및 선택 동의 항목을 모두 포함합니다.</span></label>
+                        </div>
+
+                        <ul class="signup-consent__list" aria-describedby="consent-error">
+                            <li class="signup-consent__item">
+                                <input id="consent-terms" name="TERMS" type="checkbox" data-consent-type="TERMS" data-doc-version="pending">
+                                <label for="consent-terms"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>서비스 이용약관 동의</span></label>
+                                <button class="signup-consent__view" type="button" data-consent-view="TERMS">내용 보기 <span aria-hidden="true">›</span></button>
+                            </li>
+                            <li class="signup-consent__item">
+                                <input id="consent-privacy" name="PRIVACY" type="checkbox" data-consent-type="PRIVACY" data-doc-version="pending">
+                                <label for="consent-privacy"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>개인정보 수집·이용 동의</span></label>
+                                <button class="signup-consent__view" type="button" data-consent-view="PRIVACY">내용 보기 <span aria-hidden="true">›</span></button>
+                            </li>
+                            <li class="signup-consent__item">
+                                <input id="consent-optional-info" name="OPTIONAL_INFO" type="checkbox" data-consent-type="OPTIONAL_INFO" data-doc-version="pending">
+                                <label for="consent-optional-info"><span class="signup-consent__badge">선택</span><span>선택 정보 수집·이용 동의</span></label>
+                                <button class="signup-consent__view" type="button" data-consent-view="OPTIONAL_INFO">내용 보기 <span aria-hidden="true">›</span></button>
+                            </li>
+                            <li class="signup-consent__item">
+                                <input id="consent-sensitive" name="SENSITIVE" type="checkbox" data-consent-type="SENSITIVE" data-doc-version="pending">
+                                <label for="consent-sensitive"><span class="signup-consent__badge">선택</span><span>민감정보 수집·이용 동의</span></label>
+                                <button class="signup-consent__view" type="button" data-consent-view="SENSITIVE">내용 보기 <span aria-hidden="true">›</span></button>
+                            </li>
+                            <li class="signup-consent__item">
+                                <input id="consent-doc-record" name="DOC_RECORD" type="checkbox" data-consent-type="DOC_RECORD" data-doc-version="pending">
+                                <label for="consent-doc-record"><span class="signup-consent__badge">선택</span><span>서류 기록 보관 동의</span></label>
+                                <button class="signup-consent__view" type="button" data-consent-view="DOC_RECORD">내용 보기 <span aria-hidden="true">›</span></button>
+                            </li>
+                        </ul>
+                        <p id="consent-error" class="signup-consent__error" role="alert" aria-live="assertive" tabindex="-1"></p>
+                    </fieldset>
+                    <div class="signup-consent__actions">
+                        <a class="bk-btn bk-btn--outline bk-btn--lg" href="signup-account.html">이전 단계</a>
+                        <button class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="submit">다음 단계로 <span aria-hidden="true">›</span></button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <dialog class="signup-consent__dialog" id="consent-dialog" aria-labelledby="consent-dialog-title">
+        <div class="signup-consent__dialog-header"><h2 id="consent-dialog-title"></h2><button type="button" class="signup-consent__dialog-close" data-dialog-close aria-label="약관 내용 닫기">×</button></div>
+        <div id="consent-dialog-content" class="signup-consent__dialog-content"></div>
+        <div class="signup-consent__dialog-actions"><button class="btn btn-secondary" type="button" data-dialog-close>닫기</button></div>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
