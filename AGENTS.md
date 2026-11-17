@@ -24,7 +24,7 @@ AI 신청 도우미(자격 확인 → 서류 준비 → 서류 검토 → 신청
 ## 명령어
 
 ```bash
-docker compose up -d db          # 로컬 PostgreSQL 18
+docker compose up -d db          # 로컬 MySQL 9.7 (직접 설치해 쓰면 생략)
 cd backend && ./gradlew build    # 빌드 + 테스트 (CI와 동일)
 cd backend && ./gradlew test     # 테스트만
 ```

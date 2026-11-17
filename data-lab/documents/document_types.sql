@@ -1,0 +1,38 @@
+-- document_types 시드 (DATA-07, D-18). 자동 생성: data-lab/documents/build_document_types.py
+-- 원본: data-lab/documents/document_types.csv
+-- 29줄. name이 같으면 고친 값으로 덮어쓴다(id는 그대로라 benefits·users의 참조가 깨지지 않는다).
+SET NAMES utf8mb4;
+START TRANSACTION;
+INSERT INTO `document_types` (`name`, `aliases`, `issuer`, `online_available`, `issue_url`, `issue_method`, `default_validity_days`, `alternatives`, `ocr_supported`) VALUES
+  ('주민등록등본', '["등본", "주민등록표등본", "주민등록표 등본", "주민등록등·초본", "주민등록등초본"]', '읍·면·동 행정복지센터', TRUE, 'https://www.gov.kr', '정부24에서 로그인 후 무료 발급 / 무인민원발급기 / 행정복지센터 방문', 90, NULL, TRUE),
+  ('주민등록초본', '["초본", "주민등록표초본", "주민등록표 초본"]', '읍·면·동 행정복지센터', TRUE, 'https://www.gov.kr', '정부24에서 로그인 후 무료 발급(주소 변동 이력 포함 여부 선택) / 무인민원발급기 / 행정복지센터 방문', 90, NULL, FALSE),
+  ('가족관계증명서', '["가족관계 증명서"]', '대법원 가족관계등록 / 읍·면·동 행정복지센터', TRUE, 'https://efamily.scourt.go.kr', '대법원 전자가족관계등록시스템 또는 정부24에서 무료 발급(일반·상세·특정 선택) / 행정복지센터 방문 / 무인민원발급기(본인만)', 90, NULL, FALSE),
+  ('혼인관계증명서', '["혼인관계 증명서"]', '대법원 가족관계등록 / 읍·면·동 행정복지센터', TRUE, 'https://efamily.scourt.go.kr', '대법원 전자가족관계등록시스템에서 무료 발급(일반·상세 선택) / 행정복지센터 방문 / 무인민원발급기', NULL, NULL, FALSE),
+  ('기본증명서', '["기본 증명서"]', '대법원 가족관계등록 / 읍·면·동 행정복지센터', TRUE, 'https://efamily.scourt.go.kr', '대법원 전자가족관계등록시스템 또는 정부24에서 무료 발급 / 행정복지센터 방문 / 무인민원발급기', NULL, NULL, FALSE),
+  ('재학증명서', '["재학 증명서"]', '다니는 학교', TRUE, NULL, '학교 행정실 또는 학교 홈페이지에서 발급', 30, NULL, TRUE),
+  ('성적증명서', '["성적 증명서"]', '다니는(졸업한) 학교', TRUE, NULL, '학교 행정실 또는 학교 홈페이지에서 발급', NULL, NULL, FALSE),
+  ('건강보험료 납부확인서', '["건강보험료납부확인서", "보험료 납부확인서", "보험료납부확인서", "건강보험납부확인서", "건강보험 납부확인서"]', '국민건강보험공단', TRUE, 'https://www.nhis.or.kr', '국민건강보험공단 누리집·앱 / 정부24 / 공단 지사 방문', NULL, NULL, TRUE),
+  ('건강보험 자격득실확인서', '["건강보험자격득실확인서", "자격득실확인서", "건강보험 자격득실 확인서"]', '국민건강보험공단', TRUE, 'https://www.nhis.or.kr', '국민건강보험공단 홈페이지·앱 / 정부24 / 공단 지사 방문 / 무인민원발급기', 90, NULL, FALSE),
+  ('건강보험 자격확인서', '["건강보험자격확인서", "건강보험증", "건강보험증 사본"]', '국민건강보험공단', TRUE, 'https://www.nhis.or.kr', '국민건강보험공단 홈페이지·앱 / 정부24 / 공단 지사 방문 / 무인민원발급기', NULL, NULL, FALSE),
+  ('소득금액증명원', '["소득금액증명", "소득금액 증명원"]', '국세청(세무서)', TRUE, 'https://www.hometax.go.kr', '홈택스·손택스 / 정부24 / 세무서 방문', NULL, NULL, TRUE),
+  ('사업자등록증명', '["사업자등록증", "사업자등록증 사본", "사업자등록 사실증명", "사업자등록사실증명"]', '국세청(세무서)', TRUE, 'https://www.hometax.go.kr', '홈택스·손택스 / 세무서 방문', NULL, NULL, FALSE),
+  ('국세 납세증명서', '["국세납세증명서", "납세증명서"]', '국세청(세무서)', TRUE, 'https://www.hometax.go.kr', '홈택스·손택스 / 정부24 / 세무서 방문', NULL, NULL, FALSE),
+  ('지방세 납세증명서', '["지방세납세증명서"]', '시·군·구청', TRUE, 'https://www.wetax.go.kr', '위택스 / 정부24 / 무인민원발급기', NULL, NULL, FALSE),
+  ('지방세 세목별 과세증명서', '["지방세세목별과세증명서", "세목별 과세증명서", "세목별과세증명서"]', '시·군·구청', TRUE, 'https://www.wetax.go.kr', '위택스 / 정부24 / 무인민원발급기', NULL, NULL, FALSE),
+  ('국민기초생활수급자 증명서', '["수급자증명서", "수급자 증명서", "기초생활수급자증명서", "기초생활수급자 증명서", "국민기초생활수급자증명서"]', '읍·면·동 행정복지센터', TRUE, 'https://www.gov.kr', '정부24 / 행정복지센터 방문', 90, NULL, FALSE),
+  ('차상위계층 확인서', '["차상위계층확인서", "차상위계층증명서", "차상위 확인서", "차상위계층 증명서"]', '읍·면·동 행정복지센터', TRUE, 'https://www.gov.kr', '정부24에서 무료 발급 / 읍·면·동 행정복지센터 방문(주소지와 상관없이 발급)', NULL, NULL, FALSE),
+  ('한부모가족 증명서', '["한부모가족증명서", "한부모 가족증명서"]', '읍·면·동 행정복지센터', TRUE, 'https://www.gov.kr', '정부24 또는 복지로 / 주소지 읍·면·동 행정복지센터 방문', 30, NULL, FALSE),
+  ('장애인증명서', '["장애인 증명서"]', '읍·면·동 행정복지센터', TRUE, 'https://www.gov.kr', '정부24 또는 복지로 / 읍·면·동 행정복지센터 방문 / 무인민원발급기', NULL, '장애인등록증', FALSE),
+  ('장애인등록증', '["장애인복지카드", "복지카드", "장애인등록증 사본"]', '읍·면·동 행정복지센터', FALSE, NULL, '가지고 있는 등록증(복지카드) 사본 제출', NULL, '장애인증명서', FALSE),
+  ('인감증명서', '["인감 증명서"]', '읍·면·동 행정복지센터', FALSE, NULL, '본인이 신분증을 가지고 행정복지센터 방문', 90, '본인서명사실확인서', FALSE),
+  ('외국인등록사실증명', '["외국인등록사실증명서", "외국인 등록 사실증명"]', '출입국·외국인청 / 시·군·구청 / 읍·면·동 행정복지센터', TRUE, 'https://www.gov.kr', '정부24에서 무료 발급 / 출입국·외국인청, 시·군·구청, 행정복지센터 방문', NULL, NULL, FALSE),
+  ('진단서', '["의사 진단서"]', '진료받은 병·의원', FALSE, NULL, '진료받은 병·의원에서 발급', 90, NULL, FALSE),
+  ('출생증명서', '["출생 증명서"]', '출산한 병·의원', FALSE, NULL, '출산한 병원에서 발급', NULL, NULL, FALSE),
+  ('임신확인서', '["임신 확인서", "임신사실확인서", "임신 사실확인서", "임신 사실 확인서"]', '산부인과 / 일부 보건소', FALSE, NULL, '진료받은 산부인과 또는 보건소에서 발급', NULL, NULL, FALSE),
+  ('재직증명서', '["재직 증명서"]', '다니는 회사', TRUE, 'https://www.gov.kr', '회사 인사·총무 부서에 요청 / 정부24', 30, NULL, FALSE),
+  ('농업경영체 등록확인서', '["농업경영체등록확인서", "경영체등록확인서", "농업경영체등록증", "농업경영체 등록증"]', '국립농산물품질관리원', TRUE, 'https://www.gov.kr', '정부24 또는 농업경영체등록 온라인서비스 / 국립농산물품질관리원 지원·사무소, 읍·면·동 행정복지센터 방문 / 무인민원발급기', NULL, NULL, FALSE),
+  ('통장사본', '["통장 사본", "신청인 통장사본", "입금통장사본", "입금 통장사본", "계좌 사본"]', '본인 거래 은행', TRUE, NULL, '통장 첫 장 사본 또는 은행 앱에서 통장사본 발급', NULL, NULL, FALSE),
+  ('신분증', '["신분증 사본", "신청인 신분증", "주민등록증", "운전면허증"]', '본인 소지', FALSE, NULL, '가지고 있는 신분증(주민등록증·운전면허증·여권) 사본. 모바일 신분증도 실물과 같은 효력', NULL, NULL, FALSE)
+AS new ON DUPLICATE KEY UPDATE `aliases` = new.`aliases`, `issuer` = new.`issuer`, `online_available` = new.`online_available`, `issue_url` = new.`issue_url`, `issue_method` = new.`issue_method`, `default_validity_days` = new.`default_validity_days`, `alternatives` = new.`alternatives`, `ocr_supported` = new.`ocr_supported`;
+COMMIT;
+SELECT COUNT(*) AS document_types FROM `document_types`;
