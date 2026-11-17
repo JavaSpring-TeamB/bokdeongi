@@ -96,4 +96,19 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(ApiErrorResponse.of(code, message));
     }
+
+    /**
+     * 로그인 계정 잠금 처리 (AUTH_005 / 423)
+     */
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountLocked(
+            AccountLockedException e
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.LOCKED)
+                .body(ApiErrorResponse.of(
+                        "AUTH_005",
+                        e.getMessage()
+                ));
+    }
 }
