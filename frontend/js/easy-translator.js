@@ -105,6 +105,12 @@ function renderResult() {
     });
 }
 
+function updateInputPanels() {
+    document.querySelectorAll('.translator-input-panel').forEach((panel) => {
+        panel.hidden = panel.id !== selectedInputMode + '-input-panel';
+    });
+}
+
 function selectInputMode(mode) {
     selectedInputMode = mode;
     document.querySelectorAll('[data-input-mode]').forEach((tab) => {
@@ -113,9 +119,7 @@ function selectInputMode(mode) {
         tab.setAttribute('aria-selected', String(isSelected));
     });
 
-    document.querySelectorAll('.translator-input-panel').forEach((panel) => {
-        panel.hidden = panel.id !== mode + '-input-panel';
-    });
+    updateInputPanels();
 
     if (mode !== 'text') {
         hasCurrentResult = false;
@@ -141,6 +145,11 @@ function updateSourceTextState() {
     }
 
     updateSubmitState();
+}
+
+function updateSelectedFileName(input) {
+    const target = $('[data-file-name="' + input.id.replace('-input', '') + '"]');
+    if (target) target.textContent = input.files.length ? input.files[0].name : '선택된 파일 없음';
 }
 
 function showToast(message) {
@@ -241,6 +250,9 @@ function setupHeaderInteractions() {
 
 function setupInteractions() {
     $('#source-text').addEventListener('input', updateSourceTextState);
+    document.querySelectorAll('.translator-file-input').forEach((input) => {
+        input.addEventListener('change', () => updateSelectedFileName(input));
+    });
 
     document.addEventListener('click', (event) => {
         const inputTab = event.target.closest('[data-input-mode]');
@@ -269,6 +281,7 @@ function setupInteractions() {
 
 document.addEventListener('DOMContentLoaded', () => {
     $('#source-text').value = translationResult.originalText;
+    updateInputPanels();
     updateSourceTextState();
     renderResult();
     setupHeaderInteractions();

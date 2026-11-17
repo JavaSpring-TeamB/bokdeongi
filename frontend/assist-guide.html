@@ -48,11 +48,11 @@
             <div class="guide-banner__character" role="img" aria-label="노트북으로 안내하는 복덩이 캐릭터"></div>
         </section>
 
-        <div class="assist-steps guide-steps" aria-label="신청 도우미 진행 단계">
-            <div class="assist-step is-complete" data-step="✓">자격 확인</div>
-            <div class="assist-step is-complete" data-step="✓">서류 준비</div>
-            <div class="assist-step is-complete" data-step="✓">서류 검토</div>
-            <div class="assist-step is-current" data-step="4">신청 안내</div>
+        <div class="assist-steps assist-steps--icon guide-steps" aria-label="신청 도우미 진행 단계">
+            <div class="assist-step is-complete"><span class="assist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="16" rx="2"></rect><path d="M9 4.5h6v3H9zM9 13l2 2 4-4"></path></svg></span><span class="assist-step__label">자격 확인</span></div>
+            <div class="assist-step is-complete"><span class="assist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="11" height="11" rx="2"></rect><path d="M9 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path></svg></span><span class="assist-step__label">서류 준비</span></div>
+            <div class="assist-step is-complete"><span class="assist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h4M21 15v4a2 2 0 0 1-2 2h-4"></path><path d="m8 12 2.5 2.5L16 9"></path></svg></span><span class="assist-step__label">서류 검토</span></div>
+            <div class="assist-step is-current"><span class="assist-step__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 7-7 3-3 6z"></path><path d="m13 14 3-3"></path></svg></span><span class="assist-step__label">신청 안내</span></div>
         </div>
 
         <div class="guide-layout">
@@ -104,7 +104,7 @@
                 <section id="online-panel" class="guide-method-panel" role="tabpanel" aria-labelledby="online-tab">
                     <h3>온라인 신청 방법</h3>
                     <ol class="guide-process" data-online-process></ol>
-                    <button class="guide-official-link" type="button" data-official-apply aria-describedby="official-apply-help" disabled>
+                    <button class="bk-btn bk-btn--primary bk-btn--md guide-official-link" type="button" data-official-apply aria-describedby="official-apply-help" disabled>
                         정부24에서 신청하기 <span aria-hidden="true">↗</span>
                     </button>
                     <p id="official-apply-help" class="guide-link-help" data-official-apply-help>공식 접수처는 공고에서 확인해 주세요.</p>
@@ -134,12 +134,16 @@
                     </dl>
                     <p class="guide-visit-help">접수기관과 운영시간은 혜택별 공식 공고가 연동되면 실제 정보로 표시됩니다.</p>
                 </section>
+                <section class="guide-method-unavailable" data-application-mode-unavailable role="status" hidden>
+                    <h3>신청 방법 확인 필요</h3>
+                    <p>공식 공고에서 온라인 또는 방문 신청 가능 여부를 확인해 주세요.</p>
+                </section>
             </section>
         </div>
 
         <div class="assist-actions guide-actions">
-            <a class="btn btn-secondary" data-previous-step href="assist-review.html">이전 단계</a>
-            <button class="btn" type="button" data-application-complete>신청했습니다 <span aria-hidden="true">✓</span></button>
+            <a class="bk-btn bk-btn--outline bk-btn--md" data-previous-step href="assist-review.html">이전 단계</a>
+            <button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-application-complete>신청했습니다 <span aria-hidden="true">✓</span></button>
         </div>
     </main>
 

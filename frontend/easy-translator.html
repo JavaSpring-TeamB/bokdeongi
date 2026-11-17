@@ -67,25 +67,25 @@
                 </section>
 
                 <section id="image-input-panel" class="translator-input-panel translator-file-panel" role="tabpanel" aria-labelledby="image-input-tab" hidden>
-                    <label for="image-input">이미지 파일 선택</label>
-                    <input id="image-input" type="file" accept="image/png,image/jpeg,image/webp">
-                    <p>이미지 글자 인식 기능은 추후 연동 예정입니다. 현재는 파일을 분석하지 않습니다.</p>
+                    <label class="bk-btn bk-btn--secondary bk-btn--md translator-file-select">이미지 파일 선택<input id="image-input" class="sr-only translator-file-input" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                    <span class="translator-file-name" data-file-name="image">선택된 파일 없음</span>
+                    <p class="translator-file-help">이미지 글자 인식 기능은 추후 연동 예정입니다. 현재는 파일을 분석하지 않습니다.</p>
                 </section>
 
                 <section id="pdf-input-panel" class="translator-input-panel translator-file-panel" role="tabpanel" aria-labelledby="pdf-input-tab" hidden>
-                    <label for="pdf-input">PDF 파일 선택</label>
-                    <input id="pdf-input" type="file" accept="application/pdf">
-                    <p>PDF 텍스트 추출 기능은 추후 연동 예정입니다. 현재는 파일을 분석하지 않습니다.</p>
+                    <label class="bk-btn bk-btn--secondary bk-btn--md translator-file-select">PDF 파일 선택<input id="pdf-input" class="sr-only translator-file-input" type="file" accept="application/pdf"></label>
+                    <span class="translator-file-name" data-file-name="pdf">선택된 파일 없음</span>
+                    <p class="translator-file-help">PDF 텍스트 추출 기능은 추후 연동 예정입니다. 현재는 파일을 분석하지 않습니다.</p>
                 </section>
 
-                <button class="btn translator-submit" type="button" data-translate>쉬운 말로 바꾸기 <span aria-hidden="true">→</span></button>
+                <button class="bk-btn bk-btn--primary bk-btn--lg translator-submit" type="button" data-translate>쉬운 말로 바꾸기 <span aria-hidden="true">→</span></button>
                 <p class="translator-privacy-note"><span aria-hidden="true">i</span> 입력한 원문은 현재 브라우저에 저장하지 않아요.</p>
             </section>
 
             <section class="translator-card translator-result-card" aria-labelledby="result-title">
                 <div class="translator-result-heading">
                     <h2 id="result-title">변환 결과</h2>
-                    <button class="translator-copy-button" type="button" data-copy-result>결과 복사</button>
+                    <button class="bk-btn bk-btn--outline bk-btn--md translator-copy-button" type="button" data-copy-result>결과 복사</button>
                 </div>
                 <div class="translator-result-tabs" role="tablist" aria-label="변환 결과 보기">
                     <button id="simple-tab" class="translator-result-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="translation-result" data-result-tab="simple">쉬운 말</button>

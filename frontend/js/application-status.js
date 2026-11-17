@@ -65,7 +65,13 @@ const mockApplications = [
     }
 ];
 
-const stepNames = ['자격 확인', '서류 준비', '서류 검토', '신청 완료'];
+const stepNames = ['자격 확인', '서류 준비', '서류 검토', '신청 안내'];
+const stepIcons = [
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="16" rx="2"></rect><path d="M9 4.5h6v3H9zM9 13l2 2 4-4"></path></svg>',
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="11" height="11" rx="2"></rect><path d="M9 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path></svg>',
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h4M21 15v4a2 2 0 0 1-2 2h-4"></path><path d="m8 12 2.5 2.5L16 9"></path></svg>',
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 7-7 3-3 6z"></path><path d="m13 14 3-3"></path></svg>'
+];
 const $ = (selector) => document.querySelector(selector);
 let selectedStatus = 'all';
 
@@ -76,19 +82,17 @@ function getApplications(status) {
 }
 
 function renderStepper(application) {
-    return '<div class="assist-steps application-card-stepper" aria-label="' + application.title + ' 신청 진행 단계">' +
+    return '<div class="assist-steps assist-steps--icon application-card-stepper" aria-label="' + application.title + ' 신청 진행 단계">' +
         stepNames.map((name, index) => {
             let className = '';
-            let label = String(index + 1);
 
             if (application.status === 'completed' || index < application.currentStep) {
                 className = 'is-complete';
-                label = '✓';
             } else if (index === application.currentStep) {
                 className = 'is-current';
             }
 
-            return '<div class="assist-step ' + className + '" data-step="' + label + '">' + name + '</div>';
+            return '<div class="assist-step ' + className + '"><span class="assist-step__icon">' + stepIcons[index] + '</span><span class="assist-step__label">' + name + '</span></div>';
         }).join('') + '</div>';
 }
 
@@ -99,7 +103,7 @@ function renderDeadline(application) {
 
 function renderCard(application) {
     const resumeLink = application.resumePage
-        ? '<a class="btn" href="' + application.resumePage + '?applicationId=' + encodeURIComponent(application.id) + '">이어서 작성하기</a>'
+        ? '<a class="bk-btn bk-btn--primary bk-btn--md" href="' + application.resumePage + '?applicationId=' + encodeURIComponent(application.id) + '">이어서 작성하기</a>'
         : '';
 
     return '<article class="application-card">' +
@@ -108,10 +112,10 @@ function renderCard(application) {
         '<h3>' + application.title + '</h3><p class="application-card__description">' + application.description + '</p>' + renderDeadline(application) +
         '</div>' +
         '<div class="application-card__progress">' + renderStepper(application) +
-        '<div class="application-progress-row"><span>진행률 <span aria-hidden="true">i</span></span><div class="application-progress-track" style="--progress:' + application.progress + '%"><span></span></div><strong>' + application.progress + '%</strong></div>' +
+        '<div class="application-progress-row"><span>진행률</span><div class="application-progress-track" style="--progress:' + application.progress + '%"><span></span></div><strong>' + application.progress + '%</strong></div>' +
         '</div>' +
         '<div class="application-card__action"><section class="application-card__task"><h4>' + application.taskTitle + '</h4><p>' + application.task + '</p></section>' +
-        '<div class="application-card__buttons">' + resumeLink + '<a class="btn btn-secondary" href="benefit-detail.html?id=' + application.detailId + '">상세 보기</a></div></div>' +
+        '<div class="application-card__buttons">' + resumeLink + '<a class="bk-btn bk-btn--outline bk-btn--md" href="benefit-detail.html?id=' + application.detailId + '">상세 보기</a></div></div>' +
         '</article>';
 }
 

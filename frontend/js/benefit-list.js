@@ -151,7 +151,7 @@ function suggestedKeywords() {
 function empty(initial) {
     const title = initial ? '아직 검색 결과가 없어요.' : '검색 결과가 나오지 않아요.';
     const description = initial ? '검색어를 입력하거나, 원하는 조건을 선택해 복지 혜택을 찾아보세요.' : '다른 검색어나 조건으로 다시 찾아보세요.';
-    const actions = initial ? '' : '<button id="empty-reset" class="btn btn-secondary" type="button">필터 초기화</button>' + suggestedKeywords();
+    const actions = initial ? '' : '<button id="empty-reset" class="bk-btn bk-btn--secondary bk-btn--md" type="button">필터 초기화</button>' + suggestedKeywords();
     const imageAlt = initial ? '혜택 검색을 안내하는' : '검색 결과 없음을 안내하는';
     return '<section class="state-panel"><div class="state-panel__inner"><img src="img/benefit_list_logo.png" alt="' + imageAlt + ' 복덩이 캐릭터"><h2>' + title + '</h2><p>' + description + '</p>' + actions + '</div></section>';
 }
@@ -174,7 +174,7 @@ function card(benefit) {
     const savedClass = benefit.bookmarked ? ' is-saved' : '';
     const savedLabel = benefit.bookmarked ? '해제' : '저장';
     const deadline = benefit.deadline === '상시' ? '상시 신청' : '마감 ' + benefit.deadline;
-    return '<article class="benefit-card card"><div class="benefit-card__top"><span class="status-badge status-badge--' + status.tone + '">' + status.label + '</span><button class="bookmark-button' + savedClass + '" type="button" data-bookmark="' + benefit.id + '" aria-label="' + benefit.title + ' 관심 ' + savedLabel + '" aria-pressed="' + benefit.bookmarked + '">' + bookmarkIcon(benefit.bookmarked) + '</button></div><div class="benefit-card__body"><h3>' + benefit.title + '</h3><p class="benefit-card__description">' + benefit.organization + ' · ' + benefit.description + '</p><div class="benefit-card__meta"><strong>' + benefit.amount + '</strong><span>' + deadline + '</span></div></div><div class="benefit-card__footer"><div class="benefit-card__hashtags">' + hashtags + '</div><button class="btn benefit-card__detail" type="button" data-detail="' + benefit.id + '">상세 보기</button></div></article>';
+    return '<article class="benefit-card card"><div class="benefit-card__top"><span class="status-badge status-badge--' + status.tone + '">' + status.label + '</span><button class="bk-btn bk-btn--icon bookmark-button' + savedClass + '" type="button" data-bookmark="' + benefit.id + '" aria-label="' + benefit.title + ' 관심 ' + savedLabel + '" aria-pressed="' + benefit.bookmarked + '">' + bookmarkIcon(benefit.bookmarked) + '</button></div><div class="benefit-card__body"><h3>' + benefit.title + '</h3><p class="benefit-card__description">' + benefit.organization + ' · ' + benefit.description + '</p><div class="benefit-card__meta"><strong>' + benefit.amount + '</strong><span>' + deadline + '</span></div></div><div class="benefit-card__footer"><div class="benefit-card__hashtags">' + hashtags + '</div><button class="bk-btn bk-btn--secondary bk-btn--md benefit-card__detail" type="button" data-detail="' + benefit.id + '">상세 보기</button></div></article>';
 }
 
 function relevanceScore(benefit) {

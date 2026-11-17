@@ -44,6 +44,12 @@ function isDevelopmentTestMode() {
 
 const reviewStorageKey = 'bokdeongi-review-file-meta';
 const $ = (selector) => document.querySelector(selector);
+const assistantSteps = [
+    ['자격 확인', '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="16" rx="2"></rect><path d="M9 4.5h6v3H9zM9 13l2 2 4-4"></path></svg>'],
+    ['서류 준비', '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="11" height="11" rx="2"></rect><path d="M9 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path></svg>'],
+    ['서류 검토', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h4M21 15v4a2 2 0 0 1-2 2h-4"></path><path d="m8 12 2.5 2.5L16 9"></path></svg>'],
+    ['신청 안내', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 7-7 3-3 6z"></path><path d="m13 14 3-3"></path></svg>']
+];
 
 function getSelectedDocument() {
     return reviewDocuments.find((document) => document.id === selectedDocumentId);
@@ -61,26 +67,8 @@ function getStatusClass(status) {
     return 'pending';
 }
 
-function documentIcon() {
-    return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3.5h7l3 3v14H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3.5v4h3M9.5 11h5M9.5 14h5M9.5 17h3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-}
-
 function renderSteps() {
-    const steps = ['자격 확인', '서류 준비', '서류 검토', '신청 안내'];
-
-    return '<div class="assist-steps" aria-label="신청 도우미 진행 단계">' + steps.map((name, index) => {
-        let className = '';
-        let stepLabel = String(index + 1);
-
-        if (index < 2) {
-            className = 'is-complete';
-            stepLabel = '✓';
-        } else if (index === 2) {
-            className = 'is-current';
-        }
-
-        return '<div class="assist-step ' + className + '" data-step="' + stepLabel + '">' + name + '</div>';
-    }).join('') + '</div>';
+    return '<div class="assist-steps assist-steps--icon" aria-label="신청 도우미 진행 단계">' + assistantSteps.map((step, index) => '<div class="assist-step ' + (index < 2 ? 'is-complete' : index === 2 ? 'is-current' : '') + '"><span class="assist-step__icon">' + step[1] + '</span><span class="assist-step__label">' + step[0] + '</span></div>').join('') + '</div>';
 }
 
 function getSummary() {
@@ -119,11 +107,10 @@ function renderDocumentItem(document) {
 
     return '<div class="review-document ' + selectedClass + '">' +
         '<button class="review-document__select" type="button" data-document-id="' + document.id + '">' +
-        '<span class="review-document__icon">' + documentIcon() + '</span>' +
         '<span><h3>' + document.name + '</h3><p>' + document.fileName + ' · ' + document.result + '</p></span>' +
-        '<span class="review-document__result"><span class="status-badge ' + getStatusClass(document.status) + '">' + document.status + '</span></span>' +
         '</button>' +
-        '<button class="review-document__action" type="button" data-row-action="' + document.id + '">' + action + '</button>' +
+        '<button class="review-document__status" type="button" data-document-id="' + document.id + '"><span class="review-document__result"><span class="status-badge ' + getStatusClass(document.status) + '">' + document.status + '</span></span></button>' +
+        '<button class="bk-btn bk-btn--secondary bk-btn--sm review-document__action" type="button" data-row-action="' + document.id + '">' + action + '</button>' +
         '</div>';
 }
 
@@ -143,8 +130,8 @@ function render() {
         '<div class="review-counts"><span class="review-counts__pass">검토 통과 ' + summary.passed + '건</span><span class="review-counts__fix">보완 필요 ' + summary.needsFix + '건</span></div></div>' +
         reviewDocuments.map(renderDocumentItem).join('') +
         '</section>' +
-        '<div>' +
-        '<section class="review-card" aria-labelledby="review-detail-title">' +
+        '<aside class="review-summary-card">' +
+        '<section class="review-detail-section" aria-labelledby="review-detail-title">' +
         '<h2 id="review-detail-title" class="review-detail-title">선택한 서류 상세</h2>' +
         '<p class="review-detail__file">' + selected.fileName + '</p>' +
         '<dl class="review-detail-list">' +
@@ -155,11 +142,11 @@ function render() {
         '<div><dt>대체 가능</dt><dd>' + selected.alternative + '</dd></div>' +
         '</dl>' +
         '<div class="review-upload-actions">' +
-        '<button class="btn" type="button" data-upload ' + (isReviewing ? 'disabled' : '') + '>' + (isReviewing ? '검토 요청 중...' : '다시 업로드') + '</button>' +
-        '<a class="btn btn-secondary" href="assist-documents.html?id=' + encodeURIComponent(selected.id) + '">발급 안내</a>' +
+        '<button class="bk-btn bk-btn--secondary bk-btn--md" type="button" data-upload ' + (isReviewing ? 'disabled' : '') + '>' + (isReviewing ? '검토 요청 중...' : '다시 업로드') + '</button>' +
+        '<a class="bk-btn bk-btn--secondary bk-btn--md" href="assist-documents.html?id=' + encodeURIComponent(selected.id) + '">발급 안내</a>' +
         '</div>' +
         '</section>' +
-        '<section class="review-card" aria-labelledby="review-summary-title">' +
+        '<section class="review-summary-section" aria-labelledby="review-summary-title">' +
         '<h2 id="review-summary-title" class="review-detail-title">검토 결과 요약</h2>' +
         '<dl class="review-summary">' +
         '<div><dt>검토 통과</dt><dd>' + summary.passed + '건</dd></div>' +
@@ -169,11 +156,11 @@ function render() {
         '<p class="review-summary-message ' + summaryMessage.className + '">' + summaryMessage.text + '</p>' +
         '<p class="review-api-note">검토 결과는 예시 데이터이며, 실제 OCR 검토 API 연동 후 결과로 교체됩니다.</p>' +
         '</section>' +
-        '</div></div>' +
+        '</aside></div>' +
         '<p class="review-live-region" aria-live="polite"></p>' +
         '<div class="assist-actions">' +
-        '<a class="btn btn-secondary" href="assist-documents.html' + queryString + '">이전 단계</a>' +
-        '<button class="btn" type="button" data-next ' + (summary.canProceed || developmentTestMode ? '' : 'aria-disabled="true"') + '>' + actionLabel + '</button>' +
+        '<a class="bk-btn bk-btn--outline bk-btn--md" href="assist-documents.html' + queryString + '">이전 단계</a>' +
+        '<button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-next ' + (summary.canProceed || developmentTestMode ? '' : 'aria-disabled="true"') + '>' + actionLabel + '</button>' +
         '</div>';
 }
 

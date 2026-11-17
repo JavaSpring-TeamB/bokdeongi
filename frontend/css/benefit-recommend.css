@@ -1,6 +1,6 @@
 .benefit-recommend-page {
-    --recommend-warning-light: #fdf3d8;
-    --recommend-danger-light: #fce8e8;
+    --recommend-warning-light: var(--color-warning-light);
+    --recommend-danger-light: color-mix(in srgb, var(--color-danger) 12%, var(--color-white));
     --recommend-theme: var(--color-primary);
     --recommend-theme-light: var(--color-primary-light);
     overflow-x: hidden;
@@ -153,6 +153,16 @@
     gap: var(--space-sm);
 }
 
+.benefit-recommend-page[data-status="eligible"] .recommend-results > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-md);
+}
+
+.benefit-recommend-page[data-status="near-miss"] .recommend-results > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-md);
+}
+
 .recommend-card {
     display: grid;
     grid-template-columns: 62px minmax(230px, 1.15fr) minmax(280px, .95fr) auto;
@@ -271,6 +281,373 @@
     gap: var(--space-sm);
 }
 
+.recommend-card--eligible {
+    display: flex;
+    min-width: 0;
+    min-height: 360px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+}
+
+.recommend-card__eligible-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-sm);
+}
+
+.recommend-card--eligible .recommend-card__bookmark {
+    flex: 0 0 auto;
+}
+
+.recommend-card__eligible-content h3 {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: var(--font-size-card-title);
+    line-height: 1.4;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.recommend-card__eligible-content .recommend-card__description {
+    display: -webkit-box;
+    min-height: calc(1.55em * 2);
+    margin-top: var(--space-sm);
+    overflow: hidden;
+    font-size: var(--font-size-caption);
+    line-height: 1.55;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.recommend-card__eligible-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-sm);
+    margin: 0;
+}
+
+.recommend-card__eligible-info div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    padding: var(--space-sm);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+}
+
+.recommend-card__eligible-info dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__eligible-info dd {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: var(--font-size-description);
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.recommend-card__eligible-reason {
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-border);
+}
+
+.recommend-card__eligible-reason strong {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__eligible-reason p {
+    margin: 2px 0 0;
+    color: var(--color-text);
+    font-size: var(--font-size-description);
+    line-height: 1.5;
+}
+
+.recommend-card--eligible .recommend-card__actions {
+    margin-top: auto;
+}
+
+.recommend-card--eligible .recommend-card__actions .bk-btn {
+    width: 100%;
+}
+
+.recommend-card--conditional {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+}
+
+.recommend-card__conditional-info,
+.conditional-question {
+    min-width: 0;
+    padding: var(--space-lg);
+}
+
+.recommend-card__conditional-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.recommend-card--conditional .recommend-card__bookmark {
+    flex: 0 0 auto;
+}
+
+.recommend-card__conditional-meta {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+}
+
+.recommend-card__conditional-meta div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.recommend-card__conditional-meta dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__conditional-meta dd {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: var(--font-size-description);
+    font-weight: 700;
+    text-align: right;
+}
+
+.recommend-card__conditional-notice {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--color-warning-light);
+}
+
+.recommend-card__conditional-notice strong {
+    color: var(--color-warning);
+    font-size: var(--font-size-description);
+}
+
+.recommend-card__conditional-notice p {
+    margin: 2px 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+}
+
+.recommend-card--conditional .recommend-card__actions {
+    margin-top: auto;
+}
+
+.conditional-question {
+    display: grid;
+    align-content: start;
+    gap: var(--space-md);
+    border-left: 1px solid var(--color-border);
+    background: var(--color-white);
+}
+
+.conditional-question h4,
+.conditional-question p {
+    margin: 0;
+}
+
+.conditional-question h4 {
+    color: var(--color-warning);
+    font-size: var(--font-size-description);
+}
+
+.conditional-question__prompt {
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.conditional-question__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.conditional-question__choices .bk-btn {
+    flex: 1 1 100px;
+}
+
+.conditional-question__result {
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+}
+
+.conditional-question__result strong {
+    font-size: var(--font-size-description);
+}
+
+.conditional-question__result p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+}
+
+.conditional-question__result--yes {
+    background: var(--color-primary-light);
+}
+
+.conditional-question__result--yes strong,
+.conditional-question__result--yes p span {
+    color: var(--color-success);
+}
+
+.conditional-question__result--no {
+    background: color-mix(in srgb, var(--color-danger) 12%, var(--color-white));
+}
+
+.conditional-question__result--no strong,
+.conditional-question__result--no p span {
+    color: var(--color-danger);
+}
+
+.conditional-question__result--unsure {
+    background: var(--color-warning-light);
+}
+
+.conditional-question__result--unsure strong,
+.conditional-question__result--unsure p span {
+    color: var(--color-warning);
+}
+
+.conditional-question + .conditional-question {
+    border-top: 1px solid var(--color-border);
+}
+
+.recommend-card--near-miss {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+}
+
+.recommend-card--near-miss .recommend-card__bookmark {
+    flex: 0 0 auto;
+}
+
+.recommend-card__near-miss-meta {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+}
+
+.recommend-card__near-miss-meta div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.recommend-card__near-miss-meta dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__near-miss-meta dd {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-description);
+    font-weight: 700;
+    text-align: right;
+}
+
+.recommend-card__near-miss-condition {
+    padding: var(--space-md);
+    border-left: 3px solid var(--color-danger);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    background: var(--color-surface);
+}
+
+.recommend-card__near-miss-condition strong,
+.recommend-card__near-miss-reason strong {
+    color: var(--color-danger);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__near-miss-condition p,
+.recommend-card__near-miss-condition span,
+.recommend-card__near-miss-reason p {
+    display: block;
+    margin: 2px 0 0;
+    line-height: 1.5;
+}
+
+.recommend-card__near-miss-condition p {
+    color: var(--color-text);
+    font-size: var(--font-size-description);
+    font-weight: 700;
+}
+
+.recommend-card__near-miss-condition span,
+.recommend-card__near-miss-reason p {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+}
+
+.recommend-card__near-miss-reason {
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-border);
+}
+
+.recommend-card--near-miss .recommend-card__actions {
+    margin-top: auto;
+}
+
+.recommend-card--near-miss .recommend-card__actions .bk-btn {
+    width: 100%;
+}
+
+.recommend-empty-state {
+    display: grid;
+    grid-column: 1 / -1;
+    min-height: 220px;
+    place-content: center;
+    justify-items: center;
+    padding: var(--space-xl);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+.recommend-empty-state strong {
+    color: var(--color-text);
+    font-size: var(--font-size-description);
+}
+
+.recommend-empty-state p {
+    margin: var(--space-xs) 0 0;
+    font-size: var(--font-size-caption);
+}
+
 .recommend-card__bookmark {
     display: grid;
     width: 38px;
@@ -303,6 +680,18 @@
 }
 
 @media (max-width: 1024px) {
+    .benefit-recommend-page[data-status="eligible"] .recommend-results > div {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .benefit-recommend-page[data-status="near-miss"] .recommend-results > div {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .benefit-recommend-page .recommend-card--conditional {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    }
+
     .recommend-card {
         grid-template-columns: 56px minmax(0, 1fr) auto;
     }
@@ -377,6 +766,38 @@
     .recommend-card__actions {
         grid-row: auto;
         justify-content: flex-end;
+    }
+
+    .benefit-recommend-page[data-status="eligible"] .recommend-results > div {
+        grid-template-columns: 1fr;
+    }
+
+    .benefit-recommend-page[data-status="near-miss"] .recommend-results > div {
+        grid-template-columns: 1fr;
+    }
+
+    .recommend-card--eligible {
+        min-height: 0;
+        padding: var(--space-md);
+    }
+
+    .recommend-card--near-miss {
+        padding: var(--space-md);
+    }
+
+    .recommend-card--conditional {
+        grid-template-columns: 1fr;
+    }
+
+    .recommend-card__conditional-info,
+    .conditional-question {
+        padding: var(--space-md);
+    }
+
+    .conditional-question {
+        padding: var(--space-lg);
+        border-top: 1px solid var(--color-border);
+        border-left: 0;
     }
 }
 

@@ -116,8 +116,7 @@
 .search-form__button {
     flex: 0 0 auto;
     min-width: 104px;
-    min-height: 48px;
-    border-radius: 9px;
+    min-height: 50px;
     box-shadow: none;
 }
 
@@ -160,8 +159,6 @@
 
 .suggested-keywords button:focus-visible,
 .hash-tag:focus-visible,
-.bookmark-button:focus-visible,
-.text-button:focus-visible,
 .sort-select select:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
@@ -193,18 +190,7 @@
 }
 
 .text-button {
-    min-height: 30px;
-    padding: 3px 8px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    background: var(--color-primary-light);
-    color: var(--color-primary);
-    font-size: var(--font-size-caption);
-    font-weight: 600;
-}
-
-.text-button:hover {
-    border-color: var(--color-primary);
+    flex: 0 0 auto;
 }
 
 .filter-group {
@@ -313,12 +299,8 @@
     margin-top: var(--space-sm);
 }
 
-.state-panel .btn-secondary {
+.state-panel .bk-btn--secondary {
     margin-top: var(--space-sm);
-    min-height: 40px;
-    padding-inline: 18px;
-    border-width: 1px;
-    box-shadow: 0 1px 3px color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
 .loading-indicator {
@@ -461,31 +443,7 @@
 }
 
 .bookmark-button {
-    display: grid;
-    width: 40px;
-    height: 40px;
-    place-items: center;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-white);
-    color: var(--color-primary);
-    cursor: pointer;
-}
-
-.bookmark-button svg {
-    width: 21px;
-    height: 21px;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 1.9;
-}
-
-.bookmark-button:hover,
-.bookmark-button:active {
-    border-color: var(--color-primary);
-    background: var(--color-primary-light);
+    flex: 0 0 auto;
 }
 
 .bookmark-button.is-saved {
@@ -496,10 +454,6 @@
 
 .benefit-card__detail {
     flex: 0 0 auto;
-    min-height: 38px;
-    padding: 0 16px;
-    border-radius: 9px;
-    font-size: var(--font-size-caption);
 }
 
 @media (max-width: 767px) {

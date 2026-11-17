@@ -54,7 +54,8 @@ function renderGuideData(data) {
     $('[data-benefit-description]').textContent = data.benefitDescription;
     $('[data-eligibility-status]').textContent = data.eligibilityStatus;
     $('[data-application-period]').textContent = data.applicationPeriod;
-    $('[data-application-method]').textContent = data.applicationMode === 'online' ? '온라인 신청' : data.applicationMode === 'visit' ? '방문 신청' : '온라인 신청 또는 방문 신청';
+    const applicationMode = configureApplicationMethods(data);
+    $('[data-application-method]').textContent = applicationMode === 'online' ? '온라인 신청' : applicationMode === 'visit' ? '방문 신청' : applicationMode === 'both' ? '온라인 신청 또는 방문 신청' : '신청 방식 확인 필요';
 
     const passedDocuments = data.reviewedDocuments.filter((reviewDocument) => reviewDocument.status === '검토 통과');
     const reviewStatus = $('[data-review-status]');
@@ -87,29 +88,53 @@ function renderGuideData(data) {
         return item;
     }));
 
-    configureApplicationMethods(data);
-    configureOfficialApplyLink(data.officialApplyUrl);
+    configureOfficialApplyLink(applicationMode === 'online' || applicationMode === 'both' ? data.officialApplyUrl : null);
 }
 
 function configureApplicationMethods(data) {
+    const applicationMode = ['both', 'online', 'visit'].includes(data.applicationMode) ? data.applicationMode : null;
+    const tabs = $('.guide-method-tabs');
     const visitTab = $('#visit-tab');
     const onlineTab = $('#online-tab');
+    const onlinePanel = $('#online-panel');
+    const visitPanel = $('#visit-panel');
+    const unavailablePanel = $('[data-application-mode-unavailable]');
+    const description = $('.guide-method-card__description');
 
-    if (data.applicationMode === 'online') {
-        visitTab.disabled = true;
-        visitTab.textContent = '방문 신청 불가';
+    tabs.hidden = applicationMode !== 'both';
+    onlinePanel.hidden = applicationMode !== 'both' && applicationMode !== 'online';
+    visitPanel.hidden = applicationMode !== 'visit';
+    unavailablePanel.hidden = applicationMode !== null;
+    onlineTab.disabled = false;
+    visitTab.disabled = false;
+
+    if (applicationMode === 'both') {
+        description.textContent = '원하는 방법을 선택해 신청할 수 있어요.';
+        selectApplicationMethod('online');
+        return applicationMode;
     }
 
-    if (data.applicationMode === 'visit') {
-        onlineTab.disabled = true;
-        onlineTab.textContent = '온라인 신청 불가';
-        selectApplicationMethod('visit');
+    if (applicationMode === 'online') {
+        description.textContent = '온라인으로 신청할 수 있어요.';
+        onlineTab.setAttribute('aria-selected', 'true');
+        return applicationMode;
     }
+
+    if (applicationMode === 'visit') {
+        description.textContent = '방문 접수 안내를 확인해 주세요.';
+        visitTab.setAttribute('aria-selected', 'true');
+        return applicationMode;
+    }
+
+    description.textContent = '신청 방식을 확인한 뒤 안내해 드릴게요.';
+    return applicationMode;
 }
 
 function configureOfficialApplyLink(officialApplyUrl) {
     const applyButton = $('[data-official-apply]');
     const help = $('[data-official-apply-help]');
+
+    delete applyButton.dataset.url;
 
     if (!officialApplyUrl) {
         applyButton.disabled = true;

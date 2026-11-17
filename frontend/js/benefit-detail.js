@@ -105,13 +105,13 @@ function getPageMarkup(benefit) {
         '<section class="detail-title-row">',
         '<div class="benefit-info-bar"><div class="benefit-info-bar__main"><span class="detail-status">' + benefit.status + '</span><span>' + benefit.organization + '</span><span>지원 분야: ' + benefit.category + '</span><span>지역: ' + benefit.region + '</span></div>',
         '<div class="benefit-info-bar__tags">' + benefit.tags.map((tag) => '<button class="detail-tag" type="button" data-hashtag="' + tag + '">#' + tag + '</button>').join('') + '</div><small>데이터 기준: 2026. 11. 13.</small></div>',
-        '<div class="detail-actions"><button id="save-button" class="icon-button" type="button" aria-pressed="false">' + iconBookmark() + ' 관심 저장</button><button id="share-button" class="icon-button" type="button">공유하기</button></div></section>',
+        '<div class="detail-actions"><button id="save-button" class="icon-button icon-button--bookmark" type="button" aria-pressed="false" aria-label="관심 저장" title="관심 저장">' + iconBookmark() + '</button><button id="share-button" class="icon-button" type="button">공유하기</button></div></section>',
         '<div class="detail-layout"><section class="detail-main">',
         '<div class="tabs" role="tablist" aria-label="혜택 상세 정보">',
-        '<button class="tab-button" role="tab" id="tab-easy" aria-selected="true" aria-controls="panel-easy" data-tab="easy">' + detailIcon('easy') + '쉬운 말 보기</button>',
-        '<button class="tab-button" role="tab" id="tab-original" aria-selected="false" aria-controls="panel-original" data-tab="original">' + detailIcon('original') + '원문 보기</button>',
-        '<button class="tab-button" role="tab" id="tab-documents" aria-selected="false" aria-controls="panel-documents" data-tab="documents">' + detailIcon('documents') + '필요 서류</button>',
-        '<button class="tab-button" role="tab" id="tab-apply" aria-selected="false" aria-controls="panel-apply" data-tab="apply">' + detailIcon('apply') + '신청 방법</button></div>',
+        '<button class="tab-button" role="tab" id="tab-easy" aria-selected="true" aria-controls="panel-easy" data-tab="easy">쉬운 말 보기</button>',
+        '<button class="tab-button" role="tab" id="tab-original" aria-selected="false" aria-controls="panel-original" data-tab="original">원문 보기</button>',
+        '<button class="tab-button" role="tab" id="tab-documents" aria-selected="false" aria-controls="panel-documents" data-tab="documents">필요 서류</button>',
+        '<button class="tab-button" role="tab" id="tab-apply" aria-selected="false" aria-controls="panel-apply" data-tab="apply">신청 방법</button></div>',
         easyPanel(benefit), originalPanel(benefit), documentsPanel(), applyPanel(benefit),
         '</section>', sidebar(benefit), '</div>'
     ].join('');
@@ -123,18 +123,18 @@ function easyPanel(benefit) {
         ['amount', '지원 내용', benefit.amount, '지원 금액은 공고 기준으로 달라질 수 있어요.'],
         ['period', '신청 기간', benefit.period, '마감일 전에 공식 사이트에서 신청하세요.']
     ];
-    const rows = benefit.eligibility.conditions.map((condition) => '<tr><th scope="row"><span class="condition-check">✓</span>' + condition.name + '</th><td>' + condition.detail + '</td><td><span class="eligibility-badge">' + benefit.eligibility.status + '</span></td><td><button class="text-button" type="button" data-evidence="' + condition.evidence + '">근거 보기</button><p class="evidence-copy" hidden></p></td></tr>').join('');
-    return '<section class="tab-panel" id="panel-easy" role="tabpanel" aria-labelledby="tab-easy"><div class="summary-box"><div class="summary-box__icon" aria-hidden="true">' + detailIcon('home') + '</div><div><h2>3줄 핵심 요약</h2><ul>' + benefit.summary.map((summary) => '<li><span aria-hidden="true">✓</span>' + summary + '</li>').join('') + '</ul></div></div><div class="summary-cards">' + cards.map((card) => '<article class="card summary-card"><span class="summary-card__icon" aria-hidden="true">' + detailIcon(card[0]) + '</span><h3>' + card[1] + '</h3><strong>' + card[2] + '</strong><p>' + card[3] + '</p></article>').join('') + '</div><section class="card eligibility-card"><div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2><span class="eligibility-result"><span aria-hidden="true">✓</span> ' + benefit.eligibility.status + '</span></div><div class="eligibility-table-wrap"><table class="eligibility-table"><thead><tr><th>조건</th><th>사용자 정보 및 기준</th><th>판정</th><th>근거</th></tr></thead><tbody>' + rows + '</tbody></table></div><p class="eligibility-notice">입력하신 정보를 바탕으로 신청 가능성을 안내해 드려요. 최종 지원 여부는 담당 기관의 심사를 통해 결정됩니다.</p></section></section>';
+    const rows = benefit.eligibility.conditions.map((condition) => '<tr class="eligibility-row"><th scope="row"><span class="condition-check">✓</span>' + condition.name + '</th><td>' + condition.detail + '</td><td><span class="eligibility-badge">' + benefit.eligibility.status + '</span></td><td><button class="text-button" type="button" aria-expanded="false" data-evidence="' + condition.evidence + '">근거 보기</button></td></tr><tr class="evidence-row" hidden><td colspan="4"><p class="evidence-copy"></p></td></tr>').join('');
+    return '<section class="tab-panel" id="panel-easy" role="tabpanel" aria-labelledby="tab-easy"><div class="summary-box"><div><h2>3줄 핵심 요약</h2><ul>' + benefit.summary.map((summary) => '<li><span aria-hidden="true">✓</span>' + summary + '</li>').join('') + '</ul></div></div><div class="summary-cards">' + cards.map((card) => '<article class="card summary-card"><span class="summary-card__icon" aria-hidden="true">' + detailIcon(card[0]) + '</span><h3>' + card[1] + '</h3><strong>' + card[2] + '</strong><p>' + card[3] + '</p></article>').join('') + '</div><section class="card eligibility-card"><div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2><span class="eligibility-result"><span aria-hidden="true">✓</span> ' + benefit.eligibility.status + '</span></div><div class="eligibility-table-wrap"><table class="eligibility-table"><colgroup><col class="eligibility-table__condition"><col class="eligibility-table__detail"><col class="eligibility-table__status"><col class="eligibility-table__evidence"></colgroup><thead><tr><th>조건</th><th>사용자 정보 및 기준</th><th>판정</th><th>근거</th></tr></thead><tbody>' + rows + '</tbody></table></div><p class="eligibility-notice">입력하신 정보를 바탕으로 신청 가능성을 안내해 드려요. 최종 지원 여부는 담당 기관의 심사를 통해 결정됩니다.</p></section></section>';
 }
 
 function originalPanel(benefit) {
     const sections = mockNotice.sections.map((section, index) => '<section class="notice-document__section"><h3>' + (index + 1) + '. ' + section[0] + '</h3><ul>' + section[1].map((item) => '<li>' + item + '</li>').join('') + '</ul></section>').join('');
-    return '<section class="tab-panel" id="panel-original" role="tabpanel" aria-labelledby="tab-original" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>해당 사업의 공식 공고문 원문을 확인할 수 있어요. 공고문 내용은 기관의 발표 기준을 따르며, 최신 내용은 아래 원문 링크에서 확인해주세요.</p></div><div class="notice-heading"><h2>공고문 원문</h2><div class="detail-actions"><button class="icon-button" type="button" data-official>공고문 바로가기</button><button class="icon-button" type="button" data-pdf>PDF 다운로드</button></div></div><div class="notice-viewer"><article class="notice-document"><header><p>' + mockNotice.organization + '</p><h3>' + mockNotice.title + '</h3><p>' + mockNotice.introduction + '</p><p class="notice-document__date">' + mockNotice.noticeDate + '<br>' + mockNotice.organization + '시장</p></header>' + sections + '<p class="notice-document__footnote">※ 본 문서는 화면 구현을 위한 예시 공고문이며 실제 공공기관의 공식 공고가 아닙니다.</p></article></div></section>';
+    return '<section class="tab-panel" id="panel-original" role="tabpanel" aria-labelledby="tab-original" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>해당 사업의 공식 공고문 원문을 확인할 수 있어요. 공고문 내용은 기관의 발표 기준을 따르며, 최신 내용은 아래 원문 링크에서 확인해주세요.</p></div><div class="notice-heading"><h2>공고문 원문</h2><div class="notice-heading__actions"><span>공식 공고 자료</span><div class="detail-actions"><button class="icon-button" type="button" data-official>공고문 바로가기</button><button class="icon-button" type="button" data-pdf>PDF 다운로드</button></div></div></div><div class="notice-viewer"><article class="notice-document"><header><p>' + mockNotice.organization + '</p><h3>' + mockNotice.title + '</h3><p>' + mockNotice.introduction + '</p><p class="notice-document__date">' + mockNotice.noticeDate + '<br>' + mockNotice.organization + '시장</p></header>' + sections + '<p class="notice-document__footnote">※ 본 문서는 화면 구현을 위한 예시 공고문이며 실제 공공기관의 공식 공고가 아닙니다.</p></article></div></section>';
 }
 
 function documentsPanel() {
     const required = mockDocuments.filter((document) => document.required).length;
-    const cards = mockDocuments.map((document) => '<article class="document-item" data-document="' + document.id + '"><div class="document-item__basic"><span class="document-item__icon" aria-hidden="true">' + detailIcon('original') + '</span><div><h3>' + document.name + ' <span class="requirement-badge' + (document.required ? '' : ' optional') + '">' + (document.required ? '필수' : '선택') + '</span></h3><p>' + document.purpose + '</p></div></div><div class="document-item__issue"><p><strong>발급처</strong> ' + document.issuer + '</p><p><strong>유효기간</strong> ' + document.validity + '</p></div><button class="icon-button document-toggle" type="button" aria-expanded="false" data-document-guide="' + document.id + '">발급 방법 보기</button><div class="document-guide" hidden><h4>' + document.name + ' 발급 방법</h4><p>발급처: ' + document.issuer + '<br>' + document.online + '</p><ol>' + document.steps.map((step) => '<li>' + step + '</li>').join('') + '</ol><p>유효기간 및 주의사항은 실제 공고를 확인해 주세요.</p></div></article>').join('');
+    const cards = mockDocuments.map((document) => '<article class="document-item" data-document="' + document.id + '"><div class="document-item__basic"><span class="document-item__icon" aria-hidden="true">' + detailIcon('original') + '</span><div><h3>' + document.name + ' <span class="requirement-badge' + (document.required ? '' : ' optional') + '">' + (document.required ? '필수' : '선택') + '</span></h3><p>' + document.purpose + '</p></div></div><div class="document-item__issue"><p><strong>발급처</strong><span>' + document.issuer + '</span></p><p><strong>유효기간</strong><span>' + document.validity + '</span></p></div><button class="icon-button document-toggle" type="button" aria-expanded="false" data-document-guide="' + document.id + '">발급 방법 보기</button><div class="document-guide" hidden><h4>' + document.name + ' 발급 방법</h4><p>발급처: ' + document.issuer + '<br>' + document.online + '</p><ol>' + document.steps.map((step) => '<li>' + step + '</li>').join('') + '</ol><p>유효기간 및 주의사항은 실제 공고를 확인해 주세요.</p></div></article>').join('');
     return '<section class="tab-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>신청할 때 아래 서류를 준비해야 해요. 서류마다 필요한 이유와 발급 방법을 확인하고 미리 준비해보세요.</p></div><div class="document-heading"><h2>신청에 필요한 서류</h2><div class="document-summary"><span>전체 ' + mockDocuments.length + '건</span><span>필수 ' + required + '건</span><span>선택 ' + (mockDocuments.length - required) + '건</span></div></div><div class="document-list">' + cards + '</div><div class="documents-note"><h3>알아두세요!</h3><ul><li>모든 서류는 신청일 기준 유효기간을 확인해 주세요.</li><li>상황에 따라 추가 서류가 요구될 수 있어요. 기관이 직접 확인하는 서류는 제출이 생략될 수 있으므로 실제 공고를 확인해 주세요.</li></ul></div></section>';
 }
 
@@ -183,10 +183,14 @@ function setup() {
         if (tab) selectTab(tab);
         const evidence = event.target.closest('[data-evidence]');
         if (evidence) {
-            const copy = evidence.nextElementSibling;
-            const expanded = copy.hidden;
+            const row = evidence.closest('.eligibility-row');
+            const evidenceRow = row.nextElementSibling;
+            const copy = evidenceRow.querySelector('.evidence-copy');
+            const expanded = evidenceRow.hidden;
             copy.textContent = expanded ? evidence.dataset.evidence : '';
-            copy.hidden = !expanded;
+            evidenceRow.hidden = !expanded;
+            row.classList.toggle('is-evidence-open', expanded);
+            evidence.setAttribute('aria-expanded', String(expanded));
             evidence.textContent = expanded ? '근거 닫기' : '근거 보기';
         }
         const guide = event.target.closest('[data-document-guide]');
@@ -211,8 +215,11 @@ function setup() {
         if (event.target.closest('#save-button')) {
             const button = $('#save-button');
             const saved = button.classList.toggle('is-saved');
+            const label = saved ? '관심 저장됨' : '관심 저장';
             button.setAttribute('aria-pressed', saved);
-            button.innerHTML = iconBookmark() + (saved ? ' 관심 저장됨' : ' 관심 저장');
+            button.setAttribute('aria-label', label);
+            button.setAttribute('title', label);
+            button.innerHTML = iconBookmark();
             toast(saved ? '로그인 후 관심 혜택으로 저장할 수 있어요.' : '관심 저장을 해제했어요.');
         }
         if (event.target.closest('#share-button')) copyUrl();

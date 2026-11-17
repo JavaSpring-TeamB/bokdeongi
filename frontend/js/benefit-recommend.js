@@ -42,6 +42,8 @@ const recommendationData = {
 
 const $ = (selector) => document.querySelector(selector);
 let selectedStatus = 'eligible';
+const conditionalAnswers = new Map();
+const filterState = { region: 'all', category: 'all', sort: 'recommended' };
 
 function cardIcon(name) {
     const paths = {
@@ -60,6 +62,63 @@ function bookmarkIcon() {
 
 function detailRow(label, value) {
     return '<div class="recommend-card__detail"><span aria-hidden="true">✓</span><span><strong>' + label + '</strong> ' + value + '</span></div>';
+}
+
+function renderEligibleCard(card) {
+    return '<article class="recommend-card recommend-card--eligible">' +
+        '<div class="recommend-card__eligible-top"><div class="recommend-card__badges"><span class="recommend-status-badge">' + recommendationData.eligible.statusLabel + '</span><span class="recommend-category-badge">' + card.category + '</span></div>' +
+        '<button class="recommend-card__bookmark" type="button" data-bookmark aria-label="' + card.title + ' 관심 저장"><span aria-hidden="true">' + bookmarkIcon() + '</span></button></div>' +
+        '<div class="recommend-card__eligible-content"><h3>' + card.title + '</h3><p class="recommend-card__description">' + card.description + '</p></div>' +
+        '<dl class="recommend-card__eligible-info"><div><dt>' + card.primaryLabel + '</dt><dd>' + card.primaryValue + '</dd></div><div><dt>신청 기간</dt><dd>' + card.period + '</dd></div></dl>' +
+        '<div class="recommend-card__eligible-reason"><strong>' + card.reasonLabel + '</strong><p>' + card.reason + '</p></div>' +
+        '<div class="recommend-card__actions"><a class="bk-btn bk-btn--primary bk-btn--md" href="benefit-detail.html?id=' + card.detailId + '">상세 보기 <span aria-hidden="true">›</span></a></div>' +
+        '</article>';
+}
+
+function conditionalQuestionId(card) {
+    return 'benefit-' + card.detailId + '-condition';
+}
+
+function renderConditionalQuestion(card) {
+    const questionId = conditionalQuestionId(card);
+    const answer = conditionalAnswers.get(questionId);
+    const prompt = card.noticeTitle || card.notice;
+
+    if (answer) {
+        const answerLabel = { YES: '예', NO: '아니오', UNSURE: '아직 몰라요' }[answer];
+        const tone = answer === 'YES' ? 'yes' : answer === 'NO' ? 'no' : 'unsure';
+        const guidance = answer === 'UNSURE'
+            ? '<div class="conditional-question__result conditional-question__result--' + tone + '" role="status"><strong>기관에 확인해 보세요</strong><p><span>답변: ' + answerLabel + '</span> 공고문 또는 담당 기관에서 확인해 주세요.</p></div>'
+            : '<div class="conditional-question__result conditional-question__result--' + tone + '" role="status"><strong>답변: ' + answerLabel + '</strong><p>실제 자격 판정은 서버 연동 후 반영됩니다.</p></div>';
+        return '<section class="conditional-question" aria-labelledby="question-' + questionId + '"><h4 id="question-' + questionId + '">추가 확인이 필요한 항목</h4><p class="conditional-question__prompt">' + prompt + '</p>' + guidance + '</section>';
+    }
+
+    return '<section class="conditional-question" aria-labelledby="question-' + questionId + '"><h4 id="question-' + questionId + '">추가 확인이 필요한 항목</h4><p class="conditional-question__prompt">' + prompt + '</p><div class="conditional-question__choices" role="group" aria-label="' + prompt + '"><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-conditional-answer="' + questionId + '" data-answer-value="YES">예</button><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-conditional-answer="' + questionId + '" data-answer-value="NO">아니오</button><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-conditional-answer="' + questionId + '" data-answer-value="UNSURE">아직 몰라요</button></div></section>';
+}
+
+function renderConditionalCard(card) {
+    const primaryInfo = card.primaryLabel
+        ? '<div><dt>' + card.primaryLabel + '</dt><dd>' + card.primaryValue + '</dd></div>'
+        : '';
+    const notice = card.noticeTitle
+        ? '<div class="recommend-card__conditional-notice"><strong>' + card.noticeTitle + '</strong><p>' + card.notice + '</p></div>'
+        : '';
+
+    return '<article class="recommend-card recommend-card--conditional"><div class="recommend-card__conditional-info"><div class="recommend-card__eligible-top"><div class="recommend-card__badges"><span class="recommend-status-badge">' + recommendationData.conditional.statusLabel + '</span><span class="recommend-category-badge">' + card.category + '</span></div><button class="recommend-card__bookmark" type="button" data-bookmark aria-label="' + card.title + ' 관심 저장"><span aria-hidden="true">' + bookmarkIcon() + '</span></button></div><div class="recommend-card__eligible-content"><h3>' + card.title + '</h3><p class="recommend-card__description">' + card.description + '</p></div><dl class="recommend-card__conditional-meta">' + primaryInfo + '<div><dt>신청 기간</dt><dd>' + card.period + '</dd></div></dl>' + notice + '<div class="recommend-card__actions"><a class="bk-btn bk-btn--secondary bk-btn--md" href="benefit-detail.html?id=' + card.detailId + '">상세 보기 <span aria-hidden="true">›</span></a></div></div>' + renderConditionalQuestion(card) + '</article>';
+}
+
+function renderNearMissCard(card) {
+    const primaryInfo = card.primaryLabel
+        ? '<div><dt>' + card.primaryLabel + '</dt><dd>' + card.primaryValue + '</dd></div>'
+        : '';
+    const unmetCondition = card.noticeTitle
+        ? '<div class="recommend-card__near-miss-condition"><strong>충족하지 못한 조건</strong><p>' + card.noticeTitle + '</p><span>' + card.notice + '</span></div>'
+        : '';
+    const reason = card.reasonLabel
+        ? '<div class="recommend-card__near-miss-reason"><strong>' + card.reasonLabel + '</strong><p>' + card.reason + '</p></div>'
+        : '';
+
+    return '<article class="recommend-card recommend-card--near-miss"><div class="recommend-card__eligible-top"><div class="recommend-card__badges"><span class="recommend-status-badge">' + recommendationData['near-miss'].statusLabel + '</span><span class="recommend-category-badge">' + card.category + '</span></div><button class="recommend-card__bookmark" type="button" data-bookmark aria-label="' + card.title + ' 관심 저장"><span aria-hidden="true">' + bookmarkIcon() + '</span></button></div><div class="recommend-card__eligible-content"><h3>' + card.title + '</h3><p class="recommend-card__description">' + card.description + '</p></div><dl class="recommend-card__near-miss-meta">' + primaryInfo + '<div><dt>신청 기간</dt><dd>' + card.period + '</dd></div></dl>' + unmetCondition + reason + '<div class="recommend-card__actions"><a class="bk-btn bk-btn--outline bk-btn--md" href="benefit-detail.html?id=' + card.detailId + '">상세 보기 <span aria-hidden="true">›</span></a></div></article>';
 }
 
 function renderCard(card, status) {
@@ -82,17 +141,81 @@ function renderCard(card, status) {
         '</article>';
 }
 
+function parsePeriodEnd(period) {
+    const match = String(period || '').match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+    if (!match) return null;
+
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return date.getFullYear() === Number(match[1]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[3]) ? date : null;
+}
+
+function isClosed(card) {
+    const deadline = parsePeriodEnd(card.period);
+    if (!deadline) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return deadline < today;
+}
+
+function parseAmount(value) {
+    const amount = String(value || '');
+    const tenThousandMatch = amount.match(/(\d+(?:\.\d+)?)\s*만원/);
+    if (tenThousandMatch) return Number(tenThousandMatch[1]) * 10000;
+    const wonMatch = amount.match(/(\d+(?:\.\d+)?)\s*원/);
+    return wonMatch ? Number(wonMatch[1]) : null;
+}
+
+function availableCards(status) {
+    return recommendationData[status].cards.filter((card) => !isClosed(card));
+}
+
+function getVisibleCards(status) {
+    const cards = availableCards(status).filter((card) => {
+        if (filterState.category !== 'all' && card.category !== filterState.category) return false;
+        if (filterState.region !== 'all' && card.region !== filterState.region) return false;
+        return true;
+    });
+
+    return cards.sort((first, second) => {
+        if (filterState.sort === 'deadline') {
+            const firstDate = parsePeriodEnd(first.period);
+            const secondDate = parsePeriodEnd(second.period);
+            if (!firstDate) return secondDate ? 1 : 0;
+            if (!secondDate) return -1;
+            return firstDate - secondDate;
+        }
+        if (filterState.sort === 'amount') {
+            const firstAmount = parseAmount(first.primaryValue);
+            const secondAmount = parseAmount(second.primaryValue);
+            if (firstAmount === null) return secondAmount === null ? 0 : 1;
+            if (secondAmount === null) return -1;
+            return secondAmount - firstAmount;
+        }
+        return 0;
+    });
+}
+
+function emptyStateMarkup() {
+    return '<div class="recommend-empty-state" role="status"><strong>조건에 맞는 혜택이 없어요.</strong><p>분야 또는 정렬 기준을 조정해 보세요.</p></div>';
+}
+
 function renderStatus(status) {
     const data = recommendationData[status];
     const banner = data.banner;
+    const cards = getVisibleCards(status);
 
     document.body.dataset.status = status;
     $('[data-banner-prefix]').textContent = banner.prefix;
     $('[data-banner-emphasis]').textContent = banner.emphasis;
     $('[data-banner-suffix]').textContent = banner.suffix;
     $('[data-banner-description]').textContent = banner.description;
-    $('[data-result-count]').textContent = String(data.cards.length);
-    $('[data-recommend-list]').innerHTML = data.cards.map((card) => renderCard(card, status)).join('');
+    $('[data-result-count]').textContent = String(cards.length);
+    const render = status === 'eligible'
+        ? renderEligibleCard
+        : status === 'conditional'
+            ? renderConditionalCard
+            : renderNearMissCard;
+    $('[data-recommend-list]').innerHTML = cards.length ? cards.map(render).join('') : emptyStateMarkup();
     $('#recommend-results').setAttribute('aria-labelledby', status + '-tab');
 
     document.querySelectorAll('[data-status-tab]').forEach((tab) => {
@@ -104,8 +227,21 @@ function renderStatus(status) {
 
 function renderTabCounts() {
     document.querySelectorAll('[data-tab-count]').forEach((element) => {
-        const count = recommendationData[element.dataset.tabCount].cards.length;
+        const count = availableCards(element.dataset.tabCount).length;
         element.textContent = '(' + count + ')';
+    });
+}
+
+function setupFilters() {
+    const categorySelect = $('[data-filter="category"]');
+    const categories = [...new Set(Object.values(recommendationData).flatMap((data) => data.cards.map((card) => card.category)).filter(Boolean))];
+    categorySelect.insertAdjacentHTML('beforeend', categories.map((category) => '<option value="' + category + '">' + category + '</option>').join(''));
+
+    document.addEventListener('change', (event) => {
+        const filter = event.target.closest('[data-filter]');
+        if (!filter) return;
+        filterState[filter.dataset.filter] = filter.value;
+        renderStatus(selectedStatus);
     });
 }
 
@@ -179,6 +315,13 @@ function setupInteractions() {
             return;
         }
 
+        const answerButton = event.target.closest('[data-conditional-answer]');
+        if (answerButton) {
+            conditionalAnswers.set(answerButton.dataset.conditionalAnswer, answerButton.dataset.answerValue);
+            renderStatus(selectedStatus);
+            return;
+        }
+
         if (event.target.closest('[data-condition-check]')) {
             showToast('조건 확인과 재판정 기능은 추후 연동 예정입니다.');
         }
@@ -187,6 +330,7 @@ function setupInteractions() {
 
 document.addEventListener('DOMContentLoaded', () => {
     renderTabCounts();
+    setupFilters();
     renderStatus(selectedStatus);
     setupHeaderInteractions();
     setupInteractions();
