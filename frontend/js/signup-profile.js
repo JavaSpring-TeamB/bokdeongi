@@ -50,6 +50,7 @@ function setupExclusiveGroups() {
 }
 function setupChildrenFields() {
     const choice = $('#profile-children-count'); const exact = $('#exact-children-field'); const youngest = $('#youngest-child-field');
+    youngest.max = String(new Date().getFullYear());
     const update = () => { const hasChildren = choice.value && choice.value !== '0'; exact.hidden = choice.value !== '4+'; youngest.hidden = !hasChildren; if (!hasChildren) { $('#profile-youngest-year').value = ''; } if (choice.value !== '4+') $('#profile-children-exact').value = ''; saveProfile(); };
     choice.addEventListener('change', update); return update;
 }
@@ -60,7 +61,13 @@ function setupIncomeFields() {
     document.querySelectorAll('[name="income_input_type"]').forEach((input) => input.addEventListener('change', update)); return update;
 }
 function sensitiveConsentGiven() { return readStorage(CONSENT_STORAGE_KEY, []).some((consent) => consent.consent_type === 'SENSITIVE' && consent.agreed === true); }
-function setupSensitiveSection() { const allowed = sensitiveConsentGiven(); $('#sensitive-section').hidden = !allowed; $('#sensitive-notice').hidden = allowed; }
+function selectedSensitiveCodes() { return sensitiveConsentGiven() ? selectedCodes('sensitive') : null; }
+function setupSensitiveSection() {
+    const allowed = sensitiveConsentGiven(); const section = $('#sensitive-section');
+    section.classList.toggle('is-disabled', !allowed); section.setAttribute('aria-disabled', String(!allowed));
+    section.querySelectorAll('input').forEach((input) => { input.disabled = !allowed; if (!allowed) input.checked = false; });
+    $('#sensitive-notice').hidden = allowed;
+}
 
 function getChildrenCount() { const choice = $('#profile-children-count').value; return choice === '4+' ? $('#profile-children-exact').value : choice; }
 function buildProfilePayload() {
@@ -71,10 +78,12 @@ function buildProfilePayload() {
         income_input_type: incomeType || null, income_amount: ['ANNUAL', 'MONTHLY'].includes(incomeType) ? $('#profile-income-amount').value || null : null,
         income_base_year: ['ANNUAL', 'MONTHLY'].includes(incomeType) ? $('#profile-income-year').value || null : null, median_income_pct: null,
         marital_status: selectedRadio('marital_status') || null, children_count: getChildrenCount() || null, youngest_child_birth_year: $('#profile-youngest-year').value || null,
-        household_type_codes: selectedCodes('household'), status_codes: selectedCodes('status'), welfare_status: selectedRadio('welfare_status') || null, profile_step: 3
+        household_type_codes: selectedCodes('household'), status_codes: selectedCodes('status'), welfare_status: selectedRadio('welfare_status') || null,
+        // 서버 저장 시 동의된 민감 코드만 암호화해 sensitive_enc에 매핑한다. null=미입력, []=명시적 해당 없음.
+        sensitive_codes: selectedSensitiveCodes(), profile_step: 3
     };
 }
-function saveProfile() { try { sessionStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(buildProfilePayload())); } catch (error) { /* 현재 세션에서만 보관한다. */ } }
+function saveProfile() { const { sensitive_codes: sensitiveCodes, ...profile } = buildProfilePayload(); try { sessionStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile)); } catch (error) { /* 현재 세션에서만 보관한다. */ } }
 function restoreProfile(updateChildren, updateIncome) {
     const profile = readStorage(PROFILE_STORAGE_KEY, null); if (!profile) return;
     $('#profile-birth-date').value = profile.birth_date || ''; $('#profile-sido').value = Object.keys(REGIONS).find((name) => REGIONS[name].some((region) => region.code === profile.region_code)) || ''; populateSigungu(profile.region_code || '');
@@ -85,14 +94,15 @@ function restoreProfile(updateChildren, updateIncome) {
 }
 function updateAge() { const value = $('#profile-birth-date').value; const target = $('#profile-age'); if (!value) { target.textContent = '입력 후 표시'; return; } const birth = new Date(`${value}T00:00:00`); const now = new Date(); let age = now.getFullYear() - birth.getFullYear(); if (now < new Date(now.getFullYear(), birth.getMonth(), birth.getDate())) age -= 1; target.textContent = age >= 0 ? `만 ${age}세` : '날짜를 확인해 주세요.'; }
 function setInvalid(selector, invalid) { document.querySelectorAll(selector).forEach((input) => input.setAttribute('aria-invalid', String(invalid))); }
+function focusFirstInvalidProfileField() { window.requestAnimationFrame(() => { const input = document.querySelector('#signup-profile-form :invalid, #signup-profile-form [aria-invalid="true"]'); if (!input) return; input.focus({ preventScroll: true }); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }
 function validateProfile() {
     const errors = []; const birth = $('#profile-birth-date');
     if (!birth.value) errors.push('생년월일을 입력해 주세요.'); else if (birth.value > today()) errors.push('생년월일은 오늘 이전 날짜여야 합니다.');
     if (!selectedRadio('gender')) errors.push('성별을 선택해 주세요.'); if (!$('#profile-sigungu').value) errors.push('거주 지역의 시·도와 시·군·구를 선택해 주세요.'); if (!$('#profile-household-size').value) errors.push('가구원 수를 선택해 주세요.'); if (!selectedRadio('housing_type')) errors.push('주거 형태를 선택해 주세요.'); if (!selectedRadio('has_house')) errors.push('주택 보유 여부를 선택해 주세요.');
     const incomeType = selectedRadio('income_input_type'); if (!incomeType) errors.push('소득 입력 방식을 선택해 주세요.'); if (['ANNUAL', 'MONTHLY'].includes(incomeType)) { if ($('#profile-income-amount').value === '' || Number($('#profile-income-amount').value) < 0) errors.push('0원 이상의 소득 금액을 입력해 주세요.'); if (!$('#profile-income-year').value || Number($('#profile-income-year').value) > new Date().getFullYear()) errors.push('올바른 소득 기준 연도를 입력해 주세요.'); }
-    if (!selectedRadio('marital_status')) errors.push('혼인 여부를 선택해 주세요.'); const childChoice = $('#profile-children-count').value; if (!childChoice) errors.push('자녀 수를 선택해 주세요.'); if (childChoice === '4+' && Number($('#profile-children-exact').value) < 4) errors.push('정확한 자녀 수를 4명 이상으로 입력해 주세요.'); if (childChoice && childChoice !== '0' && (!$('#profile-youngest-year').value || Number($('#profile-youngest-year').value) > new Date().getFullYear())) errors.push('올바른 막내 자녀 출생연도를 입력해 주세요.');
+    if (!selectedRadio('marital_status')) errors.push('혼인 여부를 선택해 주세요.'); const childChoice = $('#profile-children-count').value; const youngestYear = Number($('#profile-youngest-year').value); if (!childChoice) errors.push('자녀 수를 선택해 주세요.'); if (childChoice === '4+' && Number($('#profile-children-exact').value) < 4) errors.push('정확한 자녀 수를 4명 이상으로 입력해 주세요.'); if (childChoice && childChoice !== '0' && (!Number.isInteger(youngestYear) || youngestYear < 1900 || youngestYear > new Date().getFullYear())) errors.push('올바른 막내 자녀 출생연도를 입력해 주세요.');
     if (selectedCodes('household') === null) errors.push('가구 유형 또는 해당 없음을 선택해 주세요.'); if (selectedCodes('status') === null) errors.push('현재 활동 상태 또는 해당 없음을 선택해 주세요.'); if (!selectedRadio('welfare_status')) errors.push('복지 수급 상태를 선택해 주세요.');
-    const error = $('#profile-form-error'); error.textContent = errors[0] || ''; if (errors.length) { error.focus(); showToast(`입력 항목 ${errors.length}개를 확인해 주세요.`); return false; } return true;
+    const error = $('#profile-form-error'); error.textContent = errors[0] || ''; if (errors.length) { error.focus(); focusFirstInvalidProfileField(); showToast(`입력 항목 ${errors.length}개를 확인해 주세요.`); return false; } return true;
 }
 function setupHeaderInteractions() {
     let theme = localStorage.getItem('bokdeongi-theme') || 'light'; const themeButton = $('[data-theme-toggle]'); document.documentElement.dataset.theme = theme; document.documentElement.style.setProperty('--font-scale', localStorage.getItem('bokdeongi-font-scale') || 1); themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드'; themeButton.setAttribute('aria-pressed', String(theme === 'dark'));

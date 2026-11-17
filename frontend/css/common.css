@@ -68,7 +68,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 .site-header { height: var(--header-height); border-bottom: 1px solid var(--color-border); background: var(--color-white); }
 .site-header__inner { display: flex; height: 100%; align-items: center; gap: var(--space-lg); }
 .site-brand { display: inline-flex; min-width: 174px; align-items: center; gap: 7px; line-height: 1.1; }
-.site-brand__mark { color: var(--color-primary); font-size: 2rem; line-height: 1; }
+.site-brand__mark { width: 32px; height: 32px; flex: 0 0 32px; object-fit: contain; }
 .site-brand__text { display: grid; gap: 2px; }
 .site-brand__text strong { font-size: 1.25rem; }
 .site-brand__text small { color: var(--color-text-secondary); font-size: var(--font-size-caption); white-space: nowrap; }
@@ -174,7 +174,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 @media (max-width: 520px) {
   .container { width: calc(100% - 32px); }
   .site-brand__text strong { font-size: 1rem; }
-  .site-brand__mark { font-size: 1.6rem; }
+  .site-brand__mark { width: 26px; height: 26px; flex-basis: 26px; }
   .header-tool { display: none; }
   .header-tool--theme { display: inline-flex; }
   .toast { right: 16px; bottom: 16px; max-width: calc(100% - 32px); }

@@ -1,8 +1,6 @@
 .signup-consent__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.signup-consent .signup-step.is-complete { color: var(--color-primary); }
-.signup-consent .signup-step.is-complete span { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-white); }
-.signup-consent .signup-step.is-complete + .signup-step::before { background: var(--color-primary); }
-.signup-consent .signup-step.is-current + .signup-step::before { background: var(--color-border); }
+.signup-consent .assist-step.is-complete { color: var(--color-primary); }
+.signup-consent .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-white); }
 
 #signup-consent-form { margin-top: var(--space-lg); }
 .signup-consent__fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
@@ -20,7 +18,7 @@
 .signup-consent__view:hover { color: var(--color-primary); text-decoration: underline; }
 .signup-consent__error { min-height: 22px; margin: var(--space-sm) 0 0; color: var(--color-danger); font-size: var(--font-size-caption); }
 .signup-consent__actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); margin-top: var(--space-sm); }
-.signup-consent__actions .btn { width: 100%; }
+.signup-consent__actions .bk-btn { width: 100%; }
 .signup-consent__actions .signup-account__submit { margin-top: 0; }
 
 .signup-consent__dialog { width: min(560px, calc(100% - 32px)); max-height: min(620px, calc(100% - 32px)); padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-white); color: var(--color-text); box-shadow: 0 14px 38px rgb(0 0 0 / 22%); }

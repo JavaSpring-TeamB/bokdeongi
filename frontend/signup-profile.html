@@ -14,7 +14,7 @@
     <a class="skip-link" href="#main-content">본문으로 바로가기</a>
     <header class="site-header">
         <div class="container site-header__inner">
-            <a class="site-brand" href="./index.html" aria-label="복덩이 홈"><span class="site-brand__mark" aria-hidden="true">☘</span><span class="site-brand__text"><strong>복덩이</strong></span></a>
+            <a class="site-brand" href="./index.html" aria-label="복덩이 홈"><img class="site-brand__mark" src="./img/복덩이_로고.png" alt="복덩이 캐릭터 로고"><span class="site-brand__text"><strong>복덩이</strong></span></a>
             <button class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation"><span></span><span></span><span></span></button>
             <nav class="site-nav" id="site-navigation" aria-label="주요 메뉴">
                 <a class="site-nav__link" href="./index.html">홈</a><a class="site-nav__link" href="benefit-list.html">복지 혜택 찾기</a><a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a><a class="site-nav__link" href="application-status.html">신청 현황</a><a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a><a class="site-nav__link" href="my-page.html">마이페이지</a>
@@ -39,12 +39,13 @@
             </section>
 
             <section class="signup-account__card signup-profile card" aria-labelledby="profile-form-title">
-                <ol class="signup-steps" aria-label="회원가입 진행 단계">
-                    <li class="signup-step is-complete"><span aria-label="1단계 완료">✓</span><strong>계정 정보</strong></li><li class="signup-step is-complete"><span aria-label="2단계 완료">✓</span><strong>약관 동의</strong></li><li class="signup-step is-current" aria-current="step"><span>3</span><strong>프로필 입력</strong></li><li class="signup-step"><span>4</span><strong>가입 완료</strong></li>
+                <ol class="assist-steps assist-steps--icon signup-steps" aria-label="회원가입 진행 단계">
+                    <li class="assist-step is-complete"><span class="assist-step__icon" aria-label="1단계 완료">✓</span><strong class="assist-step__label">계정 정보</strong></li><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="2단계 완료">✓</span><strong class="assist-step__label">약관 동의</strong></li><li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">3</span><strong class="assist-step__label">프로필 입력</strong></li><li class="assist-step"><span class="assist-step__icon" aria-hidden="true">4</span><strong class="assist-step__label">가입 완료</strong></li>
                 </ol>
                 <div class="signup-account__form-heading"><div><h2 id="profile-form-title"><span aria-hidden="true">☘</span> 프로필 입력</h2><p>복지 혜택 맞춤 추천을 위한 정보를 입력해 주세요.</p></div><p class="signup-account__required-note"><b aria-hidden="true">*</b> 필수 입력 항목입니다.</p></div>
 
                 <form id="signup-profile-form" novalidate>
+                    <div class="signup-profile__form-scroll" tabindex="0" aria-label="프로필 입력 항목">
                     <p id="profile-form-error" class="signup-profile__error" role="alert" aria-live="assertive" tabindex="-1"></p>
                     <fieldset class="signup-profile__section"><legend>기본 정보</legend>
                         <div class="signup-profile__grid">
@@ -81,10 +82,21 @@
                         <div class="signup-profile__choice"><span>복지 수급 상태 <b aria-hidden="true">*</b></span><div><label><input name="welfare_status" type="radio" value="BASIC" required> 기초생활수급자</label><label><input name="welfare_status" type="radio" value="NEAR_POOR"> 차상위계층</label><label><input name="welfare_status" type="radio" value="NONE"> 해당 없음</label><label><input name="welfare_status" type="radio" value="UNKNOWN"> 잘 모르겠어요</label></div></div>
                     </fieldset>
 
-                    <fieldset id="sensitive-section" class="signup-profile__section signup-profile__sensitive" hidden><legend>특수 상황 <small>선택</small></legend><p class="signup-profile__help">해당하는 상황이 있다면 관련 복지 혜택을 더 정확하게 안내받을 수 있어요.</p><div class="signup-profile__code-group" data-exclusive-group="sensitive"><span>해당 상황</span><div><label><input type="checkbox" data-sensitive-label="예비부모"> 예비부모</label><label><input type="checkbox" data-sensitive-label="난임"> 난임</label><label><input type="checkbox" data-sensitive-label="임신·출산"> 임신·출산</label><label><input type="checkbox" data-sensitive-label="입양"> 입양</label><label><input type="checkbox" data-sensitive-label="장애"> 장애</label><label><input type="checkbox" data-sensitive-label="질병"> 질병</label><label><input type="checkbox" data-sensitive-label="보훈 대상"> 보훈 대상</label><label><input type="checkbox" data-sensitive-label="다문화가족"> 다문화가족</label><label><input type="checkbox" data-sensitive-label="북한이탈주민"> 북한이탈주민</label><label><input type="checkbox" data-sensitive-label="해당 없음" data-none> 해당 없음</label></div></div></fieldset>
-                    <p id="sensitive-notice" class="signup-profile__notice" role="status">민감정보 수집·이용에 동의하지 않아 특수 상황 항목은 입력하지 않습니다. 동의하지 않아도 가입할 수 있어요.</p>
+                    <fieldset id="sensitive-section" class="signup-profile__section signup-profile__sensitive"><legend>민감정보 <small>선택</small></legend><p class="signup-profile__help">선택한 정보는 관련 혜택 안내를 위해서만 사용하며, 구체적인 질병명이나 상세 주소는 입력받지 않습니다.</p><div class="signup-profile__sensitive-options" data-exclusive-group="sensitive">
+                        <label><input type="checkbox" value="JA0301" data-sensitive-code="JA0301" disabled><span>예비부모·난임</span><small>임신·출산 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label><input type="checkbox" value="JA0302" data-sensitive-code="JA0302" disabled><span>임산부</span><small>임신 중 받을 수 있는 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label><input type="checkbox" value="JA0303" data-sensitive-code="JA0303" disabled><span>출산·입양</span><small>출산·입양 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label><input type="checkbox" value="JA0328" data-sensitive-code="JA0328" disabled><span>장애인</span><small>장애 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label><input type="checkbox" value="JA0329" data-sensitive-code="JA0329" disabled><span>국가보훈대상자</span><small>보훈 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label><input type="checkbox" value="JA0330" data-sensitive-code="JA0330" disabled><span>질병·질환자</span><small>질병 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label><input type="checkbox" value="JA0401" data-sensitive-code="JA0401" disabled><span>다문화가족</span><small>다문화 가구 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label><input type="checkbox" value="JA0402" data-sensitive-code="JA0402" disabled><span>북한이탈주민</span><small>북한이탈주민 지원을 안내하기 위해 물어봐요.</small></label>
+                        <label class="signup-profile__sensitive-none"><input type="checkbox" value="" data-none disabled><span>해당 없음</span><small>관련된 항목이 없음을 표시합니다.</small></label>
+                    </div></fieldset>
+                    <p id="sensitive-notice" class="signup-profile__notice" role="status">민감정보 수집·이용에 동의한 경우에만 선택할 수 있어요. 동의하지 않아도 가입할 수 있습니다.</p>
+                    </div>
 
-                    <div class="signup-profile__actions"><a class="btn btn-secondary" href="signup-consent.html">이전 단계</a><button class="btn signup-account__submit" type="submit">가입 완료 단계로 <span aria-hidden="true">›</span></button></div>
+                    <div class="signup-profile__actions"><a class="bk-btn bk-btn--outline bk-btn--lg" href="signup-consent.html">이전 단계</a><button class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="submit">가입 완료 단계로 <span aria-hidden="true">›</span></button></div>
                 </form>
             </section>
         </div>
