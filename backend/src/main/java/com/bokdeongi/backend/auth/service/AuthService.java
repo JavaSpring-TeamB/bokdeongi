@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
+import com.bokdeongi.backend.common.exception.AccountLockedException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -64,6 +64,7 @@ public class AuthService {
     private final UserConsentRepository userConsentRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final LoginAttemptService loginAttemptService;
 
     /* ==================== 일반 회원가입 ==================== */
 
@@ -231,21 +232,39 @@ public class AuthService {
     }
 
     /**
-     * 일반 로그인.
+     * 일반 이메일 로그인.
      *
-     * 회원 인증 후 Access Token과 Refresh Token을 발급한다.
+     * 로그인 실패 횟수와 계정 잠금 상태를 확인한 후
+     * 인증에 성공하면 Access Token과 Refresh Token을 발급한다.
      */
     @Transactional
     public LoginResult login(LoginRequest request) {
 
-        // 1. 이메일 및 비밀번호 검증
-        User user = authenticate(
-                request.email(),
-                request.password()
-        );
+        // 1. 별도 트랜잭션에서 로그인 검증 및 실패 기록 처리
+        LoginAttemptService.LoginAttemptResult result =
+                loginAttemptService.attempt(
+                        request.email(),
+                        request.password()
+                );
 
-        // 2. JWT 발급
-        return issueTokens(user.getId());
+        // 2. 계정이 잠긴 경우
+        if (result.status()
+                == LoginAttemptService.LoginStatus.LOCKED) {
+            throw new AccountLockedException(
+                    "로그인 5회 실패로 계정이 잠겼습니다. 1분 후 다시 시도해주세요."
+            );
+        }
+
+        // 3. 이메일 또는 비밀번호가 올바르지 않은 경우
+        if (result.status()
+                != LoginAttemptService.LoginStatus.SUCCESS) {
+            throw new BadCredentialsException(
+                    "이메일 또는 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        // 4. 인증 성공 시 기존 JWT 발급 로직 사용
+        return issueTokens(result.userId());
     }
 
     /**

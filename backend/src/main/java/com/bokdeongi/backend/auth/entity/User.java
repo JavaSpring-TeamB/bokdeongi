@@ -315,4 +315,32 @@ public class User {
     public void clearRefreshTokenHash() {
         this.refreshTokenHash = null;
     }
+
+    /**
+     * 비밀번호 인증 실패 횟수를 증가시킨다.
+     * 5회에 도달하면 1분간 계정을 잠근다.
+     */
+    public void recordFailedLogin(LocalDateTime now) {
+        short nextCount = (short) (failedLoginCount + 1);
+        this.failedLoginCount = nextCount;
+
+        if (nextCount >= 5) {
+            this.lockedUntil = now.plusMinutes(1);
+        }
+    }
+
+    /**
+     * 현재 계정 잠금 여부를 확인한다.
+     */
+    public boolean isLoginLocked(LocalDateTime now) {
+        return lockedUntil != null && now.isBefore(lockedUntil);
+    }
+
+    /**
+     * 로그인 성공 또는 잠금 만료 시 실패 기록을 초기화한다.
+     */
+    public void resetLoginFailures() {
+        this.failedLoginCount = 0;
+        this.lockedUntil = null;
+    }
 }
