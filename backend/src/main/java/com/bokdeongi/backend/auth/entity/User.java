@@ -343,4 +343,14 @@ public class User {
         this.failedLoginCount = 0;
         this.lockedUntil = null;
     }
+
+    /**
+     * 비밀번호 해시를 변경한다.
+     *
+     * 암호화는 Service에서 수행하고,
+     * Entity에는 암호화된 비밀번호만 저장한다.
+     */
+    public void changePassword(String encodedPassword) {
+        this.passwordHash = encodedPassword;
+    }
 }

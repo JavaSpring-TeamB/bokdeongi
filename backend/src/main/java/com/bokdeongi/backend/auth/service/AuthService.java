@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.bokdeongi.backend.common.exception.AccountLockedException;
+import com.bokdeongi.backend.auth.dto.request.PasswordChangeRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -284,6 +285,69 @@ public class AuthService {
                 );
 
         return createLoginResult(user);
+    }
+
+
+    /* ==================== 비밀번호 변경 ==================== */
+
+    /**
+     * 로그인한 이메일 회원의 비밀번호를 변경한다.
+     *
+     * 현재 비밀번호 검증 후 새 비밀번호를 암호화하여 저장한다.
+     * 변경 성공 시 기존 인증 토큰을 무효화하도록 처리한다.
+     */
+    @Transactional
+    public void changePassword(
+            Long userId,
+            PasswordChangeRequest request
+    ) {
+        // 1. 회원 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new BadCredentialsException(
+                                "사용자를 찾을 수 없습니다."
+                        )
+                );
+
+        // 2. 카카오 전용 계정 등 비밀번호가 없는 회원 제한
+        if (user.getPasswordHash() == null) {
+            throw new IllegalArgumentException(
+                    "비밀번호 변경을 지원하지 않는 계정입니다."
+            );
+        }
+
+        // 3. 현재 비밀번호 검증
+        if (!passwordEncoder.matches(
+                request.currentPassword(),
+                user.getPasswordHash()
+        )) {
+            throw new BadCredentialsException(
+                    "현재 비밀번호가 올바르지 않습니다."
+            );
+        }
+
+        // 4. 기존 비밀번호와 새 비밀번호 동일 여부 확인
+        if (passwordEncoder.matches(
+                request.newPassword(),
+                user.getPasswordHash()
+        )) {
+            throw new IllegalArgumentException(
+                    "기존 비밀번호와 다른 비밀번호를 입력해주세요."
+            );
+        }
+
+        // 5. 새 비밀번호 암호화
+        String encodedPassword =
+                passwordEncoder.encode(request.newPassword());
+
+        // 6. 비밀번호 변경
+        user.changePassword(encodedPassword);
+
+        // 7. 기존 Refresh Token 무효화
+        user.clearRefreshTokenHash();
+
+        // 8. 토큰 버전 증가
+        user.increaseTokenVersion();
     }
 
     /* ==================== 약관 동의 변경 ==================== */
