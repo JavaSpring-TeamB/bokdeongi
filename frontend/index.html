@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-page-scale="home">
 
 <head>
   <meta charset="utf-8">
@@ -13,6 +13,7 @@
   <link rel="apple-touch-icon" href="../../../git/bokdeongi/icon.png">
   <link rel="manifest" href="../../../git/bokdeongi/site.webmanifest">
   <meta name="theme-color" content="#176B45">
+  <script src="js/common-ui.js" defer></script>
   <script src="js/home.js" defer></script>
 </head>
 
@@ -41,8 +42,8 @@
       </nav>
 
       <div class="header-tools" aria-label="화면 설정">
-        <button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기">가-</button>
-        <button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기">가+</button>
+        <button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기" title="글자 크기 줄이기">-</button>
+        <button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기" title="글자 크기 키우기">+</button>
         <button class="header-tool header-tool--theme" type="button" data-theme-toggle aria-pressed="false">다크 모드</button>
         <div class="auth-links" id="desktop-auth-links" aria-label="인증 메뉴">
           <a href="login.html">로그인</a>

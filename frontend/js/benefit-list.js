@@ -36,8 +36,10 @@ const configs = {
 const state = {
     query: '',
     filters: { status: ['전체'], category: ['전체'], target: ['전체'] },
-    screen: 'INITIAL'
+    screen: 'INITIAL',
+    currentPage: 1
 };
+const PAGE_SIZE = 5;
 
 const mockSession = {
     // 실제 인증 전까지 localhost에서만 명시적으로 켜는 개발용 상태입니다.
@@ -174,7 +176,7 @@ function card(benefit) {
     const savedClass = benefit.bookmarked ? ' is-saved' : '';
     const savedLabel = benefit.bookmarked ? '해제' : '저장';
     const deadline = benefit.deadline === '상시' ? '상시 신청' : '마감 ' + benefit.deadline;
-    return '<article class="benefit-card card"><div class="benefit-card__top"><span class="status-badge status-badge--' + status.tone + '">' + status.label + '</span><button class="bk-btn bk-btn--icon bookmark-button' + savedClass + '" type="button" data-bookmark="' + benefit.id + '" aria-label="' + benefit.title + ' 관심 ' + savedLabel + '" aria-pressed="' + benefit.bookmarked + '">' + bookmarkIcon(benefit.bookmarked) + '</button></div><div class="benefit-card__body"><h3>' + benefit.title + '</h3><p class="benefit-card__description">' + benefit.organization + ' · ' + benefit.description + '</p><div class="benefit-card__meta"><strong>' + benefit.amount + '</strong><span>' + deadline + '</span></div></div><div class="benefit-card__footer"><div class="benefit-card__hashtags">' + hashtags + '</div><button class="bk-btn bk-btn--secondary bk-btn--md benefit-card__detail" type="button" data-detail="' + benefit.id + '">상세 보기</button></div></article>';
+    return '<article class="benefit-card"><div class="benefit-card__top"><span class="status-badge status-badge--' + status.tone + '">' + status.label + '</span><button class="bookmark-button' + savedClass + '" type="button" data-bookmark="' + benefit.id + '" aria-label="' + benefit.title + ' 관심 ' + savedLabel + '" aria-pressed="' + benefit.bookmarked + '">' + bookmarkIcon(benefit.bookmarked) + '</button></div><div class="benefit-card__body"><h3>' + benefit.title + '</h3><p class="benefit-card__description">' + benefit.organization + ' · ' + benefit.description + '</p></div><dl class="benefit-card__info"><div><dt>지원 금액</dt><dd>' + benefit.amount + '</dd></div><div><dt>신청 기간</dt><dd>' + deadline + '</dd></div></dl><div class="benefit-card__actions"><a class="bk-btn bk-btn--primary bk-btn--md benefit-card__detail" href="benefit-detail.html?id=' + benefit.id + '">상세 보기 <span aria-hidden="true">›</span></a></div><div class="benefit-card__hashtags">' + hashtags + '</div></article>';
 }
 
 function relevanceScore(benefit) {
@@ -220,9 +222,14 @@ function render() {
         return;
     }
     const list = sortBenefits(filtered());
+    state.currentPage = window.BokdeongiPagination.clampPage(list.length, state.currentPage, PAGE_SIZE);
+    const start = (state.currentPage - 1) * PAGE_SIZE;
+    const visibleBenefits = list.slice(start, start + PAGE_SIZE);
     const active = activeFilters();
     summary.textContent = (active ? active + ' · ' : '') + '검색 결과 ' + list.length + '건';
-    area.innerHTML = list.length ? '<div class="benefit-list">' + list.map(card).join('') + '</div>' : empty(false);
+    area.innerHTML = list.length
+        ? '<div class="benefit-list">' + visibleBenefits.map(card).join('') + '</div>' + window.BokdeongiPagination.markup({ totalCount: list.length, currentPage: state.currentPage, pageSize: PAGE_SIZE, label: '복지 혜택 검색 결과' })
+        : empty(false);
 }
 
 function completeSearch(requestId) {
@@ -250,6 +257,7 @@ function runSearch(forceResult = false) {
     }
     $('#search-message').textContent = '';
     state.query = query;
+    state.currentPage = 1;
     state.screen = 'LOADING';
     const requestId = ++searchRequestId;
     render();
@@ -260,6 +268,7 @@ function reset() {
     searchRequestId += 1;
     state.filters = { status: ['전체'], category: ['전체'], target: ['전체'] };
     state.query = '';
+    state.currentPage = 1;
     state.screen = 'INITIAL';
     $('#benefit-search-input').value = '';
     $('#search-message').textContent = '';
@@ -275,13 +284,6 @@ function applyKeywordFromUrl() {
 }
 
 function setup() {
-    const savedTheme = localStorage.getItem('bokdeongi-theme');
-    let theme = savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    const themeButton = $('[data-theme-toggle]');
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.setProperty('--font-scale', localStorage.getItem('bokdeongi-font-scale') || 1);
-    themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-    themeButton.setAttribute('aria-pressed', theme === 'dark');
     renderFilters();
     render();
 
@@ -292,7 +294,12 @@ function setup() {
             renderFilters();
             runSearch(true);
         }
-        if (event.target.id === 'sort-order' && state.screen !== 'INITIAL') render();
+        if (event.target.id === 'sort-order' && state.screen !== 'INITIAL') { state.currentPage = 1; render(); }
+    });
+    document.addEventListener('bokdeongi:pagination', (event) => {
+        if (state.screen !== 'RESULT') return;
+        state.currentPage = event.detail.page;
+        render();
     });
     document.addEventListener('click', (event) => {
         let target = event.target.closest('[data-keyword]');
@@ -329,39 +336,10 @@ function setup() {
             render();
             return;
         }
-        if (event.target.closest('[data-detail]')) {
-            toast('상세 페이지는 현재 준비 중입니다.');
-            return;
-        }
         if (event.target.closest('[data-unavailable-page]')) {
             event.preventDefault();
             toast('이 페이지는 현재 준비 중입니다.');
             return;
-        }
-        target = event.target.closest('[data-font-size]');
-        if (target) {
-            const currentScale = Number(localStorage.getItem('bokdeongi-font-scale') || 1);
-            const adjustment = target.dataset.fontSize === 'increase' ? 0.1 : -0.1;
-            const nextScale = Math.min(1.2, Math.max(0.9, Number((currentScale + adjustment).toFixed(2))));
-            localStorage.setItem('bokdeongi-font-scale', nextScale);
-            document.documentElement.style.setProperty('--font-scale', nextScale);
-            return;
-        }
-        if (event.target.closest('[data-theme-toggle]')) {
-            theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-            document.documentElement.dataset.theme = theme;
-            localStorage.setItem('bokdeongi-theme', theme);
-            themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-            themeButton.setAttribute('aria-pressed', theme === 'dark');
-            return;
-        }
-        target = event.target.closest('.menu-toggle');
-        if (target) {
-            const navigation = $('#site-navigation');
-            const open = !navigation.classList.contains('is-open');
-            navigation.classList.toggle('is-open', open);
-            target.setAttribute('aria-expanded', open);
-            target.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
         }
     });
     applyKeywordFromUrl();

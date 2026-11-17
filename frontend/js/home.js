@@ -216,32 +216,6 @@ function getSavedTheme() {
   try { return localStorage.getItem('bokdeongi-theme'); } catch { return null; }
 }
 
-function applySavedSettings() {
-  const savedTheme = getSavedTheme();
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-  const savedScale = Number(localStorage.getItem('bokdeongi-font-scale')) || 1;
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.style.setProperty('--font-scale', savedScale);
-  updateThemeButton(theme);
-}
-
-function updateThemeButton(theme) {
-  const button = document.querySelector('[data-theme-toggle]');
-  if (!button) return;
-  const isDark = theme === 'dark';
-  button.textContent = isDark ? '라이트 모드' : '다크 모드';
-  button.setAttribute('aria-pressed', String(isDark));
-}
-
-function setFontScale(change) {
-  const currentScale = Number(localStorage.getItem('bokdeongi-font-scale') || 1);
-  const nextScale = Math.min(1.2, Math.max(.9, Number((currentScale + change).toFixed(2))));
-  document.documentElement.style.setProperty('--font-scale', nextScale);
-  localStorage.setItem('bokdeongi-font-scale', nextScale);
-  showToast(`글자 크기를 ${Math.round(nextScale * 100)}%로 설정했어요.`);
-}
-
 function renderAuthLinks(isLoggedIn) {
   const desktop = document.querySelector('#desktop-auth-links');
   const mobile = document.querySelector('#mobile-auth-links');
@@ -302,24 +276,6 @@ function bindEvents() {
     if (retry) { showToast('현재는 개발용 상태 미리보기입니다. API 연동 후 이 영역을 다시 조회할 수 있어요.'); return; }
     const previewLogin = event.target.closest('[data-preview-login]');
     if (previewLogin && developmentPreview.enabled) { mockSession.isLoggedIn = previewLogin.dataset.previewLogin === 'true'; renderHome(); updateDevelopmentPreview(); return; }
-    const fontButton = event.target.closest('[data-font-size]');
-    if (fontButton) { setFontScale(fontButton.dataset.fontSize === 'increase' ? .1 : -.1); return; }
-    const themeButton = event.target.closest('[data-theme-toggle]');
-    if (themeButton) {
-      const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-      document.documentElement.dataset.theme = nextTheme;
-      localStorage.setItem('bokdeongi-theme', nextTheme);
-      updateThemeButton(nextTheme);
-      return;
-    }
-    const menuButton = event.target.closest('.menu-toggle');
-    if (menuButton) {
-      const navigation = document.querySelector('#site-navigation');
-      const willOpen = !navigation.classList.contains('is-open');
-      navigation.classList.toggle('is-open', willOpen);
-      menuButton.setAttribute('aria-expanded', String(willOpen));
-      menuButton.setAttribute('aria-label', willOpen ? '메뉴 닫기' : '메뉴 열기');
-    }
   });
   document.addEventListener('change', (event) => {
     if (event.target.matches('[data-preview-state]') && developmentPreview.enabled) {
@@ -331,7 +287,6 @@ function bindEvents() {
 }
 
 function initializeHome() {
-  applySavedSettings();
   renderDevelopmentPreview();
   renderHome();
   updateDevelopmentPreview();

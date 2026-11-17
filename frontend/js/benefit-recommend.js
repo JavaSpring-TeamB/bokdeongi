@@ -44,6 +44,8 @@ const $ = (selector) => document.querySelector(selector);
 let selectedStatus = 'eligible';
 const conditionalAnswers = new Map();
 const filterState = { region: 'all', category: 'all', sort: 'recommended' };
+const PAGE_SIZE = 5;
+const currentPages = { eligible: 1, conditional: 1, 'near-miss': 1 };
 
 function cardIcon(name) {
     const paths = {
@@ -203,6 +205,9 @@ function renderStatus(status) {
     const data = recommendationData[status];
     const banner = data.banner;
     const cards = getVisibleCards(status);
+    currentPages[status] = window.BokdeongiPagination.clampPage(cards.length, currentPages[status], PAGE_SIZE);
+    const start = (currentPages[status] - 1) * PAGE_SIZE;
+    const visibleCards = cards.slice(start, start + PAGE_SIZE);
 
     document.body.dataset.status = status;
     $('[data-banner-prefix]').textContent = banner.prefix;
@@ -215,7 +220,10 @@ function renderStatus(status) {
         : status === 'conditional'
             ? renderConditionalCard
             : renderNearMissCard;
-    $('[data-recommend-list]').innerHTML = cards.length ? cards.map(render).join('') : emptyStateMarkup();
+    $('[data-recommend-list]').innerHTML = cards.length ? visibleCards.map(render).join('') : emptyStateMarkup();
+    $('[data-recommend-pagination]').innerHTML = cards.length
+        ? window.BokdeongiPagination.markup({ totalCount: cards.length, currentPage: currentPages[status], pageSize: PAGE_SIZE, label: data.statusLabel + ' 혜택' })
+        : '';
     $('#recommend-results').setAttribute('aria-labelledby', status + '-tab');
 
     document.querySelectorAll('[data-status-tab]').forEach((tab) => {
@@ -241,6 +249,7 @@ function setupFilters() {
         const filter = event.target.closest('[data-filter]');
         if (!filter) return;
         filterState[filter.dataset.filter] = filter.value;
+        currentPages[selectedStatus] = 1;
         renderStatus(selectedStatus);
     });
 }
@@ -255,57 +264,12 @@ function showToast(message) {
     }, 2800);
 }
 
-function setupHeaderInteractions() {
-    let theme = localStorage.getItem('bokdeongi-theme') || 'light';
-    const themeButton = $('[data-theme-toggle]');
-
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.setProperty('--font-scale', localStorage.getItem('bokdeongi-font-scale') || 1);
-    themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-    themeButton.setAttribute('aria-pressed', String(theme === 'dark'));
-
-    document.addEventListener('click', (event) => {
-        const unavailable = event.target.closest('[data-unavailable-page]');
-        if (unavailable) {
-            event.preventDefault();
-            showToast('이 페이지는 현재 준비 중입니다.');
-            return;
-        }
-
-        const fontSize = event.target.closest('[data-font-size]');
-        if (fontSize) {
-            const current = Number(localStorage.getItem('bokdeongi-font-scale') || 1);
-            const change = fontSize.dataset.fontSize === 'increase' ? .1 : -.1;
-            const scale = Math.min(1.2, Math.max(.9, Number((current + change).toFixed(2))));
-            localStorage.setItem('bokdeongi-font-scale', scale);
-            document.documentElement.style.setProperty('--font-scale', scale);
-            return;
-        }
-
-        if (event.target.closest('[data-theme-toggle]')) {
-            theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-            document.documentElement.dataset.theme = theme;
-            localStorage.setItem('bokdeongi-theme', theme);
-            themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-            themeButton.setAttribute('aria-pressed', String(theme === 'dark'));
-            return;
-        }
-
-        const menu = event.target.closest('.menu-toggle');
-        if (menu) {
-            const navigation = $('#site-navigation');
-            const isOpen = navigation.classList.toggle('is-open');
-            menu.setAttribute('aria-expanded', String(isOpen));
-            menu.setAttribute('aria-label', isOpen ? '메뉴 닫기' : '메뉴 열기');
-        }
-    });
-}
-
 function setupInteractions() {
     document.addEventListener('click', (event) => {
         const tab = event.target.closest('[data-status-tab]');
         if (tab) {
             selectedStatus = tab.dataset.statusTab;
+            currentPages[selectedStatus] = 1;
             renderStatus(selectedStatus);
             return;
         }
@@ -326,12 +290,15 @@ function setupInteractions() {
             showToast('조건 확인과 재판정 기능은 추후 연동 예정입니다.');
         }
     });
+    document.addEventListener('bokdeongi:pagination', (event) => {
+        currentPages[selectedStatus] = event.detail.page;
+        renderStatus(selectedStatus);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     renderTabCounts();
     setupFilters();
     renderStatus(selectedStatus);
-    setupHeaderInteractions();
     setupInteractions();
 });

@@ -148,17 +148,17 @@
     color: var(--recommend-theme);
 }
 
-.recommend-results > div {
+.recommend-results > [data-recommend-list] {
     display: grid;
     gap: var(--space-sm);
 }
 
-.benefit-recommend-page[data-status="eligible"] .recommend-results > div {
+.benefit-recommend-page[data-status="eligible"] .recommend-results > [data-recommend-list] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-md);
 }
 
-.benefit-recommend-page[data-status="near-miss"] .recommend-results > div {
+.benefit-recommend-page[data-status="near-miss"] .recommend-results > [data-recommend-list] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-md);
 }
@@ -680,11 +680,11 @@
 }
 
 @media (max-width: 1024px) {
-    .benefit-recommend-page[data-status="eligible"] .recommend-results > div {
+    .benefit-recommend-page[data-status="eligible"] .recommend-results > [data-recommend-list] {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .benefit-recommend-page[data-status="near-miss"] .recommend-results > div {
+    .benefit-recommend-page[data-status="near-miss"] .recommend-results > [data-recommend-list] {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -768,11 +768,11 @@
         justify-content: flex-end;
     }
 
-    .benefit-recommend-page[data-status="eligible"] .recommend-results > div {
+    .benefit-recommend-page[data-status="eligible"] .recommend-results > [data-recommend-list] {
         grid-template-columns: 1fr;
     }
 
-    .benefit-recommend-page[data-status="near-miss"] .recommend-results > div {
+    .benefit-recommend-page[data-status="near-miss"] .recommend-results > [data-recommend-list] {
         grid-template-columns: 1fr;
     }
 

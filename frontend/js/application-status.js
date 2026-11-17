@@ -74,6 +74,8 @@ const stepIcons = [
 ];
 const $ = (selector) => document.querySelector(selector);
 let selectedStatus = 'all';
+let currentPage = 1;
+const PAGE_SIZE = 5;
 
 function getApplications(status) {
     return status === 'all'
@@ -136,7 +138,15 @@ function renderTabCounts() {
 
 function renderApplications() {
     const applications = getApplications(selectedStatus);
-    $('[data-application-list]').innerHTML = applications.map(renderCard).join('');
+    currentPage = window.BokdeongiPagination.clampPage(applications.length, currentPage, PAGE_SIZE);
+    const start = (currentPage - 1) * PAGE_SIZE;
+    $('[data-application-list]').innerHTML = applications.slice(start, start + PAGE_SIZE).map(renderCard).join('');
+    $('[data-application-pagination]').innerHTML = window.BokdeongiPagination.markup({
+        totalCount: applications.length,
+        currentPage,
+        pageSize: PAGE_SIZE,
+        label: '신청 현황'
+    });
     $('#application-list').setAttribute('aria-labelledby', selectedStatus + '-tab');
 
     document.querySelectorAll('[data-status-tab]').forEach((tab) => {
@@ -156,57 +166,12 @@ function showToast(message) {
     }, 2800);
 }
 
-function setupHeaderInteractions() {
-    let theme = localStorage.getItem('bokdeongi-theme') || 'light';
-    const themeButton = $('[data-theme-toggle]');
-
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.setProperty('--font-scale', localStorage.getItem('bokdeongi-font-scale') || 1);
-    themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-    themeButton.setAttribute('aria-pressed', String(theme === 'dark'));
-
-    document.addEventListener('click', (event) => {
-        const unavailable = event.target.closest('[data-unavailable-page]');
-        if (unavailable) {
-            event.preventDefault();
-            showToast('이 페이지는 현재 준비 중입니다.');
-            return;
-        }
-
-        const fontSize = event.target.closest('[data-font-size]');
-        if (fontSize) {
-            const current = Number(localStorage.getItem('bokdeongi-font-scale') || 1);
-            const change = fontSize.dataset.fontSize === 'increase' ? .1 : -.1;
-            const scale = Math.min(1.2, Math.max(.9, Number((current + change).toFixed(2))));
-            localStorage.setItem('bokdeongi-font-scale', scale);
-            document.documentElement.style.setProperty('--font-scale', scale);
-            return;
-        }
-
-        if (event.target.closest('[data-theme-toggle]')) {
-            theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-            document.documentElement.dataset.theme = theme;
-            localStorage.setItem('bokdeongi-theme', theme);
-            themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-            themeButton.setAttribute('aria-pressed', String(theme === 'dark'));
-            return;
-        }
-
-        const menu = event.target.closest('.menu-toggle');
-        if (menu) {
-            const navigation = $('#site-navigation');
-            const isOpen = navigation.classList.toggle('is-open');
-            menu.setAttribute('aria-expanded', String(isOpen));
-            menu.setAttribute('aria-label', isOpen ? '메뉴 닫기' : '메뉴 열기');
-        }
-    });
-}
-
 function setupInteractions() {
     document.addEventListener('click', (event) => {
         const tab = event.target.closest('[data-status-tab]');
         if (tab) {
             selectedStatus = tab.dataset.statusTab;
+            currentPage = 1;
             renderApplications();
             return;
         }
@@ -215,12 +180,15 @@ function setupInteractions() {
             showToast('일정 저장 기능은 캘린더 연동 또는 .ics 기능 준비 후 사용할 수 있어요.');
         }
     });
+    document.addEventListener('bokdeongi:pagination', (event) => {
+        currentPage = event.detail.page;
+        renderApplications();
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     renderSummary();
     renderTabCounts();
     renderApplications();
-    setupHeaderInteractions();
     setupInteractions();
 });
