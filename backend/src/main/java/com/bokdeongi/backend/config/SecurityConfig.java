@@ -105,9 +105,15 @@ public class SecurityConfig {
                         )
                 )
 
+
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/csrf"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/regions"
                         ).permitAll()
 
                         .requestMatchers(
