@@ -18,9 +18,10 @@
 .home-summary-grid { display: grid; grid-template-columns: 1.05fr 1.05fr .9fr; gap: var(--space-md); }
 .home-detail-grid { display: grid; grid-template-columns: .9fr 1.6fr; margin-top: var(--space-md); gap: var(--space-md); }
 .card-heading { display: flex; min-height: 25px; align-items: center; gap: var(--space-xs); }
-.card-heading__group { display: inline-flex; align-items: center; }
+.card-heading__group { display: inline-flex; align-items: center; gap: var(--space-xs); }
 .card-heading--between { justify-content: space-between; }
 .card-heading h2 { margin: 0; font-size: var(--font-size-card-title); font-weight: 600; letter-spacing: -.025em; }
+.card-heading__icon { width: 21px; height: 21px; flex: 0 0 21px; color: var(--color-primary); stroke: currentColor; }
 .card-heading time { color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .info-mark { display: inline-grid; width: 14px; height: 14px; place-items: center; border: 1px solid var(--color-text-secondary); border-radius: 50%; color: var(--color-text-secondary); font-family: serif; font-size: 10px; line-height: 1; }
 .support-summary { display: grid; grid-template-columns: 1fr 1fr; margin-top: var(--space-md); border-radius: var(--radius-md); background: var(--color-mint-light); }
