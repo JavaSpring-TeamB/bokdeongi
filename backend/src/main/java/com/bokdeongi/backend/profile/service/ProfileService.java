@@ -37,6 +37,7 @@ public class ProfileService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final String sensitiveConsentVersion;
     private final RegionRepository regionRepository;
+    private final IncomeCalculationService incomeCalculationService;
 
     public ProfileService(
             UserRepository userRepository,
@@ -45,7 +46,8 @@ public class ProfileService {
             FieldEncryptionService fieldEncryptionService,
             UserConsentRepository userConsentRepository,
             ApplicationEventPublisher applicationEventPublisher,
-            @Value("${app.consent.sensitive-version}") String sensitiveConsentVersion
+            @Value("${app.consent.sensitive-version}") String sensitiveConsentVersion,
+            IncomeCalculationService incomeCalculationService
     ) {
         this.userRepository = userRepository;
         this.regionRepository = regionRepository;
@@ -54,12 +56,14 @@ public class ProfileService {
         this.userConsentRepository = userConsentRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.sensitiveConsentVersion = sensitiveConsentVersion;
+        this.incomeCalculationService = incomeCalculationService;
     }
 
     /**
      * 로그인한 회원의 프로필 조회.
      */
-    @Transactional(readOnly = true)
+
+    @Transactional
     public ProfileResponse getProfile(Long userId) {
 
         User user = userRepository.findById(userId)
@@ -67,6 +71,30 @@ public class ProfileService {
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
                 ));
+
+        // PROF-03: 연도가 변경되면 최신 기준 중위소득으로 재계산
+        String incomeType = user.getIncomeInputType();
+        short currentYear = (short) Year.now().getValue();
+
+        boolean needsRecalculation =
+                ("ANNUAL".equals(incomeType) || "MONTHLY".equals(incomeType))
+                        && user.getIncomeBaseYear() != null
+                        && user.getIncomeBaseYear() != currentYear;
+
+        if (needsRecalculation
+                && incomeCalculationService.isIncomeStandardReady(currentYear)) {
+
+            // 8인 이상 가구는 현재 2026년 가산 규칙만 지원한다.
+            // 다른 연도는 기준표가 있어도 재계산을 건너뛴다.
+            boolean unsupportedAdditionalRule =
+                    user.getHouseholdSize() != null
+                            && user.getHouseholdSize() > 7
+                            && currentYear != 2026;
+
+            if (!unsupportedAdditionalRule) {
+                recalculateIncomeForYear(userId, currentYear);
+            }
+        }
 
         return new ProfileResponse(
                 user.getId(),
@@ -176,8 +204,6 @@ public class ProfileService {
         BigDecimal incomeAmount = request.incomeAmount();
         BigDecimal medianIncomePct = request.medianIncomePct();
 
-        byte[] encryptedIncomeAmount = null;
-
         switch (incomeType) {
             case "ANNUAL", "MONTHLY" -> {
                 if (incomeAmount == null || medianIncomePct != null) {
@@ -187,10 +213,12 @@ public class ProfileService {
                     );
                 }
 
-                encryptedIncomeAmount =
-                        fieldEncryptionService.encrypt(
-                                incomeAmount.toPlainString()
-                        );
+                // 입력한 소득을 기준 중위소득 대비 비율로 자동 환산한다.
+                medianIncomePct = incomeCalculationService.calculateMedianIncomePct(
+                        request.householdSize(),
+                        incomeType,
+                        incomeAmount
+                );
             }
 
             case "BRACKET" -> {
@@ -198,6 +226,13 @@ public class ProfileService {
                     throw new ResponseStatusException(
                             HttpStatus.BAD_REQUEST,
                             "소득 구간 입력 시 중위소득 비율만 입력해야 합니다."
+                    );
+                }
+
+                if (medianIncomePct.compareTo(new BigDecimal("9999.9")) > 0) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "중위소득 비율을 확인해 주세요."
                     );
                 }
             }
@@ -239,10 +274,16 @@ public class ProfileService {
             );
         }
 
+        // 소득을 모르는 경우에는 기준 연도를 기록하지 않는다.
+        Short incomeBaseYear = "UNKNOWN".equals(incomeType)
+                ? null
+                : (short) Year.now().getValue();
+
         user.updateProfileStep2(
                 request.householdSize(),
                 incomeType,
-                encryptedIncomeAmount,
+                incomeAmount,
+                incomeBaseYear,
                 medianIncomePct,
                 request.housingType(),
                 request.noHouse(),
@@ -255,6 +296,56 @@ public class ProfileService {
         );
 
         return getProfile(userId);
+    }
+
+    /**
+     * PROF-03: 새로운 연도의 기준 중위소득으로 기존 소득 비율을 재계산한다.
+     */
+    @Transactional
+    public void recalculateIncomeForYear(Long userId, short targetYear) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "회원을 찾을 수 없습니다."
+                ));
+
+        String incomeType = user.getIncomeInputType();
+
+        // UNKNOWN, BRACKET 사용자는 자동 재계산 대상이 아니다.
+        if (!"ANNUAL".equals(incomeType)
+                && !"MONTHLY".equals(incomeType)) {
+            return;
+        }
+
+        // 이미 해당 연도로 계산했다면 중복 재계산하지 않는다.
+        if (user.getIncomeBaseYear() != null
+                && user.getIncomeBaseYear() == targetYear) {
+            return;
+        }
+
+        // 재계산 대상 사용자에 대해서만 기준표 준비 여부를 확인한다.
+        if (!incomeCalculationService.isIncomeStandardReady(targetYear)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "해당 연도의 기준 중위소득 자료가 준비되지 않았습니다."
+            );
+        }
+
+        // 새로운 연도의 기준 중위소득으로 재계산한다.
+        BigDecimal recalculatedPct =
+                incomeCalculationService.recalculateMedianIncomePct(
+                        user.getHouseholdSize(),
+                        incomeType,
+                        user.getIncomeAmount(),
+                        targetYear
+                );
+
+        user.updateIncomeCalculation(targetYear, recalculatedPct);
+
+        applicationEventPublisher.publishEvent(
+                new ProfileChangedEvent(userId)
+        );
     }
 
     /**

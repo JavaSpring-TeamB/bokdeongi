@@ -3,6 +3,7 @@ package com.bokdeongi.backend.auth.entity;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import com.bokdeongi.backend.common.crypto.EncryptedIncomeConverter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -115,11 +116,10 @@ public class User {
     @Column(name = "income_input_type", length = 10)
     private String incomeInputType;
 
-    // 소득 금액 데이터 (BLOB)
-    @Lob
-    @JdbcTypeCode(SqlTypes.VARBINARY)
+    // 소득 금액은 JPA Converter를 통해 AES-GCM 암호화하여 저장한다.
+    @Convert(converter = EncryptedIncomeConverter.class)
     @Column(name = "income_amount", columnDefinition = "blob")
-    private byte[] incomeAmount;
+    private BigDecimal incomeAmount;
 
     // 소득 기준 연도
     @Column(name = "income_base_year")
@@ -319,9 +319,7 @@ public class User {
         return incomeInputType;
     }
 
-    public byte[] getIncomeAmount() {
-        return incomeAmount == null ? null : incomeAmount.clone();
-    }
+    public BigDecimal getIncomeAmount() { return incomeAmount; }
 
     public Short getIncomeBaseYear() {
         return incomeBaseYear;
@@ -411,13 +409,14 @@ public class User {
     /**
      * PROF-01: 프로필 2단계 가구 정보 저장.
      *
-     * 소득 금액은 Service에서 암호화한 후 전달한다.
+     * 소득 금액은 JPA AttributeConverter를 통해 암호화하여 저장한다.
      * householdTypeCodes는 JSON 문자열로 전달한다.
      */
     public void updateProfileStep2(
             Short householdSize,
             String incomeInputType,
-            byte[] encryptedIncomeAmount,
+            BigDecimal incomeAmount,
+            Short incomeBaseYear,
             BigDecimal medianIncomePct,
             String housingType,
             Boolean noHouse,
@@ -425,19 +424,40 @@ public class User {
     ) {
         this.householdSize = householdSize;
         this.incomeInputType = incomeInputType;
-        this.incomeAmount = encryptedIncomeAmount == null
-                ? null
-                : encryptedIncomeAmount.clone();
+        this.incomeAmount = incomeAmount;
+        this.incomeBaseYear = incomeBaseYear;
         this.medianIncomePct = medianIncomePct;
         this.hasHouse = !noHouse;
         this.housingType = housingType;
         this.householdTypeCodes = householdTypeCodes;
 
-        // 이전에 완료한 단계는 유지한다.
         if (this.profileStep == null || this.profileStep < 2) {
             this.profileStep = 2;
         }
 
+        this.profileVersion++;
+    }
+
+    /**
+     * PROF-03: 기준 중위소득 고시 연도 변경에 따른 재계산 결과 반영.
+     *
+     * 기존 소득 금액과 가구 정보는 유지하고,
+     * 기준 연도 및 환산 비율만 갱신한다.
+     */
+    public void updateIncomeCalculation(
+            Short incomeBaseYear,
+            BigDecimal medianIncomePct
+    ) {
+        if (incomeBaseYear == null || medianIncomePct == null) {
+            throw new IllegalArgumentException(
+                    "소득 기준 연도와 환산 비율은 필수입니다."
+            );
+        }
+
+        this.incomeBaseYear = incomeBaseYear;
+        this.medianIncomePct = medianIncomePct;
+
+        // 소득 비율 변경에 따른 프로필 데이터 버전 갱신
         this.profileVersion++;
     }
 
