@@ -1,6 +1,5 @@
 <!doctype html>
-<html lang="ko" data-page-scale="home">
-
+<html lang="ko" data-page-scale="home" data-enable-mock-preview="false">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,6 +13,8 @@
   <link rel="manifest" href="../../../git/bokdeongi/site.webmanifest">
   <meta name="theme-color" content="#176B45">
   <script src="js/common-ui.js" defer></script>
+  <script src="js/auth-config.local.js" defer></script>
+  <script src="js/auth.js" defer></script>
   <script src="js/home.js" defer></script>
 </head>
 
@@ -79,29 +80,29 @@
 
       <div class="home-summary-grid">
         <article class="card home-summary-card" aria-labelledby="support-title">
-          <div class="card-heading"><h2 id="support-title">받을 수 있는 지원금</h2><span class="info-mark" aria-label="지원금 산정 안내">i</span></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5h16v10H4z"></path><path d="M7 7.5V5h10v2.5"></path><path d="M8 12h8"></path><path d="M12 10v4"></path></svg><h2 id="support-title">받을 수 있는 지원금</h2><span class="info-mark" aria-label="지원금 산정 안내">i</span></div>
           <div id="support-summary" class="support-summary" aria-live="polite"></div>
         </article>
 
         <article class="card home-summary-card" aria-labelledby="benefit-title">
-          <div class="card-heading"><h2 id="benefit-title">맞춤 혜택 요약</h2></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M12 12c-5 0-7-3-7-6 4 0 7 2 7 6Z"></path><path d="M12 16c5 0 7-3 7-6-4 0-7 2-7 6Z"></path></svg><h2 id="benefit-title">맞춤 혜택 요약</h2></div>
           <div id="benefit-summary" class="benefit-summary" aria-live="polite"></div>
         </article>
 
         <article class="card home-summary-card" aria-labelledby="weekly-title">
-          <div class="card-heading card-heading--between"><div class="card-heading__group"><h2 id="weekly-title">이번 주 혜택 소식</h2></div><time id="weekly-period"></time></div>
+          <div class="card-heading card-heading--between"><div class="card-heading__group"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16M8 14h2M14 14h2M8 17h2"></path></svg><h2 id="weekly-title">이번 주 혜택 소식</h2></div><time id="weekly-period"></time></div>
           <div id="weekly-summary" class="weekly-summary" aria-live="polite"></div>
         </article>
       </div>
 
       <div class="home-detail-grid">
         <article class="card application-card" aria-labelledby="application-title">
-          <div class="card-heading"><h2 id="application-title">내 신청 현황</h2></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l3 3v15H7z"></path><path d="M14 3v4h4M10 12h4M10 16h4"></path></svg><h2 id="application-title">내 신청 현황</h2></div>
           <div id="application-list" class="application-list" aria-live="polite"></div>
         </article>
 
         <section class="card calendar-card" aria-labelledby="calendar-title">
-          <div class="card-heading"><h2 id="calendar-title">신청 일정 캘린더</h2></div>
+          <div class="card-heading"><svg class="card-heading__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16M8 14h2M14 14h2M8 17h2M14 17h2"></path></svg><h2 id="calendar-title">신청 일정 캘린더</h2></div>
           <div class="calendar-layout">
             <div class="calendar-widget">
               <div class="calendar-controls">

@@ -5,8 +5,13 @@ function isDevelopmentHost() {
   return window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(window.location.hostname);
 }
 
-const developmentPreview = { enabled: isDevelopmentHost(), dashboardState: 'ready' };
-const mockSession = { isLoggedIn: false };
+function isDevelopmentPreviewEnabled() {
+  return document.documentElement.dataset.enableMockPreview === 'true' && isDevelopmentHost();
+}
+
+const AUTH_STATES = new Set(['checking', 'authenticated', 'unauthenticated', 'error']);
+const authState = { status: 'checking' };
+const developmentPreview = { enabled: isDevelopmentPreviewEnabled(), mockLogin: false, dashboardState: 'ready' };
 
 function formatDateKey(year, monthIndex, day) {
   return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -31,7 +36,7 @@ function formatMockTimestamp(date) {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} 06:00`;
 }
 
-const mockHomeData = {
+const mockPreviewData = {
   supportSummary: { expectedAmount: 420000, maximumAmount: 1200000, note: '중복 수혜가 불가능한 혜택은 가장 높은 1건만 반영한 예시입니다.' },
   benefitSummary: {
     categories: [{ label: '전체 12건' }, { label: '해당 6건' }, { label: '조건부 4건' }, { label: '해당 없음 2건' }],
@@ -70,8 +75,11 @@ const stateMessages = {
 };
 
 function formatCurrency(amount) { return `${Number(amount).toLocaleString('ko-KR')}원`; }
-function getSectionState() { return developmentPreview.enabled ? developmentPreview.dashboardState : 'ready'; }
+function getSectionState() { return 'unavailable'; }
 function getLoginRequiredMarkup(message, actionLabel) { return `<div class="login-required"><p>${message}</p><a class="btn btn-secondary" href="login.html" data-login-required>${actionLabel}</a></div>`; }
+function getAuthCheckingMarkup() { return '<div class="dashboard-state dashboard-state--loading" role="status"><p>인증 상태를 확인하는 중이에요.</p></div>'; }
+function getAuthErrorMarkup() { return '<div class="dashboard-state dashboard-state--error" role="status"><p>인증 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.</p><button class="btn btn-secondary dashboard-state__retry" type="button" data-auth-retry>인증 상태 다시 확인</button></div>'; }
+function getDataUnavailableMarkup() { return '<div class="dashboard-state dashboard-state--empty" role="status"><p>실제 데이터 연동 전에는 정보를 표시하지 않아요.</p></div>'; }
 
 function getStateMarkup(section, state) {
   const retry = state === 'error' ? `<button class="btn btn-secondary dashboard-state__retry" type="button" data-retry-section="${section}">다시 시도</button>` : '';
@@ -81,31 +89,33 @@ function getStateMarkup(section, state) {
 function renderSupportSummary(data, isLoggedIn, state) {
   const target = document.querySelector('#support-summary');
   if (!target || !data) return;
-  if (!isLoggedIn) {
+  if (authState.status === 'checking') {
+    target.innerHTML = getAuthCheckingMarkup();
+    return;
+  }
+  if (authState.status === 'error') {
+    target.innerHTML = getAuthErrorMarkup();
+    return;
+  }
+  if (authState.status === 'unauthenticated') {
     target.innerHTML = getLoginRequiredMarkup('로그인하면 나에게 맞는 지원금을 확인할 수 있어요.', '로그인하고 지원금 확인하기');
     return;
   }
-  target.innerHTML = state === 'ready'
-    ? `<div class="support-item"><p class="support-item__label">예상 지원금</p><p class="support-item__amount">${formatCurrency(data.expectedAmount)}</p></div><div class="support-item"><p class="support-item__label">최대 지원금</p><p class="support-item__amount">${formatCurrency(data.maximumAmount)}</p></div><p class="support-item__note">${data.note}</p>`
-    : getStateMarkup('support', state);
+  target.innerHTML = getDataUnavailableMarkup();
 }
 
 function renderBenefitSummary(data, state) {
   const target = document.querySelector('#benefit-summary');
   if (!target || !data) return;
-  target.innerHTML = state === 'ready'
-    ? `<div class="benefit-tabs">${data.categories.map((category, index) => `<button class="benefit-tab${index === 0 ? ' is-current' : ''}" type="button" data-benefit-category="${index}">${category.label}</button>`).join('')}</div><a class="benefit-highlight" href="benefit-recommend.html"><span>신규 해당 혜택 ${data.newBenefits}건</span><b aria-hidden="true">›</b></a><p class="benefit-description">${data.description}</p>`
-    : getStateMarkup('benefits', state);
+  target.innerHTML = getDataUnavailableMarkup();
 }
 
 function renderWeeklySummary(data, state) {
   const target = document.querySelector('#weekly-summary');
   const period = document.querySelector('#weekly-period');
   if (!target || !data) return;
-  if (period) period.textContent = state === 'ready' ? data.period : '';
-  target.innerHTML = state === 'ready'
-    ? data.items.map((item) => `<a class="weekly-item weekly-item--${item.tone}" href="${item.href}"><span>${item.label}</span><span class="weekly-item__count">${item.count}건</span></a>`).join('')
-    : getStateMarkup('weekly', state);
+  if (period) period.textContent = '';
+  target.innerHTML = getDataUnavailableMarkup();
 }
 
 function getApplicationIcon(iconName) {
@@ -119,16 +129,22 @@ function getApplicationIcon(iconName) {
 function renderApplications(applications, isLoggedIn, state) {
   const target = document.querySelector('#application-list');
   if (!target) return;
-  if (!isLoggedIn) {
+  if (authState.status === 'checking') {
+    target.innerHTML = getAuthCheckingMarkup();
+    return;
+  }
+  if (authState.status === 'error') {
+    target.innerHTML = getAuthErrorMarkup();
+    return;
+  }
+  if (authState.status === 'unauthenticated') {
     target.innerHTML = getLoginRequiredMarkup('로그인하면 신청 진행 상황과 마감일을 확인할 수 있어요.', '로그인하고 신청 현황 확인하기');
     return;
   }
-  if (state !== 'ready') { target.innerHTML = getStateMarkup('applications', state); return; }
-  if (!applications.length) { target.innerHTML = getStateMarkup('applications', 'empty'); return; }
-  target.innerHTML = applications.map((application) => `<a class="application-item" href="application-status.html" aria-label="${application.name} 신청 현황 보기">${getApplicationIcon(application.icon)}<span><span class="application-item__name">${application.name}</span><span class="application-item__stage">${application.stage}</span></span><span class="application-item__status">${application.status}</span><span class="application-item__progress"><span class="progress-track"><span style="width: ${application.progress}%"></span></span><small>${application.progress}%</small></span></a>`).join('') + '<a class="application-all-link btn btn-secondary" href="application-status.html">신청 현황 전체보기 <span aria-hidden="true">›</span></a>';
+  target.innerHTML = getDataUnavailableMarkup();
 }
 
-function getSchedulesForDate(dateKey) { return mockHomeData.schedules.filter((schedule) => schedule.date === dateKey); }
+function getSchedulesForDate(dateKey) { return mockPreviewData.schedules.filter((schedule) => schedule.date === dateKey); }
 
 function renderSelectedSchedules() {
   const title = document.querySelector('#selected-date-title');
@@ -148,7 +164,7 @@ function renderSelectedSchedules() {
 function renderDateNotices(state) {
   const target = document.querySelector('#calendar-date-notices');
   if (!target) return;
-  target.innerHTML = state === 'ready' ? mockHomeData.dateNotices.map((notice) => `<p><strong>${notice.status}</strong><span>${notice.description}</span></p>`).join('') : '';
+  target.innerHTML = state === 'ready' ? mockPreviewData.dateNotices.map((notice) => `<p><strong>${notice.status}</strong><span>${notice.description}</span></p>`).join('') : '';
 }
 
 function getEventTone(dateKey) {
@@ -170,7 +186,7 @@ function renderCalendar(state = getSectionState()) {
   if (state !== 'ready') {
     monthTitle.textContent = '신청 일정';
     scheduleTitle.textContent = '일정 안내';
-    daysTarget.innerHTML = getStateMarkup('calendar', state);
+    daysTarget.innerHTML = getDataUnavailableMarkup();
     scheduleTarget.innerHTML = '';
     renderDateNotices(state);
     return;
@@ -212,29 +228,27 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => { toast.hidden = true; }, 3000);
 }
 
-function getSavedTheme() {
-  try { return localStorage.getItem('bokdeongi-theme'); } catch { return null; }
-}
-
-function renderAuthLinks(isLoggedIn) {
+function renderAuthLinks() {
   const desktop = document.querySelector('#desktop-auth-links');
   const mobile = document.querySelector('#mobile-auth-links');
-  const userLink = '<a class="auth-links__user" href="my-page.html" aria-label="김복덩 님 마이페이지">김복덩 님 <span aria-hidden="true">⌄</span></a>';
+  const checking = '<span class="auth-links__status" aria-live="polite">인증 확인 중…</span>';
+  const accountLink = '<a class="auth-links__user" href="my-page.html" aria-label="내 계정">내 계정 <span aria-hidden="true">⌄</span></a>';
   const guestLinks = '<a href="login.html">로그인</a><a class="auth-links__signup" href="signup-account.html">회원가입</a>';
-  if (desktop) desktop.innerHTML = isLoggedIn ? userLink : guestLinks;
-  if (mobile) mobile.innerHTML = isLoggedIn ? userLink : '<a href="login.html">로그인</a><a href="signup-account.html">회원가입</a>';
+  const content = authState.status === 'checking' ? checking : authState.status === 'authenticated' ? accountLink : guestLinks;
+  if (desktop) desktop.innerHTML = content;
+  if (mobile) mobile.innerHTML = content;
 }
 
 function renderHome() {
   const state = getSectionState();
-  renderAuthLinks(mockSession.isLoggedIn);
-  renderSupportSummary(mockHomeData.supportSummary, mockSession.isLoggedIn, state);
-  renderBenefitSummary(mockHomeData.benefitSummary, state);
-  renderWeeklySummary(mockHomeData.weeklySummary, state);
-  renderApplications(mockHomeData.applications, mockSession.isLoggedIn, state);
+  renderAuthLinks();
+  renderSupportSummary(mockPreviewData.supportSummary, false, state);
+  renderBenefitSummary(mockPreviewData.benefitSummary, state);
+  renderWeeklySummary(mockPreviewData.weeklySummary, state);
+  renderApplications(mockPreviewData.applications, false, state);
   renderCalendar(state);
   const timestamp = document.querySelector('#data-updated-at');
-  if (timestamp) timestamp.textContent = mockHomeData.updatedAt;
+  if (timestamp) timestamp.textContent = '실제 데이터 연동 전';
 }
 
 function renderDevelopmentPreview() {
@@ -242,7 +256,7 @@ function renderDevelopmentPreview() {
   const preview = document.createElement('aside');
   preview.className = 'dev-preview';
   preview.setAttribute('aria-label', '개발용 홈 화면 미리보기');
-  preview.innerHTML = '<strong>개발용 Mock 미리보기</strong><span>실제 로그인이나 서버 데이터가 아닙니다.</span><div><button type="button" data-preview-login="false">비로그인</button><button type="button" data-preview-login="true">로그인 화면</button></div><label>대시보드 상태 <select data-preview-state><option value="ready">정상 데이터</option><option value="loading">로딩 중</option><option value="empty">데이터 없음</option><option value="error">조회 실패</option></select></label>';
+  preview.innerHTML = '<strong>개발용 Mock 미리보기</strong><span>실제 로그인, 사용자 정보, 서버 데이터와 분리된 상태 시뮬레이터입니다.</span><div><button type="button" data-preview-login="false">비로그인 목업</button><button type="button" data-preview-login="true">로그인 목업</button></div><label>대시보드 상태 <select data-preview-state><option value="ready">정상 데이터</option><option value="loading">로딩 중</option><option value="empty">데이터 없음</option><option value="error">조회 실패</option></select></label><p data-preview-summary></p>';
   document.body.append(preview);
 }
 
@@ -250,20 +264,40 @@ function updateDevelopmentPreview() {
   const preview = document.querySelector('.dev-preview');
   if (!preview) return;
   preview.querySelectorAll('[data-preview-login]').forEach((button) => {
-    const selected = String(mockSession.isLoggedIn) === button.dataset.previewLogin;
+    const selected = String(developmentPreview.mockLogin) === button.dataset.previewLogin;
     button.classList.toggle('is-active', selected);
     button.setAttribute('aria-pressed', String(selected));
   });
   const stateSelect = preview.querySelector('[data-preview-state]');
   if (stateSelect) stateSelect.value = developmentPreview.dashboardState;
+  const summary = preview.querySelector('[data-preview-summary]');
+  if (summary) summary.textContent = `${developmentPreview.mockLogin ? '로그인' : '비로그인'} 목업 · ${developmentPreview.dashboardState} 상태 (홈의 실제 인증 상태는 변경되지 않음)`;
 }
+
+function setAuthenticationStatus(status) {
+  if (!AUTH_STATES.has(status)) return;
+  authState.status = status;
+  renderHome();
+}
+
+window.addEventListener('bokdeongi:auth-state-change', (event) => {
+  setAuthenticationStatus(event.detail && event.detail.status);
+});
 
 function bindEvents() {
   document.addEventListener('click', (event) => {
     const loginRequired = event.target.closest('[data-login-required]');
     if (loginRequired) {
+      if (authState.status === 'authenticated') return;
       event.preventDefault();
-      window.location.assign(loginRequired.getAttribute('href') || 'login.html');
+      if (authState.status === 'checking') showToast('인증 상태를 확인하는 중이에요.');
+      else window.location.assign('login.html');
+      return;
+    }
+    const authRetry = event.target.closest('[data-auth-retry]');
+    if (authRetry) {
+      if (window.BokdeongiAuth) window.BokdeongiAuth.refreshAuthentication();
+      else setAuthenticationStatus('error');
       return;
     }
     const calendarDate = event.target.closest('[data-calendar-date]');
@@ -275,12 +309,11 @@ function bindEvents() {
     const retry = event.target.closest('[data-retry-section]');
     if (retry) { showToast('현재는 개발용 상태 미리보기입니다. API 연동 후 이 영역을 다시 조회할 수 있어요.'); return; }
     const previewLogin = event.target.closest('[data-preview-login]');
-    if (previewLogin && developmentPreview.enabled) { mockSession.isLoggedIn = previewLogin.dataset.previewLogin === 'true'; renderHome(); updateDevelopmentPreview(); return; }
+    if (previewLogin && developmentPreview.enabled) { developmentPreview.mockLogin = previewLogin.dataset.previewLogin === 'true'; updateDevelopmentPreview(); return; }
   });
   document.addEventListener('change', (event) => {
     if (event.target.matches('[data-preview-state]') && developmentPreview.enabled) {
       developmentPreview.dashboardState = event.target.value;
-      renderHome();
       updateDevelopmentPreview();
     }
   });
@@ -291,6 +324,12 @@ function initializeHome() {
   renderHome();
   updateDevelopmentPreview();
   bindEvents();
+  if (!window.BokdeongiAuth) {
+    setAuthenticationStatus('error');
+    return;
+  }
+  setAuthenticationStatus(window.BokdeongiAuth.getAuthenticationState());
+  window.BokdeongiAuth.refreshAuthentication();
 }
 
 document.addEventListener('DOMContentLoaded', initializeHome);
