@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -33,18 +34,24 @@ public class EligibilityStore {
         this.jdbc = jdbc;
     }
 
-    public Optional<ProfileRow> loadProfile(long userId) {
+    /**
+     * @param decryptSensitive sensitive_enc(암호문) → 민감 코드 JSON 배열. 복호화에 실패하면 null을 돌려준다 (그 회원의 민감 조건은 조건부)
+     */
+    public Optional<ProfileRow> loadProfile(long userId, Function<byte[], String> decryptSensitive) {
         List<ProfileRow> rows = jdbc.query("""
                 SELECT id, birth_date, gender, sido_name, sigungu_name, median_income_pct, household_size,
                        household_type_codes, status_codes, housing_type, has_house, marital_status, children_count,
-                       youngest_child_birth_year, welfare_status, answers, profile_version
-                FROM users WHERE id = ?""", (rs, n) -> new ProfileRow(
-                rs.getLong("id"), localDate(rs, "birth_date"), rs.getString("gender"), rs.getString("sido_name"),
-                rs.getString("sigungu_name"), rs.getBigDecimal("median_income_pct"), integer(rs, "household_size"),
-                rs.getString("household_type_codes"), rs.getString("status_codes"), rs.getString("housing_type"),
-                bool(rs, "has_house"), rs.getString("marital_status"), integer(rs, "children_count"),
-                integer(rs, "youngest_child_birth_year"), rs.getString("welfare_status"), rs.getString("answers"),
-                rs.getInt("profile_version")), userId);
+                       youngest_child_birth_year, welfare_status, answers, sensitive_enc, profile_version
+                FROM users WHERE id = ?""", (rs, n) -> {
+            byte[] enc = rs.getBytes("sensitive_enc");
+            return new ProfileRow(
+                    rs.getLong("id"), localDate(rs, "birth_date"), rs.getString("gender"), rs.getString("sido_name"),
+                    rs.getString("sigungu_name"), rs.getBigDecimal("median_income_pct"), integer(rs, "household_size"),
+                    rs.getString("household_type_codes"), rs.getString("status_codes"), rs.getString("housing_type"),
+                    bool(rs, "has_house"), rs.getString("marital_status"), integer(rs, "children_count"),
+                    integer(rs, "youngest_child_birth_year"), rs.getString("welfare_status"), rs.getString("answers"),
+                    enc == null || enc.length == 0 ? null : decryptSensitive.apply(enc), rs.getInt("profile_version"));
+        }, userId);
         return rows.stream().findFirst();
     }
 
@@ -55,6 +62,25 @@ public class EligibilityStore {
                 rs.getLong("id"), rs.getString("region_code"), rs.getString("target_scope"),
                 rs.getString("rules_status"), rs.getString("unparsed_conditions"), localDate(rs, "apply_end"),
                 rs.getString("date_status")), ACTIVE);
+    }
+
+    /** 혜택 한 건 (추가 질문에 답한 뒤 그 카드만 바로 다시 판정할 때, BEN-04). ACTIVE가 아니면 비어 있다 */
+    public Optional<BenefitTarget> loadActiveBenefit(long benefitId) {
+        return jdbc.query("""
+                SELECT id, region_code, target_scope, rules_status, unparsed_conditions, apply_end, date_status
+                FROM benefits WHERE id = ? AND status = ?""", (rs, n) -> new BenefitTarget(
+                rs.getLong("id"), rs.getString("region_code"), rs.getString("target_scope"),
+                rs.getString("rules_status"), rs.getString("unparsed_conditions"), localDate(rs, "apply_end"),
+                rs.getString("date_status")), benefitId, ACTIVE).stream().findFirst();
+    }
+
+    public List<RuleRow> loadRules(long benefitId) {
+        return jdbc.query("""
+                SELECT id, benefit_id, rule_group, field, operator, value, source, source_quote, confidence
+                FROM benefit_rules WHERE benefit_id = ? ORDER BY rule_group, id""", (rs, n) -> new RuleRow(
+                rs.getLong("id"), rs.getLong("benefit_id"), rs.getInt("rule_group"), rs.getString("field"),
+                rs.getString("operator"), rs.getString("value"), rs.getString("source"), rs.getString("source_quote"),
+                rs.getBigDecimal("confidence")), benefitId);
     }
 
     /** ACTIVE 혜택의 규칙 전체를 benefit_id별로. */
