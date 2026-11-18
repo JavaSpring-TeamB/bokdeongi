@@ -25,6 +25,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.bokdeongi.backend.common.exception.AccountLockedException;
 import com.bokdeongi.backend.auth.dto.request.PasswordChangeRequest;
+import com.bokdeongi.backend.eligibility.service.ProfileChangedEvent;
+import org.springframework.context.ApplicationEventPublisher;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -66,6 +69,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final LoginAttemptService loginAttemptService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /* ==================== 일반 회원가입 ==================== */
 
@@ -385,6 +389,18 @@ public class AuthService {
                         request.consentType()
                 )
                 .orElse(null);
+
+        // 민감정보 동의 철회 시 기존 데이터 삭제 및 재매칭 요청
+        if ("SENSITIVE".equals(request.consentType())
+                && Boolean.FALSE.equals(request.agreed())
+                && user.getSensitiveEnc() != null) {
+
+            user.clearSensitiveInfo();
+
+            eventPublisher.publishEvent(
+                    new ProfileChangedEvent(userId)
+            );
+        }
 
         // 4. 동의 여부와 문서 버전이 모두 동일하면 저장하지 않음
         if (latestConsent != null
