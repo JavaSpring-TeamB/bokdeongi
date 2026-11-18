@@ -7,6 +7,7 @@
     <meta name="description" content="입력한 정보를 바탕으로 맞춤 복지 혜택을 추천합니다.">
     <link rel="stylesheet" href="./css/common.css">
     <link rel="stylesheet" href="./css/benefit-recommend.css">
+    <script src="./js/common-ui.js" defer></script>
     <script src="./js/benefit-recommend.js" defer></script>
 </head>
 <body class="benefit-recommend-page" data-status="eligible">
@@ -34,8 +35,8 @@
                 </span>
             </nav>
             <div class="header-tools" aria-label="화면 설정">
-                <button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기">가-</button>
-                <button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기">가+</button>
+                <button class="header-tool" type="button" data-font-size="decrease" aria-label="글자 크기 줄이기" title="글자 크기 줄이기">-</button>
+                <button class="header-tool" type="button" data-font-size="increase" aria-label="글자 크기 키우기" title="글자 크기 키우기">+</button>
                 <button class="header-tool header-tool--theme" type="button" data-theme-toggle aria-pressed="false">다크 모드</button>
                 <div class="auth-links" aria-label="인증 메뉴">
                     <a href="login.html">로그인</a>
@@ -91,6 +92,7 @@
         <section id="recommend-results" class="recommend-results" role="tabpanel" aria-labelledby="eligible-tab" aria-live="polite">
             <h2 class="sr-only">추천 혜택 목록</h2>
             <div data-recommend-list></div>
+            <div data-recommend-pagination></div>
         </section>
     </main>
 

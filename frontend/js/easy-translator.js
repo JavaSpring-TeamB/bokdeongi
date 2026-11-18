@@ -203,6 +203,7 @@ function translateText() {
 }
 
 function setupHeaderInteractions() {
+    return;
     let theme = localStorage.getItem('bokdeongi-theme') || 'light';
     const themeButton = $('[data-theme-toggle]');
 

@@ -21,6 +21,8 @@ const $ = (selector) => document.querySelector(selector);
 let currentSection = 'profile';
 let profileMode = 'view';
 let profileInterests = ['주거·생활', '취업·교육'];
+let bookmarkPage = 1;
+const BOOKMARK_PAGE_SIZE = 5;
 
 function showToast(message) {
     const toast = $('#toast');
@@ -86,12 +88,15 @@ function renderProfile() {
 }
 
 function renderBookmarks() {
-    const cards = myPageData.bookmarks.map((benefit) => {
+    bookmarkPage = window.BokdeongiPagination.clampPage(myPageData.bookmarks.length, bookmarkPage, BOOKMARK_PAGE_SIZE);
+    const start = (bookmarkPage - 1) * BOOKMARK_PAGE_SIZE;
+    const cards = myPageData.bookmarks.slice(start, start + BOOKMARK_PAGE_SIZE).map((benefit) => {
         const statusClass = benefit.status === '조건부' ? ' my-page__benefit-status--conditional' : '';
         return '<article class="my-page__benefit-card"><div class="my-page__benefit-content"><div class="my-page__benefit-meta"><span class="my-page__benefit-status' + statusClass + '">' + escapeHtml(benefit.status) + '</span><span class="my-page__benefit-category">' + escapeHtml(benefit.category) + '</span><span class="my-page__benefit-deadline">마감 ' + escapeHtml(benefit.deadline) + '</span></div><h3>' + escapeHtml(benefit.title) + '</h3><p>' + escapeHtml(benefit.description) + '</p></div><div class="my-page__benefit-actions"><a class="bk-btn bk-btn--outline bk-btn--sm" href="benefit-detail.html">상세 보기</a><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-remove-bookmark="' + escapeHtml(benefit.id) + '">관심 해제</button></div></article>';
     }).join('');
     const list = cards || '<div class="my-page__empty">저장한 관심 혜택이 없어요. 복지 혜택 찾기에서 관심 있는 혜택을 저장해 보세요.</div>';
-    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2></header><div class="my-page__benefit-list">' + list + '</div>' +
+    const pagination = window.BokdeongiPagination.markup({ totalCount: myPageData.bookmarks.length, currentPage: bookmarkPage, pageSize: BOOKMARK_PAGE_SIZE, label: '저장한 관심 혜택' });
+    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2></header><div class="my-page__benefit-list">' + list + '</div>' + pagination +
         '<section class="my-page__section my-page__keyword-section"><h3>관심 키워드</h3><p class="my-page__keyword-description">관심 있는 키워드를 등록하고 관리할 수 있어요.</p><div class="my-page__keyword-list" data-keyword-list></div><form class="my-page__keyword-form" data-keyword-form><label class="sr-only" for="keyword-input">관심 키워드</label><input id="keyword-input" name="keyword" type="text" maxlength="20" placeholder="관심 키워드를 입력해 주세요. (예: 청년, 지원금, 주거지원)"><button class="bk-btn bk-btn--primary bk-btn--md" type="submit">추가</button></form></section>';
 }
 
@@ -190,24 +195,6 @@ function saveProfile(form) {
     showToast('변경 내용은 현재 화면에만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.');
 }
 
-function setupHeaderInteractions() {
-    let theme = localStorage.getItem('bokdeongi-theme') || 'light';
-    const themeButton = $('[data-theme-toggle]');
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.setProperty('--font-scale', localStorage.getItem('bokdeongi-font-scale') || 1);
-    themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-    themeButton.setAttribute('aria-pressed', String(theme === 'dark'));
-    document.addEventListener('click', (event) => {
-        const unavailable = event.target.closest('[data-unavailable-page]');
-        if (unavailable) { event.preventDefault(); showToast('이 페이지는 현재 준비 중입니다.'); return; }
-        const fontSize = event.target.closest('[data-font-size]');
-        if (fontSize) { const current = Number(localStorage.getItem('bokdeongi-font-scale') || 1); const change = fontSize.dataset.fontSize === 'increase' ? .1 : -.1; const scale = Math.min(1.2, Math.max(.9, Number((current + change).toFixed(2)))); localStorage.setItem('bokdeongi-font-scale', scale); document.documentElement.style.setProperty('--font-scale', scale); return; }
-        if (event.target.closest('[data-theme-toggle]')) { theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; localStorage.setItem('bokdeongi-theme', theme); themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드'; themeButton.setAttribute('aria-pressed', String(theme === 'dark')); return; }
-        const menu = event.target.closest('.menu-toggle');
-        if (menu) { const navigation = $('#site-navigation'); const isOpen = navigation.classList.toggle('is-open'); menu.setAttribute('aria-expanded', String(isOpen)); menu.setAttribute('aria-label', isOpen ? '메뉴 닫기' : '메뉴 열기'); }
-    });
-}
-
 function setupInteractions() {
     document.addEventListener('click', (event) => {
         const sectionButton = event.target.closest('[data-section]');
@@ -246,6 +233,11 @@ function setupInteractions() {
         const profileForm = event.target.closest('[data-profile-form]');
         if (profileForm) { event.preventDefault(); saveProfile(profileForm); }
     });
+    document.addEventListener('bokdeongi:pagination', (event) => {
+        if (currentSection !== 'bookmarks') return;
+        bookmarkPage = event.detail.page;
+        renderSection();
+    });
 }
 
-document.addEventListener('DOMContentLoaded', () => { renderSection(); setupHeaderInteractions(); setupInteractions(); });
+document.addEventListener('DOMContentLoaded', () => { renderSection(); setupInteractions(); });

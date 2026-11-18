@@ -128,7 +128,7 @@
     padding-top: var(--space-md);
 }
 
-.application-list > div {
+.application-list > [data-application-list] {
     display: grid;
     gap: var(--space-md);
 }
