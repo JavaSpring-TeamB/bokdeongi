@@ -20,6 +20,9 @@ const myPageData = {
 const $ = (selector) => document.querySelector(selector);
 let currentSection = 'profile';
 let profileMode = 'view';
+let profileLoadState = 'checking';
+let profileLoadErrorStatus = null;
+let profileCompleted = false;
 let profileInterests = ['주거·생활', '취업·교육'];
 let bookmarkPage = 1;
 const BOOKMARK_PAGE_SIZE = 4;
@@ -36,7 +39,7 @@ const PROFILE_REGIONS = {
 };
 const profileAccordion = { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false };
 let profileEditorState = {
-    gender: '', sido: '부산광역시', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
+    gender: '', sido: '부산광역시', sigunguName: '', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
     maritalStatus: '', childrenCount: '', childrenExact: '', youngestYear: '', householdTypes: null, statusCodes: null, welfareStatus: ''
 };
 const SENSITIVE_CONSENT_STORAGE_KEY = 'bokdeongi-signup-consents';
@@ -71,13 +74,87 @@ function setProfileValue(group, label, value) {
     if (item) item[2] = value;
 }
 
+function displayValue(value, fallback = '미입력') {
+    return value === null || value === undefined || value === '' ? fallback : String(value);
+}
+
+function formatBirthDate(value) {
+    return value ? String(value).replaceAll('-', '.') : '미입력';
+}
+
+function formatRegion(profile) {
+    return [profile.sidoName, profile.sigunguName].filter(Boolean).join(' ') || '미입력';
+}
+
+function formatIncome(profile) {
+    if (profile.incomeInputType === 'UNKNOWN') return '잘 모르겠어요';
+    if (profile.incomeInputType === 'BRACKET') {
+        return profile.medianIncomePct === null || profile.medianIncomePct === undefined
+            ? '중위소득 구간 입력'
+            : '중위소득 ' + profile.medianIncomePct + '%';
+    }
+    if (profile.incomeInputType === 'ANNUAL') return '연소득 입력됨';
+    if (profile.incomeInputType === 'MONTHLY') return '월소득 입력됨';
+    return '미입력';
+}
+
+function applyProfileResponse(profile) {
+    setProfileValue('basics', '이름', displayValue(profile.name));
+    setProfileValue('basics', '생년월일', formatBirthDate(profile.birthDate));
+    setProfileValue('basics', '거주지역', formatRegion(profile));
+    setProfileValue('basics', '이메일', displayValue(profile.email));
+
+    setProfileValue('settings', '가구 형태', profile.householdSize === null || profile.householdSize === undefined ? '미입력' : profile.householdSize + '인 가구');
+    setProfileValue('settings', '주거 형태', { OWN: '자가', JEONSE: '전세', MONTHLY: '월세', ETC: '기타' }[profile.housingType] || '미입력');
+    setProfileValue('settings', '소득 정보', formatIncome(profile));
+
+    // GET ProfileResponse는 hasHouse를 반환한다. noHouse 반전은 다음 단계의 step2 저장 요청에서만 적용한다.
+    profileEditorState = {
+        gender: displayValue(profile.gender, ''),
+        sido: displayValue(profile.sidoName, ''),
+        sigunguName: displayValue(profile.sigunguName, ''),
+        regionCode: displayValue(profile.regionCode, ''),
+        householdSize: profile.householdSize === null || profile.householdSize === undefined ? '' : String(profile.householdSize),
+        housingType: displayValue(profile.housingType, ''),
+        hasHouse: profile.hasHouse === null || profile.hasHouse === undefined ? '' : String(profile.hasHouse),
+        incomeInputType: displayValue(profile.incomeInputType, ''),
+        incomeAmount: '',
+        incomeBaseYear: profile.incomeBaseYear === null || profile.incomeBaseYear === undefined ? '' : String(profile.incomeBaseYear),
+        maritalStatus: displayValue(profile.maritalStatus, ''),
+        childrenCount: profile.childrenCount === null || profile.childrenCount === undefined ? '' : profile.childrenCount >= 4 ? '4+' : String(profile.childrenCount),
+        childrenExact: profile.childrenCount !== null && profile.childrenCount !== undefined && profile.childrenCount >= 4 ? String(profile.childrenCount) : '',
+        youngestYear: profile.youngestChildBirthYear === null || profile.youngestChildBirthYear === undefined ? '' : String(profile.youngestChildBirthYear),
+        householdTypes: Array.isArray(profile.householdTypeCodes) ? [...profile.householdTypeCodes] : null,
+        statusCodes: Array.isArray(profile.statusCodes) ? [...profile.statusCodes] : null,
+        welfareStatus: displayValue(profile.welfareStatus, '')
+    };
+    sensitiveState = { consent: false, codes: null };
+    profileCompleted = profile.profileCompleted === true;
+}
+
+function renderProfileLoadState() {
+    if (profileLoadState === 'checking') {
+        return '<header class="my-page__content-header"><h2>내 정보</h2></header><div class="my-page__empty" role="status">로그인 정보를 확인하고 프로필을 불러오는 중이에요.</div>';
+    }
+    if (profileLoadState === 'unauthenticated') {
+        return '<header class="my-page__content-header"><h2>내 정보</h2></header><div class="my-page__empty"><p>마이페이지는 로그인 후 이용할 수 있어요.</p><a class="bk-btn bk-btn--primary bk-btn--md" href="login.html">로그인하기</a></div>';
+    }
+    const message = profileLoadErrorStatus === 403
+        ? '프로필을 조회할 권한이 없어요. 다시 로그인한 뒤 시도해 주세요.'
+        : profileLoadErrorStatus >= 500
+            ? '프로필 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'
+            : '프로필 정보를 불러오지 못했어요. 네트워크와 로그인 상태를 확인해 주세요.';
+    return '<header class="my-page__content-header"><h2>내 정보</h2></header><div class="my-page__empty" role="alert">' + message + '</div>';
+}
+
 function infoItems(items) {
     return items.map(([, label, value]) => '<div class="my-page__info-item"><span class="my-page__info-label">' + escapeHtml(label) + '</span><strong class="my-page__info-value">' + escapeHtml(value) + '</strong></div>').join('');
 }
 
 function renderProfileView() {
     const interests = profileInterests.map((interest) => '<span class="my-page__topic-tag">' + escapeHtml(interest) + '</span>').join('');
-    return '<header class="my-page__content-header"><h2>내 정보</h2><span class="my-page__status">프로필 등록 완료</span></header>' +
+    const profileStatus = profileCompleted ? '프로필 등록 완료' : '프로필 입력 중';
+    return '<header class="my-page__content-header"><h2>내 정보</h2><span class="my-page__status">' + profileStatus + '</span></header>' +
         '<section class="my-page__section"><h3>기본 정보</h3><div class="my-page__info-grid">' + infoItems(myPageData.profile.basics) + '</div></section>' +
         '<section class="my-page__section"><h3>맞춤 혜택 프로필</h3><div class="my-page__info-grid">' + infoItems(myPageData.profile.settings) +
         '<div class="my-page__info-item"><span class="my-page__info-label">관심 분야</span><span class="my-page__topic-list">' + interests + '</span></div></div><div class="my-page__profile-action"><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-profile-edit>프로필 수정하기 <span aria-hidden="true">›</span></button></div></section>' +
@@ -95,8 +172,14 @@ function renderProfileEditor() {
     const radio = (name, value, label, state) => '<label><input type="radio" name="' + name + '" value="' + value + '"' + (state === value ? ' checked' : '') + '> ' + label + '</label>';
     const checks = (group, items, values) => items.map(([value, label, none]) => '<label><input type="checkbox" value="' + value + '"' + (none ? ' data-none' : '') + (values && (none ? values.length === 0 : values.includes(value)) ? ' checked' : '') + '> ' + label + '</label>').join('');
     const accordion = (key, title, content) => '<section class="my-page__profile-accordion" data-profile-accordion="' + key + '"><button class="my-page__profile-accordion-button" type="button" aria-expanded="' + profileAccordion[key] + '" aria-controls="profile-panel-' + key + '" data-profile-accordion-toggle="' + key + '"><span>' + title + '</span><span aria-hidden="true">⌄</span></button><div class="my-page__profile-accordion-panel" id="profile-panel-' + key + '"' + (profileAccordion[key] ? '' : ' hidden') + '>' + content + '</div></section>';
-    const regionOptions = Object.keys(PROFILE_REGIONS).map((name) => '<option value="' + name + '"' + selected(profileEditorState.sido, name) + '>' + name + '</option>').join('');
-    const sigunguOptions = (PROFILE_REGIONS[profileEditorState.sido] || []).map(([name, code]) => '<option value="' + code + '"' + selected(profileEditorState.regionCode, code) + '>' + name + '</option>').join('');
+    const regionNames = Object.keys(PROFILE_REGIONS);
+    if (profileEditorState.sido && !regionNames.includes(profileEditorState.sido)) regionNames.push(profileEditorState.sido);
+    const regionOptions = regionNames.map((name) => '<option value="' + escapeHtml(name) + '"' + selected(profileEditorState.sido, name) + '>' + escapeHtml(name) + '</option>').join('');
+    const sigunguRegions = [...(PROFILE_REGIONS[profileEditorState.sido] || [])];
+    if (profileEditorState.regionCode && !sigunguRegions.some(([, code]) => code === profileEditorState.regionCode)) {
+        sigunguRegions.push([profileEditorState.sigunguName || profileEditorState.regionCode, profileEditorState.regionCode]);
+    }
+    const sigunguOptions = sigunguRegions.map(([name, code]) => '<option value="' + escapeHtml(code) + '"' + selected(profileEditorState.regionCode, code) + '>' + escapeHtml(name) + '</option>').join('');
     const currentYear = new Date().getFullYear();
     const incomeVisible = ['ANNUAL', 'MONTHLY'].includes(profileEditorState.incomeInputType);
     const childVisible = profileEditorState.childrenCount && profileEditorState.childrenCount !== '0';
@@ -104,7 +187,7 @@ function renderProfileEditor() {
     const sensitiveCodes = sensitiveEditState.codes;
     const sensitiveOptions = SENSITIVE_OPTIONS.map(([code, label, description]) => '<label><input type="checkbox" name="sensitiveCodes" value="' + code + '"' + (sensitiveCodes && sensitiveCodes.includes(code) ? ' checked' : '') + (sensitiveEditState.consent ? '' : ' disabled') + '><span><strong>' + label + '</strong><small>' + description + '</small></span></label>').join('') + '<label class="my-page__sensitive-none"><input type="checkbox" name="sensitiveCodes" value="NONE" data-none' + (Array.isArray(sensitiveCodes) && sensitiveCodes.length === 0 ? ' checked' : '') + (sensitiveEditState.consent ? '' : ' disabled') + '><span><strong>해당 없음</strong><small>관련 항목이 없음을 명시합니다.</small></span></label>';
     const sensitiveContent = '<p class="my-page__sensitive-intro">민감정보는 관련 복지 혜택을 더 정확하게 안내하기 위해 사용됩니다. 입력은 선택 사항이며, 동의 여부와 입력 내용은 변경할 수 있습니다.</p><div class="my-page__sensitive-consent"><label><input type="checkbox" data-sensitive-consent' + (sensitiveEditState.consent ? ' checked' : '') + '> 민감정보 수집·이용 동의 <small>(선택)</small></label><button class="my-page__sensitive-view" type="button" data-sensitive-consent-view>내용 보기</button></div><p class="my-page__sensitive-notice" data-sensitive-reason' + (sensitiveEditState.consent ? ' hidden' : '') + '>동의하지 않으면 민감정보를 입력할 수 없어요. 동의 후에도 입력하지 않고 건너뛸 수 있습니다.</p><div class="my-page__sensitive-options" data-exclusive-group="sensitiveCodes"' + (sensitiveEditState.consent ? '' : ' hidden') + '>' + sensitiveOptions + '</div><div class="my-page__sensitive-withdraw" data-sensitive-withdraw hidden><p>동의를 철회하면 민감정보 선택값이 이 화면에서 해제되며, 추천 혜택이 달라질 수 있어요. 실제 삭제·철회는 저장 API 연동 후 처리됩니다.</p><div><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-sensitive-withdraw-cancel>취소</button><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-sensitive-withdraw-confirm>동의 철회 확인</button></div></div>';
-    return '<header class="my-page__content-header"><div><h2>프로필 수정</h2><p class="my-page__content-intro">변경 내용은 현재 화면에서만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.</p></div><span class="my-page__status">프로필 등록 완료</span></header>' +
+    return '<header class="my-page__content-header"><div><h2>프로필 수정</h2><p class="my-page__content-intro">변경 내용은 현재 화면에서만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.</p></div><span class="my-page__status">' + (profileCompleted ? '프로필 등록 완료' : '프로필 입력 중') + '</span></header>' +
         '<form class="my-page__profile-form" data-profile-form novalidate>' +
         '<section class="my-page__profile-form-section"><div class="my-page__section-heading"><h3>계정 고유 정보</h3><p>계정 정보는 이 화면에서 변경할 수 없어요.</p></div><div class="my-page__profile-form-grid">' +
         field('이름', 'name', profileValue('basics', '이름'), 'type="text" disabled') +
@@ -120,6 +203,7 @@ function renderProfileEditor() {
 }
 
 function renderProfile() {
+    if (profileLoadState !== 'loaded') return renderProfileLoadState();
     return profileMode === 'edit' ? renderProfileEditor() : renderProfileView();
 }
 
@@ -188,6 +272,51 @@ function renderSection() {
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-selected', String(active));
     });
+}
+
+async function loadProfile() {
+    const auth = window.BokdeongiAuth;
+    if (!auth) {
+        profileLoadState = 'error';
+        if (currentSection === 'profile') renderSection();
+        return;
+    }
+
+    const authStatus = await auth.refreshAuthentication();
+    if (authStatus !== 'authenticated') {
+        profileLoadState = authStatus === 'unauthenticated' ? 'unauthenticated' : 'error';
+        if (currentSection === 'profile') renderSection();
+        return;
+    }
+
+    try {
+        const response = await auth.authenticatedFetch('/api/me/profile');
+        if (response.status === 401) {
+            profileLoadState = 'unauthenticated';
+            if (currentSection === 'profile') renderSection();
+            return;
+        }
+        if (!response.ok) {
+            profileLoadErrorStatus = response.status;
+            profileLoadState = 'error';
+            if (currentSection === 'profile') renderSection();
+            return;
+        }
+
+        const profile = await response.json();
+        if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
+            profileLoadState = 'error';
+            if (currentSection === 'profile') renderSection();
+            return;
+        }
+
+        applyProfileResponse(profile);
+        profileLoadState = 'loaded';
+        if (currentSection === 'profile') renderSection();
+    } catch (error) {
+        profileLoadState = 'error';
+        if (currentSection === 'profile') renderSection();
+    }
 }
 
 function addKeyword(form) {
@@ -350,4 +479,8 @@ function setupInteractions() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => { renderSection(); setupInteractions(); });
+document.addEventListener('DOMContentLoaded', () => {
+    setupInteractions();
+    renderSection();
+    loadProfile();
+});

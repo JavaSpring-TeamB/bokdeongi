@@ -20,7 +20,10 @@
 
   function getApiUrl(path) {
     if (!apiBaseUrl) throw new AuthRequestError('configuration');
-    return new URL(path, `${apiBaseUrl}/`).toString();
+    if (typeof path !== 'string' || !path.startsWith('/')) throw new AuthRequestError('path');
+    const url = new URL(path, `${apiBaseUrl}/`);
+    if (url.origin !== apiBaseUrl) throw new AuthRequestError('path');
+    return url.toString();
   }
 
   function setAuthenticationState(status) {
@@ -105,6 +108,39 @@
     return refreshPromise;
   }
 
+  async function sendAuthenticatedRequest(path, options) {
+    if (!accessToken) throw new AuthRequestError('unauthenticated');
+
+    const headers = new Headers(options.headers || {});
+    headers.set('Authorization', `Bearer ${accessToken}`);
+
+    try {
+      return await fetch(getApiUrl(path), {
+        ...options,
+        headers,
+        credentials: 'include'
+      });
+    } catch (error) {
+      if (error instanceof AuthRequestError) throw error;
+      throw new AuthRequestError('network');
+    }
+  }
+
+  async function authenticatedFetch(path, options = {}) {
+    const response = await sendAuthenticatedRequest(path, options);
+    if (response.status !== 401) return response;
+
+    const status = await refreshAuthentication();
+    if (status !== 'authenticated') return response;
+
+    const retriedResponse = await sendAuthenticatedRequest(path, options);
+    if (retriedResponse.status === 401) {
+      clearAuthentication();
+      setAuthenticationState('unauthenticated');
+    }
+    return retriedResponse;
+  }
+
   class AuthRequestError extends Error {
     constructor(type, status = 0, code = null) {
       super('Authentication request failed.');
@@ -127,6 +163,7 @@
       clearAuthentication();
       setAuthenticationState('unauthenticated');
     },
-    refreshAuthentication
+    refreshAuthentication,
+    authenticatedFetch
   });
 })();
