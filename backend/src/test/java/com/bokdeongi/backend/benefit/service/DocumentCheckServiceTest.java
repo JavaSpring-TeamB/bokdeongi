@@ -99,7 +99,7 @@ class DocumentCheckServiceTest {
     }
 
     @Test
-    void 10MB를_넘으면_OCR을_부르지_않는다() {
+    void 파일이_10MB를_넘으면_OCR을_부르지_않는다() {
         byte[] big = new byte[(int) DocumentCheckService.MAX_BYTES + 1];
         assertEquals("FILE_TOO_LARGE", assertThrows(DocumentCheckException.class,
                 () -> service.check(3L, new MockMultipartFile("file", "a.png", "image/png", big))).getCode());
