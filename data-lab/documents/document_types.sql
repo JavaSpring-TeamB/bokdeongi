@@ -1,6 +1,6 @@
 -- document_types 시드 (DATA-07, D-18). 자동 생성: data-lab/documents/build_document_types.py
 -- 원본: data-lab/documents/document_types.csv
--- 29줄. name이 같으면 고친 값으로 덮어쓴다(id는 그대로라 benefits·users의 참조가 깨지지 않는다).
+-- 31줄. name이 같으면 고친 값으로 덮어쓴다(id는 그대로라 benefits·users의 참조가 깨지지 않는다).
 SET NAMES utf8mb4;
 START TRANSACTION;
 INSERT INTO `document_types` (`name`, `aliases`, `issuer`, `online_available`, `issue_url`, `issue_method`, `default_validity_days`, `alternatives`, `ocr_supported`) VALUES
@@ -11,6 +11,8 @@ INSERT INTO `document_types` (`name`, `aliases`, `issuer`, `online_available`, `
   ('기본증명서', '["기본 증명서"]', '대법원 가족관계등록 / 읍·면·동 행정복지센터', TRUE, 'https://efamily.scourt.go.kr', '대법원 전자가족관계등록시스템 또는 정부24에서 무료 발급 / 행정복지센터 방문 / 무인민원발급기', NULL, NULL, FALSE),
   ('재학증명서', '["재학 증명서"]', '다니는 학교', TRUE, NULL, '학교 행정실 또는 학교 홈페이지에서 발급', 30, NULL, TRUE),
   ('성적증명서', '["성적 증명서"]', '다니는(졸업한) 학교', TRUE, NULL, '학교 행정실 또는 학교 홈페이지에서 발급', NULL, NULL, FALSE),
+  ('졸업증명서', '["졸업 증명서"]', '졸업한 학교', TRUE, NULL, '학교 행정실 또는 학교 홈페이지에서 발급 / 고등학교는 정부24에서도 발급', NULL, NULL, FALSE),
+  ('졸업예정증명서', '["졸업예정 증명서", "졸업 예정 증명서"]', '다니는 학교', TRUE, NULL, '학교 행정실 또는 학교 홈페이지에서 발급', NULL, '졸업증명서(이미 졸업한 경우)', FALSE),
   ('건강보험료 납부확인서', '["건강보험료납부확인서", "보험료 납부확인서", "보험료납부확인서", "건강보험납부확인서", "건강보험 납부확인서"]', '국민건강보험공단', TRUE, 'https://www.nhis.or.kr', '국민건강보험공단 누리집·앱 / 정부24 / 공단 지사 방문', NULL, NULL, TRUE),
   ('건강보험 자격득실확인서', '["건강보험자격득실확인서", "자격득실확인서", "건강보험 자격득실 확인서"]', '국민건강보험공단', TRUE, 'https://www.nhis.or.kr', '국민건강보험공단 홈페이지·앱 / 정부24 / 공단 지사 방문 / 무인민원발급기', 90, NULL, FALSE),
   ('건강보험 자격확인서', '["건강보험자격확인서", "건강보험증", "건강보험증 사본"]', '국민건강보험공단', TRUE, 'https://www.nhis.or.kr', '국민건강보험공단 홈페이지·앱 / 정부24 / 공단 지사 방문 / 무인민원발급기', NULL, NULL, FALSE),

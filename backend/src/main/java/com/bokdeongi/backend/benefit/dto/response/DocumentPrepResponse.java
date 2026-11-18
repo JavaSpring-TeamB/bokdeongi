@@ -24,11 +24,18 @@ public record DocumentPrepResponse(List<Group> groups, List<String> forms, List<
      *
      * @param documentTypeId 준비 완료 체크(PATCH .../documents/{documentTypeId})에 쓰는 id
      * @param name           서류 목록의 이름
-     * @param sourceName     공고 원문에 적힌 이름
+     * @param sourceName     공고 원문에 적힌 이름 ("A 또는 B"면 그대로). 화면에 name과 다르면 같이 보여 준다
      * @param validityDays   흔히 요구하는 유효기간(일). 공고 원문에 기한이 있으면 그쪽이 우선
      * @param ocrSupported   ③ 서류 검토에서 사진을 올려 확인할 수 있는 서류 (D-18)
+     * @param orDocs         공고에 "A 또는 B"로 적혀 이 서류 대신 낼 수 있는 서류. 없으면 빈 목록
      */
     public record Item(Long documentTypeId, String name, String sourceName, String issuer, boolean onlineAvailable,
-                       String issueMethod, Integer validityDays, String alternatives, boolean ocrSupported) {
+                       String issueMethod, Integer validityDays, String alternatives, boolean ocrSupported,
+                       List<Choice> orDocs) {
+    }
+
+    /** "A 또는 B"의 B: 대신 낼 수 있는 서류 */
+    public record Choice(Long documentTypeId, String name, String issuer, boolean onlineAvailable, String issueUrl,
+                         String issueMethod) {
     }
 }

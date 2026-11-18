@@ -41,7 +41,11 @@ public class ApplicationDocumentService {
                 .map(g -> new DocumentPrepResponse.Group(g.place(), g.url(), g.items().stream()
                         .map(i -> new DocumentPrepResponse.Item(i.doc().id(), i.doc().name(), i.sourceName(),
                                 i.doc().issuer(), i.doc().onlineAvailable(), i.doc().issueMethod(),
-                                i.doc().defaultValidityDays(), i.doc().alternatives(), i.doc().ocrSupported()))
+                                i.doc().defaultValidityDays(), i.doc().alternatives(), i.doc().ocrSupported(),
+                                i.orDocs().stream()
+                                        .map(o -> new DocumentPrepResponse.Choice(o.id(), o.name(), o.issuer(),
+                                                o.onlineAvailable(), o.issueUrl(), o.issueMethod()))
+                                        .toList()))
                         .toList()))
                 .toList();
         return new DocumentPrepResponse(groups, prep.forms(), prep.unknown(), contacts(contact), prep.total());

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.bokdeongi.backend.benefit.service.DocumentPrepBuilder.IssuerGroup;
 import com.bokdeongi.backend.benefit.service.DocumentPrepBuilder.MasterDoc;
 import com.bokdeongi.backend.benefit.service.DocumentPrepBuilder.Prep;
+import com.bokdeongi.backend.benefit.service.DocumentPrepBuilder.PrepItem;
 
 class DocumentPrepBuilderTest {
 
@@ -23,7 +24,11 @@ class DocumentPrepBuilderTest {
             "본인 거래 은행", true, null, "은행 앱", null, null, false);
     private static final MasterDoc 진단서 = new MasterDoc(5L, "진단서", List.of(),
             "진료받은 병·의원", false, null, "병원", 90, null, false);
-    private static final List<MasterDoc> MASTER = List.of(등본, 초본, 가족, 통장, 진단서);
+    private static final MasterDoc 수급 = new MasterDoc(6L, "국민기초생활수급자 증명서", List.of("수급자증명서", "기초생활수급자증명서"),
+            "읍·면·동 행정복지센터", true, "https://www.gov.kr", "정부24", null, null, false);
+    private static final MasterDoc 차상위 = new MasterDoc(7L, "차상위계층 확인서", List.of("차상위계층증명서", "차상위 확인서"),
+            "읍·면·동 행정복지센터", true, "https://www.gov.kr", "정부24", null, null, false);
+    private static final List<MasterDoc> MASTER = List.of(등본, 초본, 가족, 통장, 진단서, 수급, 차상위);
 
     @Test
     void 이름이나_별칭이_같으면_그_서류() {
@@ -67,5 +72,36 @@ class DocumentPrepBuilderTest {
         Prep p = DocumentPrepBuilder.build("지원신청서, 개인정보 제공 동의서, 증빙서류, 임대차계약서", MASTER);
         assertEquals(List.of("지원신청서", "개인정보 제공 동의서"), p.forms());
         assertEquals(List.of("임대차계약서"), p.unknown());
+    }
+
+    @Test
+    void 또는으로_적힌_서류는_둘_다_보여_준다() {
+        Prep p = DocumentPrepBuilder.build("기초생활수급자 또는 차상위계층증명서", MASTER);
+        PrepItem item = p.groups().get(0).items().get(0);
+        assertEquals(수급, item.doc());
+        assertEquals(List.of(차상위), item.orDocs());
+        assertEquals("기초생활수급자 또는 차상위계층증명서", item.sourceName());
+        assertEquals(1, p.total());
+    }
+
+    @Test
+    void 또는_뒤가_짧은_이름이어도_맞춘다() {
+        assertEquals(List.of(초본, 등본), DocumentPrepBuilder.matchAll("주민등록초본 또는 등본", MASTER));
+        assertEquals(List.of(등본, 초본), DocumentPrepBuilder.matchAll("사고자 기준 주민등록 등본 또는 초본", MASTER));
+    }
+
+    @Test
+    void 또는의_한쪽만_목록에_있으면_그_서류에_원문_이름을_남긴다() {
+        Prep p = DocumentPrepBuilder.build("진단서 또는 소견서", MASTER);
+        PrepItem item = p.groups().get(0).items().get(0);
+        assertEquals(진단서, item.doc());
+        assertEquals(List.of(), item.orDocs());
+        assertEquals("진단서 또는 소견서", item.sourceName());
+    }
+
+    @Test
+    void 또는이_없으면_대신_낼_서류도_없다() {
+        Prep p = DocumentPrepBuilder.build("주민등록등본", MASTER);
+        assertEquals(List.of(), p.groups().get(0).items().get(0).orDocs());
     }
 }
