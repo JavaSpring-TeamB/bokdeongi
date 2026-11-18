@@ -49,6 +49,10 @@
 }
 
 .application-status-summary div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     padding: var(--space-md);
     border-radius: var(--radius-md);
     background: var(--color-white);
@@ -57,12 +61,14 @@
 
 .application-status-summary dt {
     color: var(--color-text);
-    font-size: var(--font-size-caption);
+    font-size: calc(var(--font-size-caption) * 1.2);
     font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
 }
 
 .application-status-summary dd {
-    margin: 2px 0 0;
+    margin: 4px 0 0;
     color: var(--color-text);
     font-size: var(--font-size-card-title);
     font-weight: 700;
@@ -121,6 +127,7 @@
 
 .application-calendar-button {
     flex: 0 0 auto;
+    justify-content: center;
     white-space: nowrap;
 }
 

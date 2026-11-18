@@ -6,9 +6,11 @@
 .home-hero h1 span { color: var(--color-primary); }
 .home-hero p { margin: var(--space-md) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-description); line-height: 1.6; }
 .home-quick-links { display: grid; width: min(44%, 550px); grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.quick-link { display: flex; min-height: 132px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px solid rgb(255 255 255 / 80%); border-radius: var(--radius-lg); background: var(--color-white); color: var(--color-text); font-size: var(--font-size-button); font-weight: 600; text-align: center; }
-.quick-link:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.quick-link__icon { width: 70px; height: 70px; flex: 0 0 auto; color: var(--color-primary); stroke: currentColor; stroke-width: 2.4; }
+.quick-link { display: flex; min-height: 132px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-white); color: var(--color-text); font-size: var(--font-size-button); font-weight: 600; text-align: center; transition: border-color .2s ease, color .2s ease, transform .2s ease; }
+.quick-link:hover { border-color: var(--color-primary); color: var(--color-primary); transform: translateY(-2px); }
+.quick-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.quick-link__icon { display: inline-grid; width: 58px; height: 58px; flex: 0 0 58px; place-items: center; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); }
+.quick-link__icon svg { width: 30px; height: 30px; stroke: currentColor; }
 .quick-link b { display: none; }
 
 .home-dashboard { padding: var(--space-md) 0 var(--space-xxl); }
@@ -16,10 +18,9 @@
 .home-summary-grid { display: grid; grid-template-columns: 1.05fr 1.05fr .9fr; gap: var(--space-md); }
 .home-detail-grid { display: grid; grid-template-columns: .9fr 1.6fr; margin-top: var(--space-md); gap: var(--space-md); }
 .card-heading { display: flex; min-height: 25px; align-items: center; gap: var(--space-xs); }
-.card-heading__group { display: inline-flex; align-items: center; gap: var(--space-xs); }
+.card-heading__group { display: inline-flex; align-items: center; }
 .card-heading--between { justify-content: space-between; }
 .card-heading h2 { margin: 0; font-size: var(--font-size-card-title); font-weight: 600; letter-spacing: -.025em; }
-.card-heading__icon { width: 21px; height: 21px; flex: 0 0 21px; color: var(--color-primary); stroke: currentColor; }
 .card-heading time { color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .info-mark { display: inline-grid; width: 14px; height: 14px; place-items: center; border: 1px solid var(--color-text-secondary); border-radius: 50%; color: var(--color-text-secondary); font-family: serif; font-size: 10px; line-height: 1; }
 .support-summary { display: grid; grid-template-columns: 1fr 1fr; margin-top: var(--space-md); border-radius: var(--radius-md); background: var(--color-mint-light); }
@@ -113,7 +114,6 @@
   .home-hero h1 { font-size: 1.875rem; }
   .home-quick-links { width: 48%; }
   .quick-link { min-height: 124px; font-size: var(--font-size-caption); }
-  .quick-link__icon { width: 60px; height: 60px; }
   .home-summary-grid { grid-template-columns: repeat(2, 1fr); }
   .home-summary-grid > :last-child { grid-column: span 2; }
 }
@@ -130,8 +130,9 @@
   .home-hero h1 { font-size: 1.75rem; }
   .home-hero p { font-size: var(--font-size-caption); }
   .home-quick-links { width: 100%; grid-template-columns: 1fr; gap: var(--space-sm); margin-top: 106px; }
-  .quick-link { min-height: 64px; flex-direction: row; justify-content: flex-start; padding: 0 var(--space-md); text-align: left; }
-  .quick-link__icon { width: 44px; height: 44px; }
+  .quick-link { min-height: 72px; flex-direction: row; justify-content: flex-start; padding: 0 var(--space-md); text-align: left; }
+  .quick-link__icon { width: 48px; height: 48px; flex-basis: 48px; }
+  .quick-link__icon svg { width: 26px; height: 26px; }
   .quick-link b { display: block; margin-left: auto; font-size: 1.5rem; font-weight: 400; }
   .dashboard-notice { text-align: left; }
   .home-summary-grid, .home-detail-grid { grid-template-columns: 1fr; }

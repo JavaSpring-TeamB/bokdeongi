@@ -6,7 +6,8 @@
 .signup-account__lead { margin: var(--space-xs) 0 var(--space-xl); font-size: var(--font-size-description); }
 .signup-account__benefits { display: grid; gap: var(--space-sm); margin-top: auto; }
 .signup-account__benefit { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: var(--space-sm); align-items: center; padding: 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); }
-.signup-account__benefit > span { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: var(--color-white); color: var(--color-primary); font-size: 1.25rem; }
+.signup-account__benefit-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: var(--color-white); color: var(--color-primary); }
+.signup-account__benefit-icon svg { width: 1.5rem; height: 1.5rem; fill: none; stroke: currentColor; }
 .signup-account__benefit h2 { margin: 0; font-size: var(--font-size-description); }
 .signup-account__benefit p { margin: 1px 0 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); line-height: 1.45; }
 .signup-account__card { align-self: stretch; padding: 18px 20px; box-shadow: 0 6px 16px rgb(29 58 42 / 5%); }
@@ -45,7 +46,7 @@
 .signup-account__submit { width: 100%; margin-top: var(--space-xs); }
 
 @media (max-width: 1120px) { .signup-account__shell { grid-template-columns: minmax(250px, .65fr) minmax(480px, 1.35fr); padding: var(--space-lg); gap: var(--space-lg); } }
-@media (max-width: 900px) { .signup-account__shell { grid-template-columns: 1fr; } .signup-account__intro { padding: 0; } .signup-account__lead { margin-bottom: var(--space-lg); } .signup-account__benefits { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; } .signup-account__benefit { grid-template-columns: 1fr; } .signup-account__benefit > span { width: 34px; height: 34px; } .signup-account__card { min-height: 0; } }
+@media (max-width: 900px) { .signup-account__shell { grid-template-columns: 1fr; } .signup-account__intro { padding: 0; } .signup-account__lead { margin-bottom: var(--space-lg); } .signup-account__benefits { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; } .signup-account__benefit { grid-template-columns: 1fr; } .signup-account__benefit-icon { width: 38px; height: 38px; } .signup-account__card { min-height: 0; } }
 @media (max-width: 767px) { .signup-account__card .signup-steps .assist-step__label { font-size: 1.02rem; } }
 @media (max-width: 600px) { .signup-account { padding: var(--space-lg) 0 var(--space-xl); } .signup-account__shell { padding: var(--space-lg); } .signup-account__benefits { grid-template-columns: 1fr; } .signup-account__benefit { grid-template-columns: 42px minmax(0, 1fr); } .signup-account__card { padding: var(--space-lg); } .signup-account__card .signup-steps { margin-bottom: var(--space-lg); } .signup-form-row { grid-template-columns: 1fr; gap: var(--space-xs); } .signup-form-row > label { min-height: 34px; padding: 0; background: transparent; } .signup-account__form-heading { flex-direction: column; } .signup-account__required-note { padding-top: 0; } }
 @media (max-width: 400px) { .signup-account__shell { padding: var(--space-md); } .signup-account__card { padding: var(--space-md); } .signup-form-control__inline { flex-direction: column; } .signup-check-button { width: 100%; } }

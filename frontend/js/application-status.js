@@ -75,7 +75,7 @@ const stepIcons = [
 const $ = (selector) => document.querySelector(selector);
 let selectedStatus = 'all';
 let currentPage = 1;
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 4;
 
 function getApplications(status) {
     return status === 'all'

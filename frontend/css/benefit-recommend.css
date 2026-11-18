@@ -78,15 +78,17 @@
 
 .recommend-tabs {
     display: flex;
+    align-items: stretch;
     gap: var(--space-xl);
     overflow-x: auto;
+    overflow-y: hidden;
     margin-top: var(--space-sm);
     border-bottom: 1px solid var(--color-border);
 }
 
 .recommend-tab {
     position: relative;
-    min-height: 48px;
+    min-height: 56px;
     flex: 0 0 auto;
     padding: 0 2px;
     border: 0;
@@ -94,12 +96,14 @@
     color: var(--color-text);
     font-size: var(--font-size-caption);
     font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
 }
 
 .recommend-tab::after {
     position: absolute;
     right: 0;
-    bottom: -1px;
+    bottom: 0;
     left: 0;
     height: 2px;
     background: transparent;
@@ -649,18 +653,33 @@
 }
 
 .recommend-card__bookmark {
-    display: grid;
-    width: 38px;
-    height: 38px;
-    place-items: center;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-white);
+    display: inline-flex;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
     color: var(--color-primary);
+    cursor: pointer;
+}
+
+.recommend-card__bookmark svg {
+    width: 21px;
+    height: 21px;
 }
 
 .recommend-card__bookmark:hover {
-    border-color: var(--color-primary);
+    color: var(--color-primary-hover);
+}
+
+.recommend-card__bookmark:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .benefit-recommend-page .recommend-card .btn {
