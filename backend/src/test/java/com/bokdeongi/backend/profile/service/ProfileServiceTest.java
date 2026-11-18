@@ -14,7 +14,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
+import com.bokdeongi.backend.profile.dto.request.ProfileStep1Request;
+import com.bokdeongi.backend.profile.entity.Region;
 
+import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.time.Year;
 import java.util.List;
@@ -30,7 +33,7 @@ class ProfileServiceTest {
     private IncomeCalculationService incomeCalculationService;
     private ApplicationEventPublisher eventPublisher;
     private ProfileService profileService;
-
+    private RegionRepository regionRepository;
     private UserConsentRepository userConsentRepository;
     private ObjectMapper objectMapper;
 
@@ -41,6 +44,7 @@ class ProfileServiceTest {
         objectMapper = mock(ObjectMapper.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         userConsentRepository = mock(UserConsentRepository.class);
+        regionRepository = mock(RegionRepository.class);
 
         // 테스트에서는 기준 중위소득 자료가 준비된 것으로 설정
         when(incomeCalculationService.isIncomeStandardReady(anyShort()))
@@ -50,7 +54,7 @@ class ProfileServiceTest {
         // 따라서 ProfileService에 암호화 서비스를 직접 주입하지 않는다.
         profileService = new ProfileService(
                 userRepository,
-                mock(RegionRepository.class),
+                regionRepository,
                 objectMapper,
                 userConsentRepository,
                 eventPublisher,
@@ -580,5 +584,126 @@ class ProfileServiceTest {
         verify(eventPublisher).publishEvent(
                 any(ProfileChangedEvent.class)
         );
+    }
+
+    /**
+     * PROF-05: 기존 프로필 수정 시 버전이 증가하고
+     * 진행 단계는 유지되며 재매칭 이벤트가 발행된다.
+     */
+    @Test
+    void shouldUpdateExistingProfileAndPublishEvent() {
+        // Given: 기존 프로필이 4단계까지 작성된 사용자
+        Long userId = 137L;
+
+        User user = new User(
+                "prof05test@example.com",
+                "passwordHash",
+                "테스트",
+                "01012345678",
+                null
+        );
+
+        user.updateProfileStep1(
+                java.time.LocalDate.of(2000, 1, 1),
+                "M",
+                "11110",
+                "서울특별시",
+                "종로구"
+        );
+
+        user.updateProfileStep2(
+                (short) 1,
+                "UNKNOWN",
+                null,
+                null,
+                null,
+                "JEONSE",
+                true,
+                "[]"
+        );
+
+        user.updateProfileStep3(
+                "[]",
+                "SINGLE",
+                (short) 0,
+                null,
+                "UNKNOWN"
+        );
+
+        user.updateProfileStep4(null);
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        int originalVersion = user.getProfileVersion();
+        short originalStep = user.getProfileStep();
+
+        // When: 기존 프로필의 거주 지역 수정
+        user.updateProfileStep1(
+                java.time.LocalDate.of(2000, 1, 1),
+                "M",
+                "11140",
+                "서울특별시",
+                "중구"
+        );
+
+        // Then: 변경 정보 반영
+        assertEquals("11140", user.getRegionCode());
+        assertEquals("중구", user.getSigunguName());
+
+        // 프로필 버전 증가
+        assertEquals(originalVersion + 1, user.getProfileVersion());
+
+        // 기존 프로필 진행 단계 유지
+        assertEquals(originalStep, user.getProfileStep());
+    }
+
+    /**
+     * PROF-05: 프로필 수정 시 버전 증가 및 재매칭 이벤트 발행
+     */
+    @Test
+    void shouldPublishEventWhenUpdatingProfile() {
+        // Given
+        Long userId = 137L;
+
+        User user = new User(
+                "prof05test@example.com",
+                "passwordHash",
+                "테스트",
+                "01012345678",
+                null
+        );
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        ProfileStep1Request request = new ProfileStep1Request(
+                LocalDate.of(2000, 1, 1),
+                "M",
+                "11140",
+                "서울특별시",
+                "중구"
+        );
+
+        Region region = mock(Region.class);
+
+        when(region.getRegionCode()).thenReturn("11140");
+        when(region.getSidoName()).thenReturn("서울특별시");
+        when(region.getSigunguName()).thenReturn("중구");
+
+        when(regionRepository.findById("11140"))
+                .thenReturn(Optional.of(region));
+
+        int originalVersion = user.getProfileVersion();
+
+        // When
+        profileService.saveProfileStep1(userId, request);
+
+        // Then
+        assertEquals(originalVersion + 1, user.getProfileVersion());
+        assertEquals("11140", user.getRegionCode());
+
+        verify(eventPublisher, times(1))
+                .publishEvent(new ProfileChangedEvent(userId));
     }
 }
