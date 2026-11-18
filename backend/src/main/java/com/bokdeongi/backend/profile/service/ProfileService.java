@@ -4,7 +4,6 @@ import com.bokdeongi.backend.auth.entity.User;
 import com.bokdeongi.backend.auth.entity.UserConsent;
 import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
-import com.bokdeongi.backend.common.crypto.FieldEncryptionService;
 import com.bokdeongi.backend.eligibility.service.ProfileChangedEvent;
 import com.bokdeongi.backend.profile.dto.request.ProfileStep1Request;
 import com.bokdeongi.backend.profile.dto.request.ProfileStep2Request;
@@ -32,18 +31,17 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
-    private final FieldEncryptionService fieldEncryptionService;
     private final UserConsentRepository userConsentRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final String sensitiveConsentVersion;
     private final RegionRepository regionRepository;
     private final IncomeCalculationService incomeCalculationService;
 
+
     public ProfileService(
             UserRepository userRepository,
             RegionRepository regionRepository,
             ObjectMapper objectMapper,
-            FieldEncryptionService fieldEncryptionService,
             UserConsentRepository userConsentRepository,
             ApplicationEventPublisher applicationEventPublisher,
             @Value("${app.consent.sensitive-version}") String sensitiveConsentVersion,
@@ -52,7 +50,6 @@ public class ProfileService {
         this.userRepository = userRepository;
         this.regionRepository = regionRepository;
         this.objectMapper = objectMapper;
-        this.fieldEncryptionService = fieldEncryptionService;
         this.userConsentRepository = userConsentRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.sensitiveConsentVersion = sensitiveConsentVersion;
@@ -451,7 +448,12 @@ public class ProfileService {
     }
 
     /**
-     * PROF-01: 프로필 4단계 특수 상황 저장.
+     * PROF-01,04: 프로필 4단계 특수 상황 정보 저장.
+     *
+     * 민감정보는 별도 동의를 받은 경우에만 저장한다.
+     * null은 입력 건너뛰기, 빈 목록([])은 '해당 없음'을 의미한다.
+     *
+     * 민감정보 암호화는 JPA AttributeConverter에서 처리한다.
      */
     @Transactional
     public ProfileResponse saveProfileStep4(
@@ -464,6 +466,7 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
+        // 프로필 1~3단계를 완료한 사용자만 4단계를 입력할 수 있다.
         if (user.getProfileStep() == null
                 || user.getProfileStep() < 3) {
             throw new ResponseStatusException(
@@ -472,6 +475,7 @@ public class ProfileService {
             );
         }
 
+        // 현재 민감정보 동의 문서 버전을 확인한다.
         String currentDocVersion = sensitiveConsentVersion;
 
         if (!currentDocVersion.equals(request.consentDocVersion())) {
@@ -481,56 +485,59 @@ public class ProfileService {
             );
         }
 
-        byte[] encryptedSensitiveCodes = null;
+        // 민감정보 코드 목록을 JSON 문자열로 관리한다.
+        // null은 입력 건너뛰기 또는 미동의를 의미한다.
+        String sensitiveCodesJson = null;
 
-        if (request.sensitiveAgreed()) {
-            if (request.sensitiveCodes() == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "동의한 경우 특수 상황 목록을 입력해야 합니다."
+        if (Boolean.TRUE.equals(request.sensitiveAgreed())) {
+
+            // null은 민감 항목 입력 건너뛰기를 의미한다.
+            if (request.sensitiveCodes() != null) {
+
+                // 입력 가능한 민감정보 코드 목록
+                Set<String> allowedSensitiveCodes = Set.of(
+                        "JA0301", "JA0302", "JA0303",
+                        "JA0328", "JA0329", "JA0330",
+                        "JA0401", "JA0402"
                 );
+
+                // 허용되지 않은 민감정보 코드 검증
+                if (request.sensitiveCodes().stream()
+                        .anyMatch(code -> !allowedSensitiveCodes.contains(code))) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "올바르지 않은 특수 상황 코드가 포함되어 있습니다."
+                    );
+                }
+
+                // 민감정보 코드 중복 선택 검증
+                if (request.sensitiveCodes().size()
+                        != Set.copyOf(request.sensitiveCodes()).size()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "특수 상황 코드는 중복 선택할 수 없습니다."
+                    );
+                }
+
+                // 민감정보 코드 목록을 JSON 문자열로 변환한다.
+                try {
+                    sensitiveCodesJson =
+                            objectMapper.writeValueAsString(
+                                    request.sensitiveCodes()
+                            );
+                } catch (Exception e) {
+                    throw new IllegalStateException(
+                            "특수 상황 코드 변환에 실패했습니다.", e
+                    );
+                }
+
+                // 빈 목록 "[]"도 저장 대상이다.
+                // 실제 암호화는 EncryptedSensitiveConverter에서 처리한다.
             }
-
-            Set<String> allowedSensitiveCodes = Set.of(
-                    "JA0301", "JA0302", "JA0303",
-                    "JA0328", "JA0329", "JA0330",
-                    "JA0401", "JA0402"
-            );
-
-            if (request.sensitiveCodes().stream()
-                    .anyMatch(code -> !allowedSensitiveCodes.contains(code))) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "올바르지 않은 특수 상황 코드가 포함되어 있습니다."
-                );
-            }
-
-            if (request.sensitiveCodes().size()
-                    != Set.copyOf(request.sensitiveCodes()).size()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "특수 상황 코드는 중복 선택할 수 없습니다."
-                );
-            }
-
-            String sensitiveCodesJson;
-
-            try {
-                sensitiveCodesJson =
-                        objectMapper.writeValueAsString(
-                                request.sensitiveCodes()
-                        );
-            } catch (Exception e) {
-                throw new IllegalStateException(
-                        "특수 상황 코드 변환에 실패했습니다.", e
-                );
-            }
-
-            // AES-256-GCM 암호화
-            encryptedSensitiveCodes =
-                    fieldEncryptionService.encrypt(sensitiveCodesJson);
 
         } else {
+
+            // 민감정보 미동의 상태에서는 값을 입력할 수 없다.
             if (request.sensitiveCodes() != null) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
@@ -539,20 +546,21 @@ public class ProfileService {
             }
         }
 
-        // 동의 또는 미동의 이력 추가
+        // 민감정보 동의 또는 미동의 이력을 저장한다.
         userConsentRepository.save(
                 new UserConsent(
                         user,
                         "SENSITIVE",
                         currentDocVersion,
-                        request.sensitiveAgreed()
+                        Boolean.TRUE.equals(request.sensitiveAgreed())
                 )
         );
 
-        // 미동의 시 기존 민감정보 제거
-        user.updateProfileStep4(encryptedSensitiveCodes);
+        // 민감정보를 저장하거나 미동의 시 기존 정보를 제거한다.
+        // JPA Converter가 DB 저장 시 자동으로 암호화한다.
+        user.updateProfileStep4(sensitiveCodesJson);
 
-        // 프로필 변경 이벤트 발행
+        // 프로필 변경에 따른 재매칭 이벤트 발행
         applicationEventPublisher.publishEvent(
                 new ProfileChangedEvent(userId)
         );
