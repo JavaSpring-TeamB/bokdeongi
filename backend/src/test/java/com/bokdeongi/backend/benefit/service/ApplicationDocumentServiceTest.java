@@ -51,6 +51,7 @@ class ApplicationDocumentServiceTest {
         assertEquals("주민등록등본", 등본.name());
         assertTrue(등본.ocrSupported());
         assertEquals(90, 등본.validityDays());
+        assertEquals(List.of(), 등본.orDocs());
         assertEquals(List.of("지원신청서"), r.forms());
         assertEquals(List.of("임대차계약서"), r.unknown());
         assertEquals(List.of(new ContactResponse("주거복지과", "02-123-4567")), r.contacts());

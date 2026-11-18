@@ -13,6 +13,8 @@ import java.util.Map;
  * 3. 맞춘 서류는 발급하는 곳(정부24, 대법원 가족관계, 건강보험공단, 홈택스, 위택스, 그 밖의 발급처)별로 묶는다
  * 4. 신청서·동의서·사업계획서·서약서처럼 공고마다 양식이 다른 것은 "신청 기관 서식"으로 묶는다
  * 5. "서류", "증빙서류"처럼 이름이 뭉뚱그려진 것은 뺀다
+ * 7. "A 또는 B"는 A·B를 각각 맞춰 앞의 것을 대표로, 나머지를 대신 낼 수 있는 서류(orDocs)로 둔다
+ *    ("기초생활수급자 또는 차상위계층증명서"처럼 앞쪽에 서류 꼬리가 빠졌으면 뒤쪽 꼬리 "증명서"를 붙여 맞춘다)
  * 6. 그 밖에 목록에 없는 서류는 공고 원문 이름 그대로 따로 둔다 (화면에서 문의처와 함께 보여 준다)
  */
 public final class DocumentPrepBuilder {
@@ -26,10 +28,11 @@ public final class DocumentPrepBuilder {
     /**
      * 준비할 서류 하나.
      *
-     * @param sourceName 공고 원문의 서류 이름
+     * @param sourceName 공고 원문의 서류 이름 ("기초생활수급자 또는 차상위계층증명서" 그대로)
      * @param doc        맞춘 서류 목록 줄 (발급 방법·유효기간·대체 서류)
+     * @param orDocs     "A 또는 B"에서 doc 대신 낼 수 있는 서류. 없으면 빈 목록
      */
-    public record PrepItem(String sourceName, MasterDoc doc) {
+    public record PrepItem(String sourceName, MasterDoc doc, List<MasterDoc> orDocs) {
     }
 
     /** 발급하는 곳 하나와 거기서 받을 서류들 */
@@ -62,6 +65,12 @@ public final class DocumentPrepBuilder {
     private static final java.util.regex.Pattern GENERIC = java.util.regex.Pattern.compile(
             "^(?:관련|기타|증빙|추가|공무원\\s*확인\\s*가능|필요|해당)?\\s*(?:서류|증빙서류|증빙자료|자료)$");
 
+    /** "A 또는 B" */
+    private static final java.util.regex.Pattern OR = java.util.regex.Pattern.compile("\\s*(?:또는|혹은)\\s*");
+    /** 서류 이름 꼬리: "기초생활수급자 또는 차상위계층증명서"의 앞쪽에 붙여 본다 */
+    private static final java.util.regex.Pattern DOC_TAIL = java.util.regex.Pattern.compile(
+            "(?:증명서|확인서|증명원|등록증|확인증|사본|등본|초본)$");
+
     /** 이보다 짧은 별칭("등본")은 이름 안에 들어 있어도 맞추지 않고, 같을 때만 맞춘다 */
     private static final int MIN_CONTAINS = 3;
 
@@ -79,21 +88,22 @@ public final class DocumentPrepBuilder {
             if (GENERIC.matcher(name.strip()).matches()) {
                 continue;
             }
-            MasterDoc doc = match(name, master);
-            if (doc == null) {
+            List<MasterDoc> docs = matchAll(name, master);
+            if (docs.isEmpty()) {
                 List<String> to = FORM.matcher(key(name)).find() ? forms : unknown;
                 if (!to.contains(name)) {
                     to.add(name);
                 }
                 continue;
             }
+            MasterDoc doc = docs.get(0);
             if (doc.id() != null && seen.contains(doc.id())) {
                 continue; // "주민등록등본", "주민등록표 등본"이 둘 다 적힌 경우 한 번만
             }
             seen.add(doc.id());
             String url = nz(doc.issueUrl());
             String place = SITE.getOrDefault(url, nz(doc.issuer()).isBlank() ? "발급처 확인 필요" : doc.issuer());
-            byPlace.computeIfAbsent(place, k -> new ArrayList<>()).add(new PrepItem(name, doc));
+            byPlace.computeIfAbsent(place, k -> new ArrayList<>()).add(new PrepItem(name, doc, List.copyOf(docs.subList(1, docs.size()))));
             urlOf.putIfAbsent(place, url.isBlank() ? null : url);
         }
 
@@ -101,6 +111,35 @@ public final class DocumentPrepBuilder {
         byPlace.forEach((place, items) -> groups.add(new IssuerGroup(place, urlOf.get(place), List.copyOf(items))));
         groups.sort((a, b) -> b.items().size() - a.items().size()); // 한 곳에서 많이 받을수록 위로
         return new Prep(List.copyOf(groups), List.copyOf(forms), List.copyOf(unknown));
+    }
+
+    /**
+     * "A 또는 B"를 나눠 각각 맞춘다. 맞춘 순서대로, 같은 서류는 한 번만. 하나도 못 맞추면 빈 목록.
+     * "또는"이 없으면 match와 같다.
+     */
+    static List<MasterDoc> matchAll(String sourceName, List<MasterDoc> master) {
+        List<MasterDoc> out = new ArrayList<>();
+        String[] parts = OR.split(nz(sourceName).strip());
+        if (parts.length >= 2) {
+            java.util.regex.Matcher tail = DOC_TAIL.matcher(key(parts[parts.length - 1]));
+            String borrowed = tail.find() ? tail.group() : "";
+            for (String part : parts) {
+                MasterDoc doc = match(part, master);
+                if (doc == null && !borrowed.isEmpty() && !DOC_TAIL.matcher(key(part)).find()) {
+                    doc = match(part + borrowed, master); // "기초생활수급자" + "증명서"
+                }
+                if (doc != null && !out.contains(doc)) {
+                    out.add(doc);
+                }
+            }
+        }
+        if (out.isEmpty()) {
+            MasterDoc doc = match(sourceName, master);
+            if (doc != null) {
+                out.add(doc);
+            }
+        }
+        return out;
     }
 
     /** 공고 서류 이름을 서류 목록과 맞춘다. 못 맞추면 null */
