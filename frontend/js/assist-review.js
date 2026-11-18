@@ -127,7 +127,7 @@ function render() {
         '<div class="review-layout">' +
         '<section class="review-card" aria-labelledby="submitted-documents-title">' +
         '<div class="review-heading"><h2 id="submitted-documents-title">제출 서류 목록</h2>' +
-        '<div class="review-counts"><span class="review-counts__pass">검토 통과 ' + summary.passed + '건</span><span class="review-counts__fix">보완 필요 ' + summary.needsFix + '건</span></div></div>' +
+        '<div class="review-counts"><span class="review-counts__pass">통과 ' + summary.passed + '건</span><span class="review-counts__fix">보완 필요 ' + summary.needsFix + '건</span></div></div>' +
         reviewDocuments.map(renderDocumentItem).join('') +
         '</section>' +
         '<aside class="review-summary-card">' +

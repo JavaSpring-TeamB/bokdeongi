@@ -44,7 +44,7 @@ const $ = (selector) => document.querySelector(selector);
 let selectedStatus = 'eligible';
 const conditionalAnswers = new Map();
 const filterState = { region: 'all', category: 'all', sort: 'recommended' };
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 6;
 const currentPages = { eligible: 1, conditional: 1, 'near-miss': 1 };
 
 function cardIcon(name) {

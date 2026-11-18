@@ -39,7 +39,7 @@ const state = {
     screen: 'INITIAL',
     currentPage: 1
 };
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 6;
 
 const mockSession = {
     // 실제 인증 전까지 localhost에서만 명시적으로 켜는 개발용 상태입니다.
