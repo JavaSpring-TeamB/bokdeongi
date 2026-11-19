@@ -382,6 +382,11 @@ public class User {
         return profileCompletedAt;
     }
 
+    /**
+     * PROF-06: 저장된 추가 질문 답변 JSON 조회.
+     */
+    public String getAnswers() { return answers; }
+
     /* ==================== 프로필 정보 변경 ==================== */
 
     /**
