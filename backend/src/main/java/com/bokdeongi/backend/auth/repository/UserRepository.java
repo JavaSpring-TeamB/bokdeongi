@@ -42,4 +42,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * 카카오 로그인 시 기존 회원 여부를 확인한다.
      */
     Optional<User> findByKakaoId(String kakaoId);
+
+    /**
+     * 회원 ID로 조회하면서 쓰기 잠금을 획득한다.
+     *
+     * 동의 변경과 프로필 Step4 저장이 동시에 실행될 때
+     * 동일 회원에 대한 변경 작업을 순차적으로 처리한다.
+     *
+     * @param userId 회원 ID
+     * @return 잠금이 적용된 회원 정보
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.id = :userId")
+    Optional<User> findByIdForUpdate(@Param("userId") Long userId);
 }

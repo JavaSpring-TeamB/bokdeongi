@@ -20,6 +20,12 @@ const myPageData = {
 const $ = (selector) => document.querySelector(selector);
 let currentSection = 'profile';
 let profileMode = 'view';
+let passwordChangeSubmitting = false;
+let withdrawalSubmitting = false;
+let withdrawalOpener = null;
+let profileLoadState = 'checking';
+let profileLoadErrorStatus = null;
+let profileCompleted = false;
 let profileInterests = ['주거·생활', '취업·교육'];
 let bookmarkPage = 1;
 const BOOKMARK_PAGE_SIZE = 4;
@@ -36,7 +42,7 @@ const PROFILE_REGIONS = {
 };
 const profileAccordion = { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false };
 let profileEditorState = {
-    gender: '', sido: '부산광역시', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
+    gender: '', sido: '부산광역시', sigunguName: '', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
     maritalStatus: '', childrenCount: '', childrenExact: '', youngestYear: '', householdTypes: null, statusCodes: null, welfareStatus: ''
 };
 const SENSITIVE_CONSENT_STORAGE_KEY = 'bokdeongi-signup-consents';
@@ -71,13 +77,87 @@ function setProfileValue(group, label, value) {
     if (item) item[2] = value;
 }
 
+function displayValue(value, fallback = '미입력') {
+    return value === null || value === undefined || value === '' ? fallback : String(value);
+}
+
+function formatBirthDate(value) {
+    return value ? String(value).replaceAll('-', '.') : '미입력';
+}
+
+function formatRegion(profile) {
+    return [profile.sidoName, profile.sigunguName].filter(Boolean).join(' ') || '미입력';
+}
+
+function formatIncome(profile) {
+    if (profile.incomeInputType === 'UNKNOWN') return '잘 모르겠어요';
+    if (profile.incomeInputType === 'BRACKET') {
+        return profile.medianIncomePct === null || profile.medianIncomePct === undefined
+            ? '중위소득 구간 입력'
+            : '중위소득 ' + profile.medianIncomePct + '%';
+    }
+    if (profile.incomeInputType === 'ANNUAL') return '연소득 입력됨';
+    if (profile.incomeInputType === 'MONTHLY') return '월소득 입력됨';
+    return '미입력';
+}
+
+function applyProfileResponse(profile) {
+    setProfileValue('basics', '이름', displayValue(profile.name));
+    setProfileValue('basics', '생년월일', formatBirthDate(profile.birthDate));
+    setProfileValue('basics', '거주지역', formatRegion(profile));
+    setProfileValue('basics', '이메일', displayValue(profile.email));
+
+    setProfileValue('settings', '가구 형태', profile.householdSize === null || profile.householdSize === undefined ? '미입력' : profile.householdSize + '인 가구');
+    setProfileValue('settings', '주거 형태', { OWN: '자가', JEONSE: '전세', MONTHLY: '월세', ETC: '기타' }[profile.housingType] || '미입력');
+    setProfileValue('settings', '소득 정보', formatIncome(profile));
+
+    // GET ProfileResponse는 hasHouse를 반환한다. noHouse 반전은 다음 단계의 step2 저장 요청에서만 적용한다.
+    profileEditorState = {
+        gender: displayValue(profile.gender, ''),
+        sido: displayValue(profile.sidoName, ''),
+        sigunguName: displayValue(profile.sigunguName, ''),
+        regionCode: displayValue(profile.regionCode, ''),
+        householdSize: profile.householdSize === null || profile.householdSize === undefined ? '' : String(profile.householdSize),
+        housingType: displayValue(profile.housingType, ''),
+        hasHouse: profile.hasHouse === null || profile.hasHouse === undefined ? '' : String(profile.hasHouse),
+        incomeInputType: displayValue(profile.incomeInputType, ''),
+        incomeAmount: '',
+        incomeBaseYear: profile.incomeBaseYear === null || profile.incomeBaseYear === undefined ? '' : String(profile.incomeBaseYear),
+        maritalStatus: displayValue(profile.maritalStatus, ''),
+        childrenCount: profile.childrenCount === null || profile.childrenCount === undefined ? '' : profile.childrenCount >= 4 ? '4+' : String(profile.childrenCount),
+        childrenExact: profile.childrenCount !== null && profile.childrenCount !== undefined && profile.childrenCount >= 4 ? String(profile.childrenCount) : '',
+        youngestYear: profile.youngestChildBirthYear === null || profile.youngestChildBirthYear === undefined ? '' : String(profile.youngestChildBirthYear),
+        householdTypes: Array.isArray(profile.householdTypeCodes) ? [...profile.householdTypeCodes] : null,
+        statusCodes: Array.isArray(profile.statusCodes) ? [...profile.statusCodes] : null,
+        welfareStatus: displayValue(profile.welfareStatus, '')
+    };
+    sensitiveState = { consent: false, codes: null };
+    profileCompleted = profile.profileCompleted === true;
+}
+
+function renderProfileLoadState() {
+    if (profileLoadState === 'checking') {
+        return '<header class="my-page__content-header"><h2>내 정보</h2></header><div class="my-page__empty" role="status">로그인 정보를 확인하고 프로필을 불러오는 중이에요.</div>';
+    }
+    if (profileLoadState === 'unauthenticated') {
+        return '<header class="my-page__content-header"><h2>내 정보</h2></header><div class="my-page__empty"><p>마이페이지는 로그인 후 이용할 수 있어요.</p><a class="bk-btn bk-btn--primary bk-btn--md" href="login.html">로그인하기</a></div>';
+    }
+    const message = profileLoadErrorStatus === 403
+        ? '프로필을 조회할 권한이 없어요. 다시 로그인한 뒤 시도해 주세요.'
+        : profileLoadErrorStatus >= 500
+            ? '프로필 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'
+            : '프로필 정보를 불러오지 못했어요. 네트워크와 로그인 상태를 확인해 주세요.';
+    return '<header class="my-page__content-header"><h2>내 정보</h2></header><div class="my-page__empty" role="alert">' + message + '</div>';
+}
+
 function infoItems(items) {
     return items.map(([, label, value]) => '<div class="my-page__info-item"><span class="my-page__info-label">' + escapeHtml(label) + '</span><strong class="my-page__info-value">' + escapeHtml(value) + '</strong></div>').join('');
 }
 
 function renderProfileView() {
     const interests = profileInterests.map((interest) => '<span class="my-page__topic-tag">' + escapeHtml(interest) + '</span>').join('');
-    return '<header class="my-page__content-header"><h2>내 정보</h2><span class="my-page__status">프로필 등록 완료</span></header>' +
+    const profileStatus = profileCompleted ? '프로필 등록 완료' : '프로필 입력 중';
+    return '<header class="my-page__content-header"><h2>내 정보</h2><span class="my-page__status">' + profileStatus + '</span></header>' +
         '<section class="my-page__section"><h3>기본 정보</h3><div class="my-page__info-grid">' + infoItems(myPageData.profile.basics) + '</div></section>' +
         '<section class="my-page__section"><h3>맞춤 혜택 프로필</h3><div class="my-page__info-grid">' + infoItems(myPageData.profile.settings) +
         '<div class="my-page__info-item"><span class="my-page__info-label">관심 분야</span><span class="my-page__topic-list">' + interests + '</span></div></div><div class="my-page__profile-action"><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-profile-edit>프로필 수정하기 <span aria-hidden="true">›</span></button></div></section>' +
@@ -85,6 +165,16 @@ function renderProfileView() {
         '<button class="my-page__account-button" type="button" data-account-action="개인정보 동의 관리"><span><strong>개인정보 동의 관리</strong><small>현재 동의 내역을 확인하고 변경해요.</small></span><span aria-hidden="true">›</span></button>' +
         '<button class="my-page__account-button" type="button" data-account-action="비밀번호 변경"><span><strong>비밀번호 변경</strong><small>비밀번호를 안전하게 변경해요.</small></span><span aria-hidden="true">›</span></button>' +
         '<button class="my-page__account-button" type="button" data-account-action="회원 탈퇴"><span><strong>회원 탈퇴</strong><small>복덩이 서비스를 탈퇴할 수 있어요.</small></span><span aria-hidden="true">›</span></button></div></section>';
+}
+
+function renderPasswordChange() {
+    return '<header class="my-page__content-header"><div><h2>비밀번호 변경</h2><p class="my-page__content-intro">변경 후 모든 기기에서 다시 로그인해야 해요.</p></div></header>' +
+        '<form class="my-page__password-form" data-password-change-form novalidate>' +
+        '<div class="my-page__form-control"><label for="current-password"><span>현재 비밀번호 <em aria-hidden="true">*</em></span></label><input id="current-password" name="currentPassword" type="password" autocomplete="current-password" maxlength="64" required aria-describedby="current-password-error"><p id="current-password-error" class="my-page__form-error" data-password-error="currentPassword" aria-live="polite"></p></div>' +
+        '<div class="my-page__form-control"><label for="new-password"><span>새 비밀번호 <em aria-hidden="true">*</em></span></label><input id="new-password" name="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="64" required aria-describedby="new-password-help new-password-error"><p id="new-password-help" class="my-page__form-help">8~64자로 입력해 주세요.</p><p id="new-password-error" class="my-page__form-error" data-password-error="newPassword" aria-live="polite"></p></div>' +
+        '<div class="my-page__form-control"><label for="new-password-confirm"><span>새 비밀번호 확인 <em aria-hidden="true">*</em></span></label><input id="new-password-confirm" name="newPasswordConfirm" type="password" autocomplete="new-password" maxlength="64" required aria-describedby="new-password-confirm-error"><p id="new-password-confirm-error" class="my-page__form-error" data-password-error="newPasswordConfirm" aria-live="polite"></p></div>' +
+        '<p class="my-page__form-error my-page__password-form-status" data-password-form-status role="alert" tabindex="-1"></p>' +
+        '<div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-password-change-cancel>취소</button><button class="bk-btn bk-btn--primary bk-btn--md" type="submit" data-password-change-submit>비밀번호 변경</button></div></form>';
 }
 
 function renderProfileEditor() {
@@ -95,8 +185,14 @@ function renderProfileEditor() {
     const radio = (name, value, label, state) => '<label><input type="radio" name="' + name + '" value="' + value + '"' + (state === value ? ' checked' : '') + '> ' + label + '</label>';
     const checks = (group, items, values) => items.map(([value, label, none]) => '<label><input type="checkbox" value="' + value + '"' + (none ? ' data-none' : '') + (values && (none ? values.length === 0 : values.includes(value)) ? ' checked' : '') + '> ' + label + '</label>').join('');
     const accordion = (key, title, content) => '<section class="my-page__profile-accordion" data-profile-accordion="' + key + '"><button class="my-page__profile-accordion-button" type="button" aria-expanded="' + profileAccordion[key] + '" aria-controls="profile-panel-' + key + '" data-profile-accordion-toggle="' + key + '"><span>' + title + '</span><span aria-hidden="true">⌄</span></button><div class="my-page__profile-accordion-panel" id="profile-panel-' + key + '"' + (profileAccordion[key] ? '' : ' hidden') + '>' + content + '</div></section>';
-    const regionOptions = Object.keys(PROFILE_REGIONS).map((name) => '<option value="' + name + '"' + selected(profileEditorState.sido, name) + '>' + name + '</option>').join('');
-    const sigunguOptions = (PROFILE_REGIONS[profileEditorState.sido] || []).map(([name, code]) => '<option value="' + code + '"' + selected(profileEditorState.regionCode, code) + '>' + name + '</option>').join('');
+    const regionNames = Object.keys(PROFILE_REGIONS);
+    if (profileEditorState.sido && !regionNames.includes(profileEditorState.sido)) regionNames.push(profileEditorState.sido);
+    const regionOptions = regionNames.map((name) => '<option value="' + escapeHtml(name) + '"' + selected(profileEditorState.sido, name) + '>' + escapeHtml(name) + '</option>').join('');
+    const sigunguRegions = [...(PROFILE_REGIONS[profileEditorState.sido] || [])];
+    if (profileEditorState.regionCode && !sigunguRegions.some(([, code]) => code === profileEditorState.regionCode)) {
+        sigunguRegions.push([profileEditorState.sigunguName || profileEditorState.regionCode, profileEditorState.regionCode]);
+    }
+    const sigunguOptions = sigunguRegions.map(([name, code]) => '<option value="' + escapeHtml(code) + '"' + selected(profileEditorState.regionCode, code) + '>' + escapeHtml(name) + '</option>').join('');
     const currentYear = new Date().getFullYear();
     const incomeVisible = ['ANNUAL', 'MONTHLY'].includes(profileEditorState.incomeInputType);
     const childVisible = profileEditorState.childrenCount && profileEditorState.childrenCount !== '0';
@@ -104,7 +200,7 @@ function renderProfileEditor() {
     const sensitiveCodes = sensitiveEditState.codes;
     const sensitiveOptions = SENSITIVE_OPTIONS.map(([code, label, description]) => '<label><input type="checkbox" name="sensitiveCodes" value="' + code + '"' + (sensitiveCodes && sensitiveCodes.includes(code) ? ' checked' : '') + (sensitiveEditState.consent ? '' : ' disabled') + '><span><strong>' + label + '</strong><small>' + description + '</small></span></label>').join('') + '<label class="my-page__sensitive-none"><input type="checkbox" name="sensitiveCodes" value="NONE" data-none' + (Array.isArray(sensitiveCodes) && sensitiveCodes.length === 0 ? ' checked' : '') + (sensitiveEditState.consent ? '' : ' disabled') + '><span><strong>해당 없음</strong><small>관련 항목이 없음을 명시합니다.</small></span></label>';
     const sensitiveContent = '<p class="my-page__sensitive-intro">민감정보는 관련 복지 혜택을 더 정확하게 안내하기 위해 사용됩니다. 입력은 선택 사항이며, 동의 여부와 입력 내용은 변경할 수 있습니다.</p><div class="my-page__sensitive-consent"><label><input type="checkbox" data-sensitive-consent' + (sensitiveEditState.consent ? ' checked' : '') + '> 민감정보 수집·이용 동의 <small>(선택)</small></label><button class="my-page__sensitive-view" type="button" data-sensitive-consent-view>내용 보기</button></div><p class="my-page__sensitive-notice" data-sensitive-reason' + (sensitiveEditState.consent ? ' hidden' : '') + '>동의하지 않으면 민감정보를 입력할 수 없어요. 동의 후에도 입력하지 않고 건너뛸 수 있습니다.</p><div class="my-page__sensitive-options" data-exclusive-group="sensitiveCodes"' + (sensitiveEditState.consent ? '' : ' hidden') + '>' + sensitiveOptions + '</div><div class="my-page__sensitive-withdraw" data-sensitive-withdraw hidden><p>동의를 철회하면 민감정보 선택값이 이 화면에서 해제되며, 추천 혜택이 달라질 수 있어요. 실제 삭제·철회는 저장 API 연동 후 처리됩니다.</p><div><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-sensitive-withdraw-cancel>취소</button><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-sensitive-withdraw-confirm>동의 철회 확인</button></div></div>';
-    return '<header class="my-page__content-header"><div><h2>프로필 수정</h2><p class="my-page__content-intro">변경 내용은 현재 화면에서만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.</p></div><span class="my-page__status">프로필 등록 완료</span></header>' +
+    return '<header class="my-page__content-header"><div><h2>프로필 수정</h2><p class="my-page__content-intro">변경 내용은 현재 화면에서만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.</p></div><span class="my-page__status">' + (profileCompleted ? '프로필 등록 완료' : '프로필 입력 중') + '</span></header>' +
         '<form class="my-page__profile-form" data-profile-form novalidate>' +
         '<section class="my-page__profile-form-section"><div class="my-page__section-heading"><h3>계정 고유 정보</h3><p>계정 정보는 이 화면에서 변경할 수 없어요.</p></div><div class="my-page__profile-form-grid">' +
         field('이름', 'name', profileValue('basics', '이름'), 'type="text" disabled') +
@@ -120,6 +216,8 @@ function renderProfileEditor() {
 }
 
 function renderProfile() {
+    if (profileLoadState !== 'loaded') return renderProfileLoadState();
+    if (profileMode === 'password') return renderPasswordChange();
     return profileMode === 'edit' ? renderProfileEditor() : renderProfileView();
 }
 
@@ -190,6 +288,292 @@ function renderSection() {
     });
 }
 
+async function loadProfile() {
+    const auth = window.BokdeongiAuth;
+    if (!auth) {
+        profileLoadState = 'error';
+        if (currentSection === 'profile') renderSection();
+        return;
+    }
+
+    const authStatus = await auth.refreshAuthentication();
+    if (authStatus !== 'authenticated') {
+        profileLoadState = authStatus === 'unauthenticated' ? 'unauthenticated' : 'error';
+        if (currentSection === 'profile') renderSection();
+        return;
+    }
+
+    try {
+        const response = await auth.authenticatedFetch('/api/me/profile');
+        if (response.status === 401) {
+            profileLoadState = 'unauthenticated';
+            if (currentSection === 'profile') renderSection();
+            return;
+        }
+        if (!response.ok) {
+            profileLoadErrorStatus = response.status;
+            profileLoadState = 'error';
+            if (currentSection === 'profile') renderSection();
+            return;
+        }
+
+        const profile = await response.json();
+        if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
+            profileLoadState = 'error';
+            if (currentSection === 'profile') renderSection();
+            return;
+        }
+
+        applyProfileResponse(profile);
+        profileLoadState = 'loaded';
+        if (currentSection === 'profile') renderSection();
+    } catch (error) {
+        profileLoadState = 'error';
+        if (currentSection === 'profile') renderSection();
+    }
+}
+
+function setPasswordChangeFieldError(form, fieldName, message) {
+    const input = form.elements[fieldName];
+    const messageTarget = form.querySelector('[data-password-error="' + fieldName + '"]');
+    if (input) input.setAttribute('aria-invalid', String(Boolean(message)));
+    if (messageTarget) messageTarget.textContent = message;
+}
+
+function setPasswordChangeStatus(form, message) {
+    const status = form.querySelector('[data-password-form-status]');
+    if (status) status.textContent = message;
+}
+
+function clearPasswordChangeMessages(form) {
+    ['currentPassword', 'newPassword', 'newPasswordConfirm'].forEach((fieldName) => setPasswordChangeFieldError(form, fieldName, ''));
+    setPasswordChangeStatus(form, '');
+}
+
+function validatePasswordChange(form) {
+    clearPasswordChangeMessages(form);
+
+    const currentPassword = form.elements.currentPassword.value;
+    const newPassword = form.elements.newPassword.value;
+    const newPasswordConfirm = form.elements.newPasswordConfirm.value;
+    let firstInvalidInput = null;
+    const invalidate = (fieldName, message) => {
+        setPasswordChangeFieldError(form, fieldName, message);
+        if (!firstInvalidInput) firstInvalidInput = form.elements[fieldName];
+    };
+
+    if (!currentPassword) invalidate('currentPassword', '현재 비밀번호를 입력해 주세요.');
+    if (!newPassword) invalidate('newPassword', '새 비밀번호를 입력해 주세요.');
+    else if (newPassword.length < 8 || newPassword.length > 64) invalidate('newPassword', '새 비밀번호는 8~64자로 입력해 주세요.');
+    if (!newPasswordConfirm) invalidate('newPasswordConfirm', '새 비밀번호를 다시 입력해 주세요.');
+    else if (newPassword && newPassword !== newPasswordConfirm) invalidate('newPasswordConfirm', '새 비밀번호가 일치하지 않습니다.');
+    if (currentPassword && newPassword && currentPassword === newPassword) invalidate('newPassword', '현재 비밀번호와 다른 비밀번호를 입력해 주세요.');
+
+    if (firstInvalidInput) {
+        firstInvalidInput.focus();
+        return null;
+    }
+
+    return { currentPassword, newPassword };
+}
+
+function setPasswordChangeSubmitting(form, submitting) {
+    form.querySelectorAll('input, button').forEach((element) => { element.disabled = submitting; });
+    const submit = form.querySelector('[data-password-change-submit]');
+    if (submit) submit.textContent = submitting ? '변경 중…' : '비밀번호 변경';
+}
+
+async function getResponseErrorCode(response) {
+    try {
+        const payload = await response.clone().json();
+        return payload && typeof payload.code === 'string' ? payload.code : null;
+    } catch {
+        return null;
+    }
+}
+
+function redirectToLoginAfterPasswordChange(message) {
+    try {
+        sessionStorage.setItem('bokdeongi-authentication-notice', message);
+    } catch {
+        // 로그인 화면의 안내 메시지는 편의 기능이며, 저장소를 사용할 수 없어도 인증 상태는 제거한다.
+    }
+    window.location.assign('login.html');
+}
+
+function getWithdrawalDialog() {
+    return document.getElementById('withdrawal-dialog');
+}
+
+function setWithdrawalStatus(message) {
+    const status = document.getElementById('withdrawal-dialog-status');
+    if (status) status.textContent = message;
+}
+
+function setWithdrawalSubmitting(submitting) {
+    const dialog = getWithdrawalDialog();
+    if (!dialog) return;
+    dialog.querySelectorAll('button').forEach((button) => { button.disabled = submitting; });
+    const confirm = dialog.querySelector('[data-withdrawal-confirm]');
+    if (confirm) confirm.textContent = submitting ? '탈퇴 처리 중…' : '회원 탈퇴';
+}
+
+function clearUserSessionData() {
+    const userSessionKeys = [
+        'bokdeongi-signup-account-draft',
+        'bokdeongi-signup-consents',
+        'bokdeongi-signup-profile',
+        'bokdeongi-signup-completion',
+        'bokdeongi-authentication-notice'
+    ];
+    try {
+        userSessionKeys.forEach((key) => sessionStorage.removeItem(key));
+    } catch {
+        // 저장소 정리에 실패해도 서버의 탈퇴 성공 및 인증 상태 초기화는 계속 진행한다.
+    }
+}
+
+function redirectToLoginAfterWithdrawal(message) {
+    try {
+        sessionStorage.setItem('bokdeongi-authentication-notice', message);
+    } catch {
+        // 저장소를 사용할 수 없는 환경에서는 로그인 화면의 안내만 생략한다.
+    }
+    window.location.assign('login.html');
+}
+
+function openWithdrawalDialog(opener) {
+    const dialog = getWithdrawalDialog();
+    if (!dialog || withdrawalSubmitting) return;
+    withdrawalOpener = opener;
+    setWithdrawalStatus('');
+    setWithdrawalSubmitting(false);
+    dialog.showModal();
+}
+
+function closeWithdrawalDialog() {
+    const dialog = getWithdrawalDialog();
+    if (!dialog || withdrawalSubmitting) return;
+    dialog.close();
+}
+
+async function submitWithdrawal() {
+    if (withdrawalSubmitting) return;
+    const auth = window.BokdeongiAuth;
+    if (!auth || auth.getAuthenticationState() !== 'authenticated') {
+        if (auth) auth.clearAuthentication();
+        redirectToLoginAfterWithdrawal('로그인 정보가 만료되었어요. 다시 로그인해 주세요.');
+        return;
+    }
+
+    withdrawalSubmitting = true;
+    setWithdrawalStatus('');
+    setWithdrawalSubmitting(true);
+    try {
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch('/api/auth/me', {
+            method: 'DELETE',
+            headers: { [csrf.headerName]: csrf.token }
+        });
+
+        if (response.status === 204) {
+            clearUserSessionData();
+            auth.clearAuthentication();
+            redirectToLoginAfterWithdrawal('회원 탈퇴가 완료되었습니다. 다시 이용하려면 회원가입해 주세요.');
+            return;
+        }
+
+        if (response.status === 401) {
+            auth.clearAuthentication();
+            redirectToLoginAfterWithdrawal('로그인 정보가 만료되었어요. 다시 로그인해 주세요.');
+            return;
+        }
+        if (response.status === 403) {
+            setWithdrawalStatus('보안 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        } else if (response.status >= 500) {
+            setWithdrawalStatus('서버 오류로 탈퇴 처리 결과를 확인하지 못했습니다. 자동으로 다시 시도하지 않았습니다.');
+        } else {
+            setWithdrawalStatus('회원 탈퇴를 처리하지 못했습니다. 로그인 상태를 확인한 뒤 다시 시도해 주세요.');
+        }
+    } catch (error) {
+        if (error && error.type === 'unauthenticated') {
+            auth.clearAuthentication();
+            redirectToLoginAfterWithdrawal('로그인 정보가 만료되었어요. 다시 로그인해 주세요.');
+            return;
+        }
+        if (error && error.type === 'csrf') {
+            setWithdrawalStatus('보안 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        } else {
+            setWithdrawalStatus('요청 결과를 확인하지 못했습니다. 자동으로 다시 시도하지 않았습니다. 페이지를 새로고침해 로그인 상태를 확인해 주세요.');
+        }
+    } finally {
+        withdrawalSubmitting = false;
+        const dialog = getWithdrawalDialog();
+        if (dialog && dialog.open) setWithdrawalSubmitting(false);
+    }
+}
+
+async function submitPasswordChange(form) {
+    if (passwordChangeSubmitting) return;
+    const request = validatePasswordChange(form);
+    if (!request) return;
+
+    const auth = window.BokdeongiAuth;
+    if (!auth || auth.getAuthenticationState() !== 'authenticated') {
+        redirectToLoginAfterPasswordChange('로그인 정보가 만료되었어요. 다시 로그인해 주세요.');
+        return;
+    }
+
+    passwordChangeSubmitting = true;
+    setPasswordChangeSubmitting(form, true);
+    try {
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch('/api/auth/password', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+            body: JSON.stringify(request),
+            shouldRefreshOnUnauthorized: async (unauthorizedResponse) => (await getResponseErrorCode(unauthorizedResponse)) !== 'AUTH_002'
+        });
+
+        if (response.status === 204) {
+            form.reset();
+            clearPasswordChangeMessages(form);
+            auth.clearAuthentication();
+            redirectToLoginAfterPasswordChange('비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해 주세요.');
+            return;
+        }
+
+        const errorCode = await getResponseErrorCode(response);
+        if (response.status === 401 && errorCode === 'AUTH_002') {
+            setPasswordChangeFieldError(form, 'currentPassword', '현재 비밀번호가 올바르지 않습니다.');
+        } else if (response.status === 401) {
+            auth.clearAuthentication();
+            redirectToLoginAfterPasswordChange('로그인 정보가 만료되었어요. 다시 로그인해 주세요.');
+            return;
+        } else if (response.status === 403) {
+            setPasswordChangeStatus(form, '보안 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        } else if (response.status === 400 && errorCode === 'COMMON_001') {
+            setPasswordChangeStatus(form, '이 계정은 비밀번호 변경을 지원하지 않거나 현재 비밀번호와 다른 비밀번호가 필요합니다.');
+        } else if (response.status === 400) {
+            setPasswordChangeStatus(form, '입력값을 확인한 뒤 다시 시도해 주세요.');
+        } else if (response.status >= 500) {
+            setPasswordChangeStatus(form, '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+        } else {
+            setPasswordChangeStatus(form, '비밀번호를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+        }
+    } catch (error) {
+        if (error && error.type === 'unauthenticated') {
+            auth.clearAuthentication();
+            redirectToLoginAfterPasswordChange('로그인 정보가 만료되었어요. 다시 로그인해 주세요.');
+            return;
+        }
+        setPasswordChangeStatus(form, '네트워크 또는 보안 확인에 실패했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.');
+    } finally {
+        passwordChangeSubmitting = false;
+        if (document.body.contains(form)) setPasswordChangeSubmitting(form, false);
+    }
+}
+
 function addKeyword(form) {
     const input = form.elements.keyword;
     const keyword = input.value.trim().replace(/^#/, '');
@@ -236,7 +620,19 @@ function saveProfile(form) {
 }
 
 function setupInteractions() {
+    const withdrawalDialog = getWithdrawalDialog();
+    if (withdrawalDialog) {
+        withdrawalDialog.addEventListener('cancel', (event) => {
+            if (withdrawalSubmitting) event.preventDefault();
+        });
+        withdrawalDialog.addEventListener('close', () => {
+            if (!withdrawalSubmitting && withdrawalOpener) withdrawalOpener.focus();
+            withdrawalOpener = null;
+        });
+    }
     document.addEventListener('click', (event) => {
+        if (event.target.closest('[data-withdrawal-close]')) { closeWithdrawalDialog(); return; }
+        if (event.target.closest('[data-withdrawal-confirm]')) { submitWithdrawal(); return; }
         if (event.target.closest('[data-sensitive-consent-view]')) { showToast('정식 민감정보 동의 문서가 아직 연결되지 않았습니다. 가입 단계의 동의 문서와 연결 후 내용을 확인할 수 있어요.'); return; }
         const withdrawConfirm = event.target.closest('[data-sensitive-withdraw-confirm]');
         if (withdrawConfirm) {
@@ -286,10 +682,32 @@ function setupInteractions() {
         }
         if (event.target.closest('[data-profile-edit]')) { Object.assign(profileAccordion, { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false }); sensitiveEditState = { consent: sensitiveState.consent, codes: sensitiveState.codes === null ? null : [...sensitiveState.codes] }; profileMode = 'edit'; renderSection(); return; }
         if (event.target.closest('[data-profile-cancel]')) { profileMode = 'view'; renderSection(); return; }
+        if (event.target.closest('[data-password-change-cancel]')) { passwordChangeSubmitting = false; profileMode = 'view'; renderSection(); return; }
         const accountAction = event.target.closest('[data-account-action]');
-        if (accountAction) { showToast(accountAction.dataset.accountAction + ' 기능은 추후 계정 관리 기능과 연동될 예정입니다.'); return; }
+        if (accountAction) {
+            if (accountAction.dataset.accountAction === '비밀번호 변경') {
+                passwordChangeSubmitting = false;
+                profileMode = 'password';
+                renderSection();
+                return;
+            }
+            if (accountAction.dataset.accountAction === '회원 탈퇴') {
+                openWithdrawalDialog(accountAction);
+                return;
+            }
+            showToast(accountAction.dataset.accountAction + ' 기능은 추후 계정 관리 기능과 연동될 예정입니다.');
+            return;
+        }
         const legalDocument = event.target.closest('[data-legal-document]');
         if (legalDocument) showToast(legalDocument.dataset.legalDocument + ' 문서는 확정본 연결 후 확인할 수 있어요.');
+    });
+    document.addEventListener('input', (event) => {
+        const form = event.target.closest('[data-password-change-form]');
+        if (!form || !event.target.name) return;
+        if (['currentPassword', 'newPassword', 'newPasswordConfirm'].includes(event.target.name)) {
+            setPasswordChangeFieldError(form, event.target.name, '');
+            setPasswordChangeStatus(form, '');
+        }
     });
     document.addEventListener('change', (event) => {
         const form = event.target.closest('[data-profile-form]');
@@ -340,6 +758,8 @@ function setupInteractions() {
     document.addEventListener('submit', (event) => {
         const keywordForm = event.target.closest('[data-keyword-form]');
         if (keywordForm) { event.preventDefault(); addKeyword(keywordForm); return; }
+        const passwordChangeForm = event.target.closest('[data-password-change-form]');
+        if (passwordChangeForm) { event.preventDefault(); submitPasswordChange(passwordChangeForm); return; }
         const profileForm = event.target.closest('[data-profile-form]');
         if (profileForm) { event.preventDefault(); saveProfile(profileForm); }
     });
@@ -350,4 +770,8 @@ function setupInteractions() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => { renderSection(); setupInteractions(); });
+document.addEventListener('DOMContentLoaded', () => {
+    setupInteractions();
+    renderSection();
+    loadProfile();
+});

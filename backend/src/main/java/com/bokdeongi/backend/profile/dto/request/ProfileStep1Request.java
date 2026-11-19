@@ -32,9 +32,7 @@ public record ProfileStep1Request(
         @Size(max = 20)
         String sidoName,
 
-        @NotBlank(message = "시·군·구는 필수입니다.")
         @Size(max = 20)
         String sigunguName
-
 ) {
 }

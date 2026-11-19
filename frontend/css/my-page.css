@@ -90,6 +90,23 @@
 .my-page__sensitive-withdraw > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-sm); margin-top: var(--space-sm); }
 .my-page__form-error { min-height: 1.3em; margin: calc(var(--space-sm) * -1) 0 0; color: var(--color-danger); font-size: var(--font-size-caption); }
 .my-page__profile-form-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); }
+.my-page__password-form { display: grid; max-width: 560px; gap: var(--space-lg); }
+.my-page__password-form-status { margin: calc(var(--space-sm) * -1) 0 0; }
+.my-page__password-form input[aria-invalid="true"] { border-color: var(--color-danger); }
+.my-page__password-form input[aria-invalid="true"]:focus { outline-color: var(--color-danger); }
+.my-page__withdraw-dialog { width: min(520px, calc(100% - 32px)); padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-white); color: var(--color-text); }
+.my-page__withdraw-dialog::backdrop { background: var(--color-text); opacity: .45; }
+.my-page__withdraw-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); padding: var(--space-lg) var(--space-lg) var(--space-md); border-bottom: 1px solid var(--color-border); }
+.my-page__withdraw-dialog-header h2 { margin: 0; font-size: var(--font-size-card-title); }
+.my-page__withdraw-dialog-close { width: 32px; height: 32px; flex: 0 0 auto; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); font-size: 1.5rem; line-height: 1; }
+.my-page__withdraw-dialog-close:hover { background: var(--color-primary-light); color: var(--color-primary); }
+.my-page__withdraw-dialog-content { padding: var(--space-lg); color: var(--color-text-secondary); font-size: var(--font-size-description); }
+.my-page__withdraw-dialog-content p { margin: 0 0 var(--space-sm); }
+.my-page__withdraw-dialog-content p:last-child { margin-bottom: 0; }
+.my-page__withdraw-dialog-status { min-height: 1.5em; color: var(--color-danger); }
+.my-page__withdraw-dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); padding: 0 var(--space-lg) var(--space-lg); }
+.my-page__withdraw-confirm { border-color: var(--color-danger); background: var(--color-danger); color: var(--color-on-primary); }
+.my-page__withdraw-confirm:hover { opacity: .92; }
 .my-page__account-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); }
 .my-page__account-button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-sm); min-height: 86px; padding: var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); text-align: left; }
 .my-page__account-button:hover { border-color: var(--color-primary); }
@@ -164,4 +181,6 @@
     .my-page__section-heading { align-items: flex-start; flex-direction: column; }
     .my-page__profile-form-actions { justify-content: stretch; }
     .my-page__profile-form-actions .bk-btn { flex: 1; }
+    .my-page__withdraw-dialog-header, .my-page__withdraw-dialog-content { padding: var(--space-md); }
+    .my-page__withdraw-dialog-actions { padding: 0 var(--space-md) var(--space-md); }
 }

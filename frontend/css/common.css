@@ -58,6 +58,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { font-size: calc(16px * var(--font-scale) * var(--page-font-scale)); scroll-behavior: smooth; }
 html[data-page-scale="home"] { --page-font-scale: 1.1; --header-font-compensation: 1.0909090909; }
 body { min-width: 320px; margin: 0; background: var(--color-white); color: var(--color-text); font-family: "Pretendard", "Noto Sans KR", sans-serif; font-size: var(--font-size-body); line-height: 1.6; }
@@ -91,6 +92,12 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 .auth-links__signup:hover { background: var(--color-primary-hover); color: #fff !important; }
 .auth-links__user { display: inline-flex; align-items: center; gap: 3px; color: var(--color-text); }
 .auth-links__user:hover { color: var(--color-primary); }
+.auth-links__account { display: inline-flex; align-items: center; gap: var(--space-sm); }
+.auth-links__logout { color: var(--color-text); }
+.auth-links__logout:hover { color: var(--color-primary); }
+.auth-links__logout { padding: 0; border: 0; background: transparent; font-weight: inherit; }
+.auth-links__logout:disabled { cursor: wait; color: var(--color-text-secondary); }
+.auth-links__message { color: var(--color-danger); font-size: var(--font-size-caption); }
 .mobile-auth-links { display: none; }
 .menu-toggle { display: none; }
 

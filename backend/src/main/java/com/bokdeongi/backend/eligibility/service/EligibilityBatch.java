@@ -79,7 +79,8 @@ public final class EligibilityBatch {
     static ProfileSnapshot toSnapshot(ProfileRow r) {
         return new ProfileSnapshot(r.birthDate(), r.gender(), r.sidoName(), r.sigunguName(), r.medianIncomePct(),
                 r.householdSize(), toSet(JsonText.stringList(r.householdTypeCodesJson())),
-                toSet(JsonText.stringList(r.statusCodesJson())), null, r.housingType(), r.hasHouse(),
+                toSet(JsonText.stringList(r.statusCodesJson())), toSet(JsonText.stringList(r.sensitiveCodesJson())),
+                r.housingType(), r.hasHouse(),
                 r.maritalStatus(), r.childrenCount(), r.youngestChildBirthYear(), r.welfareStatus(),
                 JsonText.stringMap(r.answersJson()));
     }

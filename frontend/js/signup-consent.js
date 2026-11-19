@@ -1,12 +1,12 @@
 const $ = (selector) => document.querySelector(selector);
 const CONSENT_STORAGE_KEY = 'bokdeongi-signup-consents';
+const ACCOUNT_DRAFT_STORAGE_KEY = 'bokdeongi-signup-account-draft';
 const REQUIRED_CONSENTS = ['TERMS', 'PRIVACY'];
 const CONSENT_DOCUMENTS = {
-    TERMS: { title: '서비스 이용약관', version: 'pending' },
-    PRIVACY: { title: '개인정보 수집·이용 동의', version: 'pending' },
-    OPTIONAL_INFO: { title: '선택 정보 수집·이용 동의', version: 'pending' },
-    SENSITIVE: { title: '민감정보 수집·이용 동의', version: 'pending' },
-    DOC_RECORD: { title: '서류 기록 보관 동의', version: 'pending' }
+    TERMS: { title: '서비스 이용약관', version: '1.0' },
+    PRIVACY: { title: '개인정보 수집·이용 동의', version: '1.0' },
+    OPTIONAL_INFO: { title: '선택 정보 수집·이용 동의', version: '1.0' },
+    SENSITIVE: { title: '민감정보 수집·이용 동의', version: '1.0' }
 };
 
 function showToast(message) {
@@ -125,4 +125,14 @@ function setupHeaderInteractions() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => { setupHeaderInteractions(); setupConsents(); setupConsentDialog(); });
+document.addEventListener('DOMContentLoaded', () => {
+    window.location.replace('signup-account.html');
+    return;
+    if (!sessionStorage.getItem(ACCOUNT_DRAFT_STORAGE_KEY)) {
+        window.location.replace('signup-account.html');
+        return;
+    }
+    setupHeaderInteractions();
+    setupConsents();
+    setupConsentDialog();
+});

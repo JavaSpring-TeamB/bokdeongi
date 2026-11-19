@@ -4,7 +4,6 @@ import com.bokdeongi.backend.auth.entity.User;
 import com.bokdeongi.backend.auth.entity.UserConsent;
 import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
-import com.bokdeongi.backend.common.crypto.FieldEncryptionService;
 import com.bokdeongi.backend.eligibility.service.ProfileChangedEvent;
 import com.bokdeongi.backend.profile.dto.request.ProfileStep1Request;
 import com.bokdeongi.backend.profile.dto.request.ProfileStep2Request;
@@ -19,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import com.bokdeongi.backend.profile.entity.Region;
+import com.bokdeongi.backend.profile.repository.RegionRepository;
 
 import java.math.BigDecimal;
 import java.time.Year;
@@ -30,31 +31,35 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
-    private final FieldEncryptionService fieldEncryptionService;
     private final UserConsentRepository userConsentRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final String sensitiveConsentVersion;
+    private final RegionRepository regionRepository;
+    private final IncomeCalculationService incomeCalculationService;
 
     public ProfileService(
             UserRepository userRepository,
+            RegionRepository regionRepository,
             ObjectMapper objectMapper,
-            FieldEncryptionService fieldEncryptionService,
             UserConsentRepository userConsentRepository,
             ApplicationEventPublisher applicationEventPublisher,
-            @Value("${app.consent.sensitive-version}") String sensitiveConsentVersion
+            @Value("${app.consent.sensitive-version}") String sensitiveConsentVersion,
+            IncomeCalculationService incomeCalculationService
     ) {
         this.userRepository = userRepository;
+        this.regionRepository = regionRepository;
         this.objectMapper = objectMapper;
-        this.fieldEncryptionService = fieldEncryptionService;
         this.userConsentRepository = userConsentRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.sensitiveConsentVersion = sensitiveConsentVersion;
+        this.incomeCalculationService = incomeCalculationService;
     }
 
     /**
      * 로그인한 회원의 프로필 조회.
      */
-    @Transactional(readOnly = true)
+
+    @Transactional
     public ProfileResponse getProfile(Long userId) {
 
         User user = userRepository.findById(userId)
@@ -62,6 +67,30 @@ public class ProfileService {
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
                 ));
+
+        // PROF-03: 연도가 변경되면 최신 기준 중위소득으로 재계산
+        String incomeType = user.getIncomeInputType();
+        short currentYear = (short) Year.now().getValue();
+
+        boolean needsRecalculation =
+                ("ANNUAL".equals(incomeType) || "MONTHLY".equals(incomeType))
+                        && user.getIncomeBaseYear() != null
+                        && user.getIncomeBaseYear() != currentYear;
+
+        if (needsRecalculation
+                && incomeCalculationService.isIncomeStandardReady(currentYear)) {
+
+            // 8인 이상 가구는 현재 2026년 가산 규칙만 지원한다.
+            // 다른 연도는 기준표가 있어도 재계산을 건너뛴다.
+            boolean unsupportedAdditionalRule =
+                    user.getHouseholdSize() != null
+                            && user.getHouseholdSize() > 7
+                            && currentYear != 2026;
+
+            if (!unsupportedAdditionalRule) {
+                recalculateIncomeForYear(userId, currentYear);
+            }
+        }
 
         return new ProfileResponse(
                 user.getId(),
@@ -114,12 +143,27 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
+        Region region = regionRepository.findById(request.regionCode())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "존재하지 않는 지역 코드입니다."
+                ));
+
+        // 시·도 대표 코드는 선택할 수 없으며, 세종특별자치시는 예외로 허용한다.
+        if (region.getSigunguName() == null
+                && !"36110".equals(region.getRegionCode())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "시군구까지 선택해야 합니다."
+            );
+        }
+
         user.updateProfileStep1(
                 request.birthDate(),
                 request.gender(),
-                request.regionCode(),
-                request.sidoName(),
-                request.sigunguName()
+                region.getRegionCode(),
+                region.getSidoName(),
+                region.getSigunguName()
         );
 
         // 프로필 변경 이벤트 발행
@@ -156,8 +200,6 @@ public class ProfileService {
         BigDecimal incomeAmount = request.incomeAmount();
         BigDecimal medianIncomePct = request.medianIncomePct();
 
-        byte[] encryptedIncomeAmount = null;
-
         switch (incomeType) {
             case "ANNUAL", "MONTHLY" -> {
                 if (incomeAmount == null || medianIncomePct != null) {
@@ -167,10 +209,12 @@ public class ProfileService {
                     );
                 }
 
-                encryptedIncomeAmount =
-                        fieldEncryptionService.encrypt(
-                                incomeAmount.toPlainString()
-                        );
+                // 입력한 소득을 기준 중위소득 대비 비율로 자동 환산한다.
+                medianIncomePct = incomeCalculationService.calculateMedianIncomePct(
+                        request.householdSize(),
+                        incomeType,
+                        incomeAmount
+                );
             }
 
             case "BRACKET" -> {
@@ -178,6 +222,13 @@ public class ProfileService {
                     throw new ResponseStatusException(
                             HttpStatus.BAD_REQUEST,
                             "소득 구간 입력 시 중위소득 비율만 입력해야 합니다."
+                    );
+                }
+
+                if (medianIncomePct.compareTo(new BigDecimal("9999.9")) > 0) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "중위소득 비율을 확인해 주세요."
                     );
                 }
             }
@@ -219,10 +270,16 @@ public class ProfileService {
             );
         }
 
+        // 소득을 모르는 경우에는 기준 연도를 기록하지 않는다.
+        Short incomeBaseYear = "UNKNOWN".equals(incomeType)
+                ? null
+                : (short) Year.now().getValue();
+
         user.updateProfileStep2(
                 request.householdSize(),
                 incomeType,
-                encryptedIncomeAmount,
+                incomeAmount,
+                incomeBaseYear,
                 medianIncomePct,
                 request.housingType(),
                 request.noHouse(),
@@ -235,6 +292,56 @@ public class ProfileService {
         );
 
         return getProfile(userId);
+    }
+
+    /**
+     * PROF-03: 새로운 연도의 기준 중위소득으로 기존 소득 비율을 재계산한다.
+     */
+    @Transactional
+    public void recalculateIncomeForYear(Long userId, short targetYear) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "회원을 찾을 수 없습니다."
+                ));
+
+        String incomeType = user.getIncomeInputType();
+
+        // UNKNOWN, BRACKET 사용자는 자동 재계산 대상이 아니다.
+        if (!"ANNUAL".equals(incomeType)
+                && !"MONTHLY".equals(incomeType)) {
+            return;
+        }
+
+        // 이미 해당 연도로 계산했다면 중복 재계산하지 않는다.
+        if (user.getIncomeBaseYear() != null
+                && user.getIncomeBaseYear() == targetYear) {
+            return;
+        }
+
+        // 재계산 대상 사용자에 대해서만 기준표 준비 여부를 확인한다.
+        if (!incomeCalculationService.isIncomeStandardReady(targetYear)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "해당 연도의 기준 중위소득 자료가 준비되지 않았습니다."
+            );
+        }
+
+        // 새로운 연도의 기준 중위소득으로 재계산한다.
+        BigDecimal recalculatedPct =
+                incomeCalculationService.recalculateMedianIncomePct(
+                        user.getHouseholdSize(),
+                        incomeType,
+                        user.getIncomeAmount(),
+                        targetYear
+                );
+
+        user.updateIncomeCalculation(targetYear, recalculatedPct);
+
+        applicationEventPublisher.publishEvent(
+                new ProfileChangedEvent(userId)
+        );
     }
 
     /**
@@ -339,20 +446,28 @@ public class ProfileService {
         return getProfile(userId);
     }
 
+
     /**
-     * PROF-01: 프로필 4단계 특수 상황 저장.
+     * PROF-01,04: 프로필 4단계 특수 상황 정보 저장.
+     *
+     * 민감정보는 별도 동의를 받은 경우에만 저장한다.
+     * null은 입력 건너뛰기, 빈 목록([])은 '해당 없음'을 의미한다.
+     *
+     * 민감정보 암호화는 JPA AttributeConverter에서 처리한다.
      */
     @Transactional
     public ProfileResponse saveProfileStep4(
             Long userId,
             ProfileStep4Request request
     ) {
-        User user = userRepository.findById(userId)
+        // PATCH 동의 변경과 동일한 사용자 행에 쓰기 잠금을 건다.
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
                 ));
 
+        // 프로필 1~3단계를 완료한 사용자만 4단계를 입력할 수 있다.
         if (user.getProfileStep() == null
                 || user.getProfileStep() < 3) {
             throw new ResponseStatusException(
@@ -361,6 +476,7 @@ public class ProfileService {
             );
         }
 
+        // 현재 민감정보 동의 문서 버전을 확인한다.
         String currentDocVersion = sensitiveConsentVersion;
 
         if (!currentDocVersion.equals(request.consentDocVersion())) {
@@ -370,56 +486,96 @@ public class ProfileService {
             );
         }
 
-        byte[] encryptedSensitiveCodes = null;
+        // 최신 민감정보 동의 상태를 확인한다.
+        UserConsent latestSensitiveConsent = userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId,
+                        "SENSITIVE"
+                )
+                .orElse(null);
 
-        if (request.sensitiveAgreed()) {
-            if (request.sensitiveCodes() == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "동의한 경우 특수 상황 목록을 입력해야 합니다."
-                );
-            }
+        // 클라이언트가 조회한 동의 이력 ID와 서버의 최신 ID를 비교한다.
+        // 최초 동의 이력이 없는 경우에는 양쪽 모두 null이어야 한다.
+        Long latestConsentId = latestSensitiveConsent == null
+                ? null
+                : latestSensitiveConsent.getId();
 
-            Set<String> allowedSensitiveCodes = Set.of(
-                    "JA0301", "JA0302", "JA0303",
-                    "JA0328", "JA0329", "JA0330",
-                    "JA0401", "JA0402"
+        if (!java.util.Objects.equals(
+                latestConsentId,
+                request.consentId()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "민감정보 동의 상태가 변경되었습니다. "
+                            + "최신 동의 상태를 다시 조회한 후 요청해 주세요."
             );
+        }
 
-            if (request.sensitiveCodes().stream()
-                    .anyMatch(code -> !allowedSensitiveCodes.contains(code))) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "올바르지 않은 특수 상황 코드가 포함되어 있습니다."
+        // 최초 동의 이후에는 Step4에서 동의 상태를 변경할 수 없다.
+        // 동의 변경은 PATCH /api/auth/consents에서 처리한다.
+        if (latestSensitiveConsent != null
+                && !Boolean.valueOf(latestSensitiveConsent.getAgreed())
+                .equals(request.sensitiveAgreed())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "민감정보 동의 상태가 변경되었습니다. "
+                            + "최신 동의 상태를 확인한 후 다시 요청해 주세요."
+            );
+        }
+
+        // 민감정보 코드 목록을 JSON 문자열로 관리한다.
+        String sensitiveCodesJson = null;
+
+        if (Boolean.TRUE.equals(request.sensitiveAgreed())) {
+
+            // null은 민감 항목 입력 건너뛰기를 의미한다.
+            if (request.sensitiveCodes() != null) {
+
+                // 입력 가능한 민감정보 코드 목록
+                Set<String> allowedSensitiveCodes = Set.of(
+                        "JA0301", "JA0302", "JA0303",
+                        "JA0328", "JA0329", "JA0330",
+                        "JA0401", "JA0402"
                 );
+
+                // 허용되지 않은 민감정보 코드 검증
+                if (request.sensitiveCodes().stream()
+                        .anyMatch(code -> !allowedSensitiveCodes.contains(code))) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "올바르지 않은 특수 상황 코드가 포함되어 있습니다."
+                    );
+                }
+
+                // 민감정보 코드 중복 선택 검증
+                if (request.sensitiveCodes().size()
+                        != Set.copyOf(request.sensitiveCodes()).size()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "특수 상황 코드는 중복 선택할 수 없습니다."
+                    );
+                }
+
+                // 민감정보 코드 목록을 JSON 문자열로 변환한다.
+                try {
+                    sensitiveCodesJson =
+                            objectMapper.writeValueAsString(
+                                    request.sensitiveCodes()
+                            );
+                } catch (Exception e) {
+                    throw new IllegalStateException(
+                            "특수 상황 코드 변환에 실패했습니다.", e
+                    );
+                }
+
+                // 빈 목록 "[]"도 저장 대상이다.
+                // 실제 암호화는 EncryptedSensitiveConverter에서 처리한다.
             }
-
-            if (request.sensitiveCodes().size()
-                    != Set.copyOf(request.sensitiveCodes()).size()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "특수 상황 코드는 중복 선택할 수 없습니다."
-                );
-            }
-
-            String sensitiveCodesJson;
-
-            try {
-                sensitiveCodesJson =
-                        objectMapper.writeValueAsString(
-                                request.sensitiveCodes()
-                        );
-            } catch (Exception e) {
-                throw new IllegalStateException(
-                        "특수 상황 코드 변환에 실패했습니다.", e
-                );
-            }
-
-            // AES-256-GCM 암호화
-            encryptedSensitiveCodes =
-                    fieldEncryptionService.encrypt(sensitiveCodesJson);
 
         } else {
+
+            // 민감정보 미동의 상태에서는 값을 입력할 수 없다.
             if (request.sensitiveCodes() != null) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
@@ -428,20 +584,24 @@ public class ProfileService {
             }
         }
 
-        // 동의 또는 미동의 이력 추가
-        userConsentRepository.save(
-                new UserConsent(
-                        user,
-                        "SENSITIVE",
-                        currentDocVersion,
-                        request.sensitiveAgreed()
-                )
-        );
+        // 최초 동의 이력이 없는 경우에만 동의 상태를 기록한다.
+        // 이후 동의 변경 이력은 PATCH API에서 관리한다.
+        if (latestSensitiveConsent == null) {
+            userConsentRepository.save(
+                    new UserConsent(
+                            user,
+                            "SENSITIVE",
+                            currentDocVersion,
+                            Boolean.TRUE.equals(request.sensitiveAgreed())
+                    )
+            );
+        }
 
-        // 미동의 시 기존 민감정보 제거
-        user.updateProfileStep4(encryptedSensitiveCodes);
+        // 민감정보를 저장하거나 미동의 시 기존 정보를 제거한다.
+        // JPA Converter가 DB 저장 시 자동으로 암호화한다.
+        user.updateProfileStep4(sensitiveCodesJson);
 
-        // 프로필 변경 이벤트 발행
+        // 프로필 변경에 따른 재매칭 이벤트 발행
         applicationEventPublisher.publishEvent(
                 new ProfileChangedEvent(userId)
         );

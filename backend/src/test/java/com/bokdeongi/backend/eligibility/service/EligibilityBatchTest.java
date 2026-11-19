@@ -33,7 +33,7 @@ class EligibilityBatchTest {
     /** 1999-05-01생, 서울 관악구, 소득 40%, 1인 가구, 구직자(JA0327), 무주택, 답 1개 */
     private static ProfileRow profile(String answersJson, String statusCodesJson) {
         return new ProfileRow(1L, LocalDate.of(1999, 5, 1), "F", "서울특별시", "관악구", new BigDecimal("40"), 1,
-                "[\"JA0404\"]", statusCodesJson, "MONTHLY_RENT", false, "SINGLE", 0, null, "NONE", answersJson, 3);
+                "[\"JA0404\"]", statusCodesJson, "MONTHLY_RENT", false, "SINGLE", 0, null, "NONE", answersJson, null, 3);
     }
 
     private static BenefitTarget benefit(long id, String region, String scope) {
@@ -113,7 +113,7 @@ class EligibilityBatchTest {
     @DisplayName("아깝게 탈락: 나이 하한 하나만 미달이고 마감 전에 충족 (D-80)")
     void nearMiss() {
         ProfileRow young = new ProfileRow(1L, LocalDate.of(2008, 3, 2), "F", "서울특별시", "관악구", null, 1, "[]",
-                "[]", null, null, null, null, null, null, null, 1);
+                "[]", null, null, null, null, null, null, null, null, 1);
         BenefitTarget open = new BenefitTarget(1, null, "PERSONAL", "PARSED", null, null, "ALWAYS");
         ResultRow r = run(List.of(open), Map.of(1L, List.of(rule(10, 1, 0, "AGE", "BETWEEN", "[19, 34]"))),
                 Map.of(), young).get(0);
@@ -154,5 +154,18 @@ class EligibilityBatchTest {
         assertNull(skipped.statusCodes());
         assertTrue(none.statusCodes().isEmpty());
         assertEquals(List.of("JA0404"), JsonText.stringList("[\"JA0404\"]"));
+    }
+    @Test
+    @DisplayName("민감 항목: 복호화한 코드가 있으면 판정, 없으면(미동의) 조건부 (D-43)")
+    void sensitive() {
+        Map<Long, List<RuleRow>> rules = Map.of(1L, List.of(rule(10, 1, 0, "SENSITIVE", "IN", "[\"JA0328\"]")));
+        ProfileRow agreed = new ProfileRow(1L, LocalDate.of(1990, 1, 1), "F", "서울특별시", "관악구", null, 1, "[]", "[]",
+                null, null, null, null, null, null, null, "[\"JA0328\"]", 1);
+        ProfileRow notAgreed = new ProfileRow(1L, LocalDate.of(1990, 1, 1), "F", "서울특별시", "관악구", null, 1, "[]",
+                "[]", null, null, null, null, null, null, null, null, 1);
+        assertEquals("ELIGIBLE", run(List.of(benefit(1, null, "PERSONAL")), rules, Map.of(), agreed).get(0).result());
+        ResultRow unknown = run(List.of(benefit(1, null, "PERSONAL")), rules, Map.of(), notAgreed).get(0);
+        assertEquals("CONDITIONAL", unknown.result());
+        assertTrue(unknown.traceJson().contains("\"actual\":\"비공개\"") || unknown.traceJson().contains("SENSITIVE_UNKNOWN"));
     }
 }

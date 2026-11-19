@@ -3,6 +3,8 @@ package com.bokdeongi.backend.auth.entity;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import com.bokdeongi.backend.common.crypto.EncryptedIncomeConverter;
+import com.bokdeongi.backend.common.crypto.EncryptedSensitiveConverter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -115,11 +117,10 @@ public class User {
     @Column(name = "income_input_type", length = 10)
     private String incomeInputType;
 
-    // 소득 금액 데이터 (BLOB)
-    @Lob
-    @JdbcTypeCode(SqlTypes.VARBINARY)
+    // 소득 금액은 JPA Converter를 통해 AES-GCM 암호화하여 저장한다.
+    @Convert(converter = EncryptedIncomeConverter.class)
     @Column(name = "income_amount", columnDefinition = "blob")
-    private byte[] incomeAmount;
+    private BigDecimal incomeAmount;
 
     // 소득 기준 연도
     @Column(name = "income_base_year")
@@ -167,11 +168,11 @@ public class User {
     @Column(name = "status_codes", columnDefinition = "json")
     private String statusCodes;
 
-    // 민감정보 데이터 (BLOB)
-    @Lob
-    @JdbcTypeCode(SqlTypes.VARBINARY)
+    // 민감정보는 JPA Converter를 통해 AES-GCM 암호화하여 저장한다.
+    // null은 미입력 또는 건너뛰기, "[]"는 '해당 없음'을 의미한다.
+    @Convert(converter = EncryptedSensitiveConverter.class)
     @Column(name = "sensitive_enc", columnDefinition = "blob")
-    private byte[] sensitiveEnc;
+    private String sensitiveEnc;
 
     // 추가 질문 응답 (JSON)
     @JdbcTypeCode(SqlTypes.JSON)
@@ -319,9 +320,7 @@ public class User {
         return incomeInputType;
     }
 
-    public byte[] getIncomeAmount() {
-        return incomeAmount == null ? null : incomeAmount.clone();
-    }
+    public BigDecimal getIncomeAmount() { return incomeAmount; }
 
     public Short getIncomeBaseYear() {
         return incomeBaseYear;
@@ -363,9 +362,13 @@ public class User {
         return statusCodes;
     }
 
-    public byte[] getSensitiveEnc() {
-        return sensitiveEnc == null ? null : sensitiveEnc.clone();
-    }
+    /**
+     * 민감정보 코드 목록을 JSON 문자열로 반환한다.
+     *
+     * DB에서 조회한 암호문은 JPA Converter를 통해
+     * 복호화된 상태로 반환된다.
+     */
+    public String getSensitiveEnc() { return sensitiveEnc; }
 
     public Integer getProfileVersion() {
         return profileVersion;
@@ -378,6 +381,11 @@ public class User {
     public LocalDateTime getProfileCompletedAt() {
         return profileCompletedAt;
     }
+
+    /**
+     * PROF-06: 저장된 추가 질문 답변 JSON 조회.
+     */
+    public String getAnswers() { return answers; }
 
     /* ==================== 프로필 정보 변경 ==================== */
 
@@ -411,13 +419,14 @@ public class User {
     /**
      * PROF-01: 프로필 2단계 가구 정보 저장.
      *
-     * 소득 금액은 Service에서 암호화한 후 전달한다.
+     * 소득 금액은 JPA AttributeConverter를 통해 암호화하여 저장한다.
      * householdTypeCodes는 JSON 문자열로 전달한다.
      */
     public void updateProfileStep2(
             Short householdSize,
             String incomeInputType,
-            byte[] encryptedIncomeAmount,
+            BigDecimal incomeAmount,
+            Short incomeBaseYear,
             BigDecimal medianIncomePct,
             String housingType,
             Boolean noHouse,
@@ -425,19 +434,40 @@ public class User {
     ) {
         this.householdSize = householdSize;
         this.incomeInputType = incomeInputType;
-        this.incomeAmount = encryptedIncomeAmount == null
-                ? null
-                : encryptedIncomeAmount.clone();
+        this.incomeAmount = incomeAmount;
+        this.incomeBaseYear = incomeBaseYear;
         this.medianIncomePct = medianIncomePct;
         this.hasHouse = !noHouse;
         this.housingType = housingType;
         this.householdTypeCodes = householdTypeCodes;
 
-        // 이전에 완료한 단계는 유지한다.
         if (this.profileStep == null || this.profileStep < 2) {
             this.profileStep = 2;
         }
 
+        this.profileVersion++;
+    }
+
+    /**
+     * PROF-03: 기준 중위소득 고시 연도 변경에 따른 재계산 결과 반영.
+     *
+     * 기존 소득 금액과 가구 정보는 유지하고,
+     * 기준 연도 및 환산 비율만 갱신한다.
+     */
+    public void updateIncomeCalculation(
+            Short incomeBaseYear,
+            BigDecimal medianIncomePct
+    ) {
+        if (incomeBaseYear == null || medianIncomePct == null) {
+            throw new IllegalArgumentException(
+                    "소득 기준 연도와 환산 비율은 필수입니다."
+            );
+        }
+
+        this.incomeBaseYear = incomeBaseYear;
+        this.medianIncomePct = medianIncomePct;
+
+        // 소득 비율 변경에 따른 프로필 데이터 버전 갱신
         this.profileVersion++;
     }
 
@@ -467,22 +497,21 @@ public class User {
     }
 
     /**
-     * PROF-01: 프로필 4단계 특수 상황 정보 갱신.
+     * PROF-04: 프로필 4단계 민감정보를 저장한다.
      *
-     * 민감정보는 Service에서 암호화한 후 전달한다.
-     * null은 미동의 또는 입력 건너뛰기를 의미한다.
-     * 암호화된 빈 배열은 동의 후 '해당 없음'을 의미한다.
+     * 민감정보 JSON 문자열은 JPA Converter를 통해 암호화된다.
+     * null은 건너뛰기 또는 미동의를 의미하며,
+     * "[]"는 동의 후 '해당 없음'을 선택한 상태를 의미한다.
      */
-    public void updateProfileStep4(byte[] encryptedSensitiveCodes) {
-        this.sensitiveEnc = encryptedSensitiveCodes == null
-                ? null
-                : encryptedSensitiveCodes.clone();
+    public void updateProfileStep4(String sensitiveCodesJson) {
+        this.sensitiveEnc = sensitiveCodesJson;
 
         // 이전에 완료한 단계는 유지한다.
         if (this.profileStep == null || this.profileStep < 4) {
             this.profileStep = 4;
         }
 
+        // 프로필 변경 이력 관리
         this.profileVersion++;
     }
 
@@ -511,6 +540,15 @@ public class User {
             this.profileCompletedAt = LocalDateTime.now();
             this.profileVersion++;
         }
+    }
+
+    /**
+     * 로그인 성공 시각을 기록한다.
+     *
+     * @param loginAt 로그인 성공 시각
+     */
+    public void updateLastLoginAt(LocalDateTime loginAt) {
+        this.lastLoginAt = loginAt;
     }
 
     /* ==================== 인증 정보 변경 ==================== */

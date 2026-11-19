@@ -17,6 +17,11 @@ repositories {
 	mavenCentral()
 }
 
+ext {
+	// Spring AI 2.0 라인 (Boot 4.x용). aitest에서 Boot 4.1.2와 같이 써서 Gemini 호출 확인한 버전
+	set('springAiVersion', "2.0.1")
+}
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -44,6 +49,15 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
 
 	testRuntimeOnly 'com.h2database:h2'
+
+	// Spring AI - Gemini (EASY-01 쉬운 말, DATA-03 조건 추출). 키가 없으면 LLM 기능만 꺼진다
+	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+	}
 }
 
 tasks.named('test') {
