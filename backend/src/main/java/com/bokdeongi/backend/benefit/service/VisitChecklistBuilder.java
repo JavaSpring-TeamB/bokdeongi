@@ -181,7 +181,7 @@ public final class VisitChecklistBuilder {
     }
 
     /** "경제과/033-560-2324||민원실/033-560-2000" → 문의처 목록 */
-    static List<Contact> contacts(String contact) {
+    public static List<Contact> contacts(String contact) {
         List<Contact> out = new ArrayList<>();
         for (String part : nz(contact).split("\\|\\|")) {
             String p = part.strip();
