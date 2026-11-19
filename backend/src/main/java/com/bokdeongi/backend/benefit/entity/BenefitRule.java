@@ -30,7 +30,7 @@ public class BenefitRule {
     private Short ruleGroup = 0;
 
     /** AGE, GENDER, REGION, ANSWER:{key}, JA_GROUP:{JA03} … (테이블 정의서 판정 필드 목록) */
-    @Column(name = "field", length = 30, nullable = false)
+    @Column(name = "field", length = 60, nullable = false)
     private String field;
 
     /** EQ / IN / LTE / GTE / BETWEEN */

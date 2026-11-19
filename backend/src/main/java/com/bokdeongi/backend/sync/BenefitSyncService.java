@@ -1,5 +1,6 @@
 package com.bokdeongi.backend.sync;
 
+import com.bokdeongi.backend.eligibility.label.LabelRuleCatalog;
 import com.bokdeongi.backend.eligibility.service.EligibilityService;
 import com.bokdeongi.backend.sync.client.ApiCallException;
 import com.bokdeongi.backend.sync.client.CallBudget;
@@ -106,7 +107,7 @@ public class BenefitSyncService {
             OrgRegionResolver regions = new OrgRegionResolver(merged.records(), store.loadRegions());
             BenefitMapper mapper = new BenefitMapper(regions, store.loadDocumentTypes(), store.loadHashtagNames(), today);
             plan = SyncPlanner.plan(merged, store.loadExisting(), mapper::map);
-            store.apply(plan, now);
+            store.apply(plan, detectChanges(plan), now);
         } catch (RuntimeException e) {
             log.error("동기화 반영 실패(이번 변경은 취소됨)", e);
             String message = e.getClass().getSimpleName() + ": " + e.getMessage();
@@ -115,7 +116,11 @@ public class BenefitSyncService {
             return new Report("FAILED", budget.used(), list.size(), 0, 0, 0, 0, 0, message);
         }
 
+        int labelsApplied = applyLabels();
         String message = summary(plan);
+        if (labelsApplied > 0) {
+            message = (message.isEmpty() ? "" : message + " | ") + "검수 라벨 규칙 " + labelsApplied + "건 적용";
+        }
         String status = plan.quarantined().isEmpty() && plan.endedSkipped() == null ? "SUCCESS" : "PARTIAL";
         store.finishLog(logId, status, LocalDateTime.now(clock.withZone(ZoneOffset.UTC)), budget.used(), plan.fetched(),
                 plan.inserts().size(), plan.updates().size(), plan.endedIds().size(), plan.quarantined().size(),
@@ -124,9 +129,50 @@ public class BenefitSyncService {
                 plan.fetched(), plan.inserts().size(), plan.updates().size(), plan.statusChanges().size(),
                 plan.endedIds().size(), plan.quarantined().size());
 
-        int rejudged = plan.affectsEligibility() ? rejudgeAll() : 0;
+        int rejudged = plan.affectsEligibility() || labelsApplied > 0 ? rejudgeAll() : 0;
         return new Report(status, budget.used(), plan.fetched(), plan.inserts().size(), plan.updates().size(),
                 plan.endedIds().size(), plan.quarantined().size(), rejudged, message);
+    }
+
+    /** 원문이 바뀐 혜택의 변경 요약 (DATA-08). 종료됐다 다시 나온 혜택도 비교한다 */
+    private Map<Long, ChangeDetector.Result> detectChanges(SyncPlan plan) {
+        if (plan.updates().isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, ChangeDetector.Before> before = store.loadBefore(
+                plan.updates().stream().map(SyncPlan.Update::id).toList());
+        Map<Long, ChangeDetector.Result> out = new java.util.HashMap<>();
+        for (SyncPlan.Update u : plan.updates()) {
+            ChangeDetector.Before b = before.get(u.id());
+            if (b != null) {
+                out.put(u.id(), ChangeDetector.diff(b, u.row()));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 검수한 라벨(D-93)을 원문이 그대로인 혜택에 수동 규칙으로 넣는다. 실패해도 동기화 결과는 그대로 두고 경고만 남긴다.
+     *
+     * @return 이번에 새로 넣은 혜택 수
+     */
+    int applyLabels() {
+        LabelRuleCatalog catalog = LabelRuleCatalog.standard();
+        if (catalog.services().isEmpty()) {
+            return 0;
+        }
+        try {
+            LabelRulePlanner.Plan plan = LabelRulePlanner.plan(
+                    store.loadLabelTargets(catalog.services().keySet()), catalog);
+            store.applyLabels(plan.apply());
+            if (!plan.stale().isEmpty()) {
+                log.info("원문이 라벨 이후 바뀌어 라벨을 넣지 않은 혜택 {}건: {}", plan.stale().size(), plan.stale());
+            }
+            return plan.apply().size();
+        } catch (RuntimeException e) {
+            log.warn("검수 라벨 적용 실패(코드 규칙으로 계속): {}", e.getMessage());
+            return 0;
+        }
     }
 
     /** 혜택이 바뀌었으니 회원 전체를 다시 판정한다. 한 명이 실패해도 나머지는 계속 */

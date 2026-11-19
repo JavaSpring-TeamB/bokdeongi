@@ -6,6 +6,7 @@ import com.bokdeongi.backend.benefit.recommend.RecommendResponse.Check;
 import com.bokdeongi.backend.benefit.recommend.RecommendResponse.Item;
 import com.bokdeongi.backend.benefit.recommend.RecommendResponse.NearMissInfo;
 import com.bokdeongi.backend.benefit.recommend.RecommendResponse.Period;
+import com.bokdeongi.backend.eligibility.label.LabelRuleCatalog;
 import com.bokdeongi.backend.eligibility.store.JsonText;
 import java.text.NumberFormat;
 import java.time.LocalDate;
@@ -74,7 +75,7 @@ public final class RecommendView {
 
     // ---------------------------------------------------------------- 금액 (DATA-05 값)
 
-    static Amount amount(RecommendRow r) {
+    public static Amount amount(RecommendRow r) {
         if (r.maxAmount() == null) {
             return null;
         }
@@ -110,7 +111,7 @@ public final class RecommendView {
 
     // ---------------------------------------------------------------- 신청 기간 (DATA-04 값)
 
-    static Period period(RecommendRow r, LocalDate today) {
+    public static Period period(RecommendRow r, LocalDate today) {
         String status = r.dateStatus() == null ? "" : r.dateStatus();
         boolean month = "MONTH".equals(r.datePrecision());
         // 월까지만 아는 마감(D-66)은 말일로 저장돼 있어 D-day가 실제와 다를 수 있다 → D-day를 내지 않는다
@@ -205,7 +206,9 @@ public final class RecommendView {
         String label = label(field);
         if (field.startsWith("ANSWER:") && "MISSING_VALUE".equals(reason)) {
             String key = field.substring("ANSWER:".length());
-            String q = quote == null || quote.isBlank() ? "이 조건에 해당하나요?" : "'" + quote + "'에 해당하나요?";
+            // 검수 라벨에 다듬은 질문이 있으면 그것을, 없으면 근거 문구로 만든다 (D-93)
+            String q = LabelRuleCatalog.standard().question(key).orElse(
+                    quote == null || quote.isBlank() ? "이 조건에 해당하나요?" : "'" + quote + "'에 해당하나요?");
             return new Check(CheckType.QUESTION, field, key, q, quote);
         }
         return switch (reason) {
@@ -231,7 +234,7 @@ public final class RecommendView {
         return new NearMissInfo(r.nearMissReason(), null, null, null, null, null);
     }
 
-    static List<String> hashtags(String json) {
+    public static List<String> hashtags(String json) {
         try {
             List<String> tags = JsonText.stringList(json);
             return tags == null ? List.of() : tags;

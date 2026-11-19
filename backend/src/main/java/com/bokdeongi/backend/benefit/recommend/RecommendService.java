@@ -33,12 +33,18 @@ public class RecommendService {
 
     public RecommendResponse recommended(long userId, String tabValue, String region, String field, String sortValue,
             int page, int size) {
+        return recommended(userId, tabValue, region, field, null, sortValue, page, size);
+    }
+
+    /** @param hashtag 해시태그 이름 하나로 거르기 (BEN-10). null이면 전체 */
+    public RecommendResponse recommended(long userId, String tabValue, String region, String field, String hashtag,
+            String sortValue, int page, int size) {
         RecommendTab tab = RecommendTab.parse(tabValue);
         RecommendSort sort = RecommendSort.parse(sortValue);
         if (page < 0 || size < 1 || size > MAX_SIZE) {
             throw new RecommendException("page는 0 이상, size는 1~" + MAX_SIZE + "입니다");
         }
-        Filter filter = new Filter(blankToNull(region), blankToNull(field));
+        Filter filter = new Filter(blankToNull(region), blankToNull(field), blankToNull(hashtag));
 
         Freshness fresh = query.freshness(userId);
         if (fresh.resultCount() == 0) {
