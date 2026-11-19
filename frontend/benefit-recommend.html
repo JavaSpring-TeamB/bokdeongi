@@ -69,22 +69,23 @@
             <div class="recommend-filters">
                 <label class="recommend-select">
                     <span class="sr-only">지역</span>
-                    <select data-filter="region">
-                        <option value="all">지역 전체</option>
+                    <select data-filter="region" disabled aria-disabled="true">
+                        <option value="">지역 전체</option>
                     </select>
                 </label>
                 <label class="recommend-select">
                     <span class="sr-only">분야</span>
-                    <select data-filter="category">
-                        <option value="all">분야 전체</option>
+                    <select data-filter="category" disabled aria-disabled="true">
+                        <option value="">분야 전체</option>
                     </select>
                 </label>
                 <label class="recommend-select">
                     <span class="sr-only">정렬</span>
-                    <select data-filter="sort">
+                    <select data-filter="sort" disabled aria-disabled="true">
                         <option value="recommended">정렬: 추천순</option>
                         <option value="deadline">마감 임박순</option>
                         <option value="amount">지원 금액순</option>
+                        <option value="easy">신청 쉬운 순</option>
                     </select>
                 </label>
             </div>
