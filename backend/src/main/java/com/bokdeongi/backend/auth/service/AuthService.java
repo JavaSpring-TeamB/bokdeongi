@@ -35,6 +35,8 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * 회원 인증 및 계정 관리 서비스.
@@ -276,7 +278,7 @@ public class AuthService {
      * 회원 ID를 이용하여 JWT를 발급한다.
      *
      * 일반 로그인과 카카오 로그인에서 사용하며,
-     * Refresh Token 해시를 DB에 저장한다.
+     * Refresh Token 해시 및 마지막 로그인 시각을 DB에 저장한다.
      */
     @Transactional
     public LoginResult issueTokens(Long userId) {
@@ -287,6 +289,10 @@ public class AuthService {
                                 "존재하지 않는 회원입니다."
                         )
                 );
+
+        user.updateLastLoginAt(
+                LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+        );
 
         return createLoginResult(user);
     }

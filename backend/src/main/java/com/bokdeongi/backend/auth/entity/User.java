@@ -542,6 +542,15 @@ public class User {
         }
     }
 
+    /**
+     * 로그인 성공 시각을 기록한다.
+     *
+     * @param loginAt 로그인 성공 시각
+     */
+    public void updateLastLoginAt(LocalDateTime loginAt) {
+        this.lastLoginAt = loginAt;
+    }
+
     /* ==================== 인증 정보 변경 ==================== */
 
     /**
