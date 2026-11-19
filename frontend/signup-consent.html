@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="./css/signup-account.css">
     <link rel="stylesheet" href="./css/signup-consent.css">
     <script src="./js/common-ui.js" defer></script>
+    <script src="./js/auth-config.local.js" defer></script>
+    <script src="./js/auth.js" defer></script>
     <script src="./js/signup-consent.js" defer></script>
 </head>
 <body class="signup-account-page">
@@ -24,7 +26,7 @@
                 <a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a>
                 <a class="site-nav__link" href="application-status.html">신청 현황</a>
                 <a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a>
-                <a class="site-nav__link" href="my-page.html">마이페이지</a>
+                <a class="site-nav__link" href="my-page.html" hidden>마이페이지</a>
                 <span class="mobile-auth-links"><a href="login.html">로그인</a><a href="signup-account.html" aria-current="page">회원가입</a></span>
             </nav>
             <div class="header-tools" aria-label="화면 설정">
@@ -73,29 +75,24 @@
 
                         <ul class="signup-consent__list" aria-describedby="consent-error">
                             <li class="signup-consent__item">
-                                <input id="consent-terms" name="TERMS" type="checkbox" data-consent-type="TERMS" data-doc-version="pending">
+                                <input id="consent-terms" name="TERMS" type="checkbox" data-consent-type="TERMS" data-doc-version="1.0">
                                 <label for="consent-terms"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>서비스 이용약관 동의</span></label>
                                 <button class="signup-consent__view" type="button" data-consent-view="TERMS">내용 보기 <span aria-hidden="true">›</span></button>
                             </li>
                             <li class="signup-consent__item">
-                                <input id="consent-privacy" name="PRIVACY" type="checkbox" data-consent-type="PRIVACY" data-doc-version="pending">
+                                <input id="consent-privacy" name="PRIVACY" type="checkbox" data-consent-type="PRIVACY" data-doc-version="1.0">
                                 <label for="consent-privacy"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>개인정보 수집·이용 동의</span></label>
                                 <button class="signup-consent__view" type="button" data-consent-view="PRIVACY">내용 보기 <span aria-hidden="true">›</span></button>
                             </li>
                             <li class="signup-consent__item">
-                                <input id="consent-optional-info" name="OPTIONAL_INFO" type="checkbox" data-consent-type="OPTIONAL_INFO" data-doc-version="pending">
+                                <input id="consent-optional-info" name="OPTIONAL_INFO" type="checkbox" data-consent-type="OPTIONAL_INFO" data-doc-version="1.0">
                                 <label for="consent-optional-info"><span class="signup-consent__badge">선택</span><span>선택 정보 수집·이용 동의</span></label>
                                 <button class="signup-consent__view" type="button" data-consent-view="OPTIONAL_INFO">내용 보기 <span aria-hidden="true">›</span></button>
                             </li>
                             <li class="signup-consent__item">
-                                <input id="consent-sensitive" name="SENSITIVE" type="checkbox" data-consent-type="SENSITIVE" data-doc-version="pending">
+                                <input id="consent-sensitive" name="SENSITIVE" type="checkbox" data-consent-type="SENSITIVE" data-doc-version="1.0">
                                 <label for="consent-sensitive"><span class="signup-consent__badge">선택</span><span>민감정보 수집·이용 동의</span></label>
                                 <button class="signup-consent__view" type="button" data-consent-view="SENSITIVE">내용 보기 <span aria-hidden="true">›</span></button>
-                            </li>
-                            <li class="signup-consent__item">
-                                <input id="consent-doc-record" name="DOC_RECORD" type="checkbox" data-consent-type="DOC_RECORD" data-doc-version="pending">
-                                <label for="consent-doc-record"><span class="signup-consent__badge">선택</span><span>서류 기록 보관 동의</span></label>
-                                <button class="signup-consent__view" type="button" data-consent-view="DOC_RECORD">내용 보기 <span aria-hidden="true">›</span></button>
                             </li>
                         </ul>
                         <p id="consent-error" class="signup-consent__error" role="alert" aria-live="assertive" tabindex="-1"></p>

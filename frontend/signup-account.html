@@ -7,7 +7,12 @@
     <meta name="description" content="복덩이 회원가입을 위한 계정 정보를 입력합니다.">
     <link rel="stylesheet" href="./css/common.css">
     <link rel="stylesheet" href="./css/signup-account.css">
+    <link rel="stylesheet" href="./css/signup-consent.css">
+    <link rel="stylesheet" href="./css/signup-profile.css">
+    <link rel="stylesheet" href="./css/signup-complete.css">
     <script src="./js/common-ui.js" defer></script>
+    <script src="./js/auth-config.local.js" defer></script>
+    <script src="./js/auth.js" defer></script>
     <script src="./js/signup-account.js" defer></script>
 </head>
 <body class="signup-account-page">
@@ -23,7 +28,7 @@
                 <a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a>
                 <a class="site-nav__link" href="application-status.html">신청 현황</a>
                 <a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a>
-                <a class="site-nav__link" href="my-page.html">마이페이지</a>
+                <a class="site-nav__link" href="my-page.html" hidden>마이페이지</a>
                 <span class="mobile-auth-links"><a href="login.html">로그인</a><a href="signup-account.html" aria-current="page">회원가입</a></span>
             </nav>
             <div class="header-tools" aria-label="화면 설정">
@@ -48,7 +53,8 @@
                 </div>
             </section>
 
-            <section class="signup-account__card card" aria-labelledby="account-form-title">
+            <div id="signup-flow-card">
+            <section class="signup-account__card card" data-signup-step="account" aria-labelledby="account-form-title">
                 <ol class="assist-steps assist-steps--icon signup-steps" aria-label="회원가입 진행 단계">
                     <li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">1</span><strong class="assist-step__label">계정 정보</strong></li>
                     <li class="assist-step"><span class="assist-step__icon" aria-hidden="true">2</span><strong class="assist-step__label">약관 동의</strong></li>
@@ -62,31 +68,112 @@
                 </div>
 
                 <form id="signup-account-form" novalidate>
+                    <p id="signup-form-message" class="signup-form-message" role="alert" aria-live="assertive" tabindex="-1"></p>
                     <div class="signup-form-row">
                         <label for="signup-email">이메일 <b aria-hidden="true">*</b></label>
-                        <div class="signup-form-control"><div class="signup-form-control__inline"><input id="signup-email" name="email" type="email" autocomplete="email" placeholder="example@bokdeongi.kr" aria-describedby="email-help email-message"><button class="bk-btn bk-btn--outline bk-btn--md signup-check-button" type="button" data-email-check>중복 확인</button></div><p id="email-help" class="signup-form-help">로그인에 사용할 이메일 주소예요.</p><p id="email-message" class="signup-form-message" aria-live="polite"></p></div>
+                        <div class="signup-form-control"><div class="signup-form-control__inline"><input id="signup-email" name="email" type="email" autocomplete="email" maxlength="100" placeholder="example@bokdeongi.kr" aria-describedby="email-help email-message" required><button class="bk-btn bk-btn--outline bk-btn--md signup-check-button" type="button" data-email-check>중복 확인</button></div><p id="email-help" class="signup-form-help">로그인에 사용할 이메일 주소예요.</p><p id="email-message" class="signup-form-message" aria-live="polite"></p></div>
                     </div>
                     <div class="signup-form-row">
                         <label for="signup-password">비밀번호 <b aria-hidden="true">*</b></label>
-                        <div class="signup-form-control"><div class="signup-password-field"><input id="signup-password" name="password" type="password" autocomplete="new-password" placeholder="비밀번호를 입력하세요." aria-describedby="password-help password-message"><button class="signup-password-toggle" type="button" data-password-toggle="signup-password" aria-label="비밀번호 표시" aria-pressed="false">◉</button></div><p id="password-help" class="signup-form-help">8~20자의 영문, 숫자, 특수문자를 모두 포함해주세요.</p><p id="password-message" class="signup-form-message" aria-live="polite"></p></div>
+                        <div class="signup-form-control"><div class="signup-password-field"><input id="signup-password" name="password" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호를 입력하세요." aria-describedby="password-help password-message" required><button class="signup-password-toggle" type="button" data-password-toggle="signup-password" aria-label="비밀번호 표시" aria-pressed="false">◉</button></div><p id="password-help" class="signup-form-help">8~64자로 입력해 주세요.</p><p id="password-message" class="signup-form-message" aria-live="polite"></p></div>
                     </div>
                     <div class="signup-form-row">
                         <label for="signup-password-confirm">비밀번호 확인 <b aria-hidden="true">*</b></label>
-                        <div class="signup-form-control"><div class="signup-password-field"><input id="signup-password-confirm" name="passwordConfirm" type="password" autocomplete="new-password" placeholder="비밀번호를 다시 입력하세요." aria-describedby="password-confirm-help password-confirm-message"><button class="signup-password-toggle" type="button" data-password-toggle="signup-password-confirm" aria-label="비밀번호 확인 표시" aria-pressed="false">◉</button></div><p id="password-confirm-help" class="signup-form-help">입력한 비밀번호와 동일하게 입력해주세요.</p><p id="password-confirm-message" class="signup-form-message" aria-live="polite"></p></div>
+                        <div class="signup-form-control"><div class="signup-password-field"><input id="signup-password-confirm" name="passwordConfirm" type="password" autocomplete="new-password" maxlength="64" placeholder="비밀번호를 다시 입력하세요." aria-describedby="password-confirm-help password-confirm-message" required><button class="signup-password-toggle" type="button" data-password-toggle="signup-password-confirm" aria-label="비밀번호 확인 표시" aria-pressed="false">◉</button></div><p id="password-confirm-help" class="signup-form-help">입력한 비밀번호와 동일하게 입력해주세요.</p><p id="password-confirm-message" class="signup-form-message" aria-live="polite"></p></div>
                     </div>
                     <div class="signup-form-row">
                         <label for="signup-name">이름 <b aria-hidden="true">*</b></label>
-                        <div class="signup-form-control"><input id="signup-name" name="name" type="text" autocomplete="name" placeholder="이름을 입력하세요." aria-describedby="name-message"><p id="name-message" class="signup-form-message" aria-live="polite"></p></div>
+                        <div class="signup-form-control"><input id="signup-name" name="name" type="text" autocomplete="name" maxlength="50" placeholder="이름을 입력하세요." aria-describedby="name-message" required><p id="name-message" class="signup-form-message" aria-live="polite"></p></div>
                     </div>
                     <div class="signup-form-row">
-                        <label for="signup-phone">연락처 <small>선택</small></label>
-                        <div class="signup-form-control"><input id="signup-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="010-1234-5678" aria-describedby="phone-help phone-message"><p id="phone-help" class="signup-form-help">연락처는 선택 항목이며, 입력하지 않아도 회원가입할 수 있습니다.</p><p id="phone-message" class="signup-form-message" aria-live="polite"></p></div>
+                        <label for="signup-phone">연락처 <b aria-hidden="true">*</b></label>
+                        <div class="signup-form-control"><input id="signup-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-1234-5678" aria-describedby="phone-help phone-message" required><p id="phone-help" class="signup-form-help">회원가입에 필요한 연락처예요.</p><p id="phone-message" class="signup-form-message" aria-live="polite"></p></div>
                     </div>
-                    <button class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="submit">다음 단계로 <span aria-hidden="true">›</span></button>
+                    <div class="signup-form-row">
+                        <label for="signup-birth-date">생년월일 <b aria-hidden="true">*</b></label>
+                        <div class="signup-form-control"><input id="signup-birth-date" name="birthDate" type="date" min="1900-01-01" autocomplete="bday" aria-describedby="birth-date-message" required><p id="birth-date-message" class="signup-form-message" aria-live="polite"></p></div>
+                    </div>
+                    <p class="signup-form-help">입력한 비밀번호는 이 가입 화면이 열린 동안에만 사용되며, 새로고침하거나 화면을 닫으면 폐기됩니다.</p>
+                    <button id="signup-submit" class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="button" data-signup-next="consent">다음 단계로 <span aria-hidden="true">›</span></button>
                 </form>
             </section>
+
+            <section class="signup-account__card signup-consent card" data-signup-step="consent" aria-labelledby="consent-form-title" hidden>
+                <ol class="assist-steps assist-steps--icon signup-steps" aria-label="회원가입 진행 단계">
+                    <li class="assist-step is-complete"><span class="assist-step__icon" aria-label="1단계 완료">✓</span><strong class="assist-step__label">계정 정보</strong></li>
+                    <li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">2</span><strong class="assist-step__label">약관 동의</strong></li>
+                    <li class="assist-step"><span class="assist-step__icon" aria-hidden="true">3</span><strong class="assist-step__label">프로필 입력</strong></li>
+                    <li class="assist-step"><span class="assist-step__icon" aria-hidden="true">4</span><strong class="assist-step__label">가입 완료</strong></li>
+                </ol>
+                <div class="signup-account__form-heading"><div><h2 id="consent-form-title"><span aria-hidden="true">☘</span> 약관 동의</h2><p>서비스 이용을 위해 약관 및 개인정보 처리 내용을 확인해 주세요.</p><p>마이페이지에서 약관 내용에 동의하거나 철회할 수 있습니다.</p></div></div>
+                <form id="signup-consent-form" novalidate>
+                    <fieldset class="signup-consent__fieldset"><legend class="signup-consent__sr-only">약관 동의 항목</legend>
+                        <div class="signup-consent__all"><input id="consent-all" type="checkbox"><label for="consent-all"><strong>전체 약관에 동의합니다.</strong><span>필수 및 선택 동의 항목을 모두 포함합니다.</span></label></div>
+                        <ul class="signup-consent__list" aria-describedby="consent-error">
+                            <li class="signup-consent__item"><input id="consent-terms" name="TERMS" type="checkbox" data-consent-type="TERMS" data-doc-version="1.0"><label for="consent-terms"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>서비스 이용약관 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="TERMS">내용 보기 <span aria-hidden="true">›</span></button></li>
+                            <li class="signup-consent__item"><input id="consent-privacy" name="PRIVACY" type="checkbox" data-consent-type="PRIVACY" data-doc-version="1.0"><label for="consent-privacy"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>개인정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="PRIVACY">내용 보기 <span aria-hidden="true">›</span></button></li>
+                            <li class="signup-consent__item"><input id="consent-optional-info" name="OPTIONAL_INFO" type="checkbox" data-consent-type="OPTIONAL_INFO" data-doc-version="1.0"><label for="consent-optional-info"><span class="signup-consent__badge">선택</span><span>선택 정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="OPTIONAL_INFO">내용 보기 <span aria-hidden="true">›</span></button></li>
+                            <li class="signup-consent__item"><input id="consent-sensitive" name="SENSITIVE" type="checkbox" data-consent-type="SENSITIVE" data-doc-version="1.0"><label for="consent-sensitive"><span class="signup-consent__badge">선택</span><span>민감정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="SENSITIVE">내용 보기 <span aria-hidden="true">›</span></button></li>
+                        </ul>
+                        <p id="consent-error" class="signup-consent__error" role="alert" aria-live="assertive" tabindex="-1"></p>
+                    </fieldset>
+                    <div class="signup-consent__actions"><button class="bk-btn bk-btn--outline bk-btn--lg" type="button" data-signup-prev="account">이전 단계</button><button class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="button" data-signup-next="profile">다음 단계로 <span aria-hidden="true">›</span></button></div>
+                </form>
+            </section>
+
+            <section class="signup-account__card signup-profile card" data-signup-step="profile" aria-labelledby="profile-form-title" hidden>
+                <ol class="assist-steps assist-steps--icon signup-steps" aria-label="회원가입 진행 단계">
+                    <li class="assist-step is-complete"><span class="assist-step__icon" aria-label="1단계 완료">✓</span><strong class="assist-step__label">계정 정보</strong></li><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="2단계 완료">✓</span><strong class="assist-step__label">약관 동의</strong></li><li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">3</span><strong class="assist-step__label">프로필 입력</strong></li><li class="assist-step"><span class="assist-step__icon" aria-hidden="true">4</span><strong class="assist-step__label">가입 완료</strong></li>
+                </ol>
+                <div class="signup-account__form-heading"><div><h2 id="profile-form-title"><span aria-hidden="true">☘</span> 프로필 입력</h2><p>복지 혜택 맞춤 추천을 위한 정보를 입력해 주세요.</p></div><p class="signup-account__required-note"><b aria-hidden="true">*</b> 필수 입력 항목입니다.</p></div>
+                <form id="signup-profile-form" novalidate>
+                    <div class="signup-profile__form-scroll" tabindex="0" aria-label="프로필 입력 항목">
+                        <p id="profile-form-error" class="signup-profile__error" role="alert" aria-live="assertive" tabindex="-1"></p>
+                        <fieldset class="signup-profile__section" data-profile-request-step="1"><legend>기본 정보</legend><div class="signup-profile__grid">
+                            <div class="signup-profile__choice"><span>성별 <b aria-hidden="true">*</b></span><div><label><input name="gender" type="radio" value="M" required> 남성</label><label><input name="gender" type="radio" value="F"> 여성</label></div></div>
+                            <div class="signup-form-control"><label for="profile-sido">거주 지역 <b aria-hidden="true">*</b></label><select id="profile-sido" name="sido" required><option value="">시·도 선택</option></select></div>
+                            <div class="signup-form-control"><label for="profile-sigungu" class="signup-profile__select-label">시·군·구 <b aria-hidden="true">*</b></label><select id="profile-sigungu" name="region_code" required disabled><option value="">시·도를 먼저 선택해 주세요.</option></select></div>
+                        </div><p class="signup-profile__help">상세 주소와 우편번호는 수집하지 않아요.</p></fieldset>
+                        <fieldset class="signup-profile__section" data-profile-request-step="2"><legend>가구 및 주거 정보</legend><div class="signup-profile__grid">
+                            <div class="signup-form-control"><label for="profile-household-size">가구원 수 <b aria-hidden="true">*</b></label><select id="profile-household-size" name="household_size" required><option value="">선택해 주세요.</option><option value="1">1명</option><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명 이상</option></select></div>
+                            <div class="signup-profile__choice"><span>주거 형태 <b aria-hidden="true">*</b></span><div><label><input name="housing_type" type="radio" value="OWN" required> 자가</label><label><input name="housing_type" type="radio" value="JEONSE"> 전세</label><label><input name="housing_type" type="radio" value="MONTHLY"> 월세</label><label><input name="housing_type" type="radio" value="ETC"> 기타</label></div></div>
+                            <div class="signup-profile__choice"><span>주택 보유 여부 <b aria-hidden="true">*</b></span><div><label><input name="has_house" type="radio" value="true" required> 보유</label><label><input name="has_house" type="radio" value="false"> 미보유</label></div></div>
+                        </div></fieldset>
+                        <fieldset class="signup-profile__section" data-profile-request-step="2"><legend>소득 정보</legend><p class="signup-profile__help">입력한 금액은 서버에서 암호화해 처리하며, 기준 중위소득 비율은 서버에서 계산합니다.</p><div class="signup-profile__choice"><span>입력 방식 <b aria-hidden="true">*</b></span><div><label><input name="income_input_type" type="radio" value="ANNUAL" required> 연소득</label><label><input name="income_input_type" type="radio" value="MONTHLY"> 월소득</label><label><input name="income_input_type" type="radio" value="UNKNOWN"> 잘 모르겠어요</label><label class="signup-profile__unavailable"><input type="radio" disabled> 소득 구간 <small>기준 연동 준비 중</small></label></div></div><div id="income-amount-fields" class="signup-profile__grid" hidden><div class="signup-form-control"><label for="profile-income-amount">소득 금액 <b aria-hidden="true">*</b></label><div class="signup-profile__input-unit"><input id="profile-income-amount" name="income_amount" type="number" min="0" inputmode="numeric" placeholder="숫자만 입력"><span>원</span></div></div></div></fieldset>
+                        <fieldset class="signup-profile__section" data-profile-request-step="3"><legend>추가 정보</legend><p class="signup-profile__help">가족 구성과 현재 상황을 알려주시면 더 정확한 복지 혜택을 찾아드릴 수 있어요.</p><div class="signup-profile__grid">
+                            <div class="signup-profile__choice"><span>혼인 여부 <b aria-hidden="true">*</b></span><div><label><input name="marital_status" type="radio" value="SINGLE" required> 미혼</label><label><input name="marital_status" type="radio" value="MARRIED"> 기혼</label><label><input name="marital_status" type="radio" value="ETC"> 기타</label></div></div>
+                            <div class="signup-form-control"><label for="profile-children-count">자녀 수 <b aria-hidden="true">*</b></label><select id="profile-children-count" name="children_count_choice" required><option value="">선택해 주세요.</option><option value="0">없음</option><option value="1">1명</option><option value="2">2명</option><option value="3">3명</option><option value="4+">4명 이상</option></select></div>
+                            <div id="exact-children-field" class="signup-form-control" hidden><label for="profile-children-exact">정확한 자녀 수 <b aria-hidden="true">*</b></label><input id="profile-children-exact" type="number" min="4" inputmode="numeric" placeholder="4명 이상"></div><div id="youngest-child-field" class="signup-form-control" hidden><label for="profile-youngest-year">막내 자녀 출생연도 <b aria-hidden="true">*</b></label><input id="profile-youngest-year" name="youngest_child_birth_year" type="number" min="1900" inputmode="numeric" placeholder="예: 2020"></div>
+                        </div>
+                        <div class="signup-profile__code-group" data-exclusive-group="household"><span>가구 유형 <b aria-hidden="true">*</b></span><div><label><input type="checkbox" value="JA0404"> 1인 가구</label><label><input type="checkbox" value="JA0403"> 한부모 가구</label><label><input type="checkbox" value="JA0403"> 조손 가구</label><label><input type="checkbox" value="JA0411"> 다자녀 가구</label><label><input type="checkbox" value="JA0413"> 신규 전입 가구</label><label><input type="checkbox" value="JA0414"> 확대가족</label><label><input type="checkbox" value="NONE" data-none> 해당 없음</label></div></div>
+                        <div class="signup-profile__code-group" data-exclusive-group="status"><span>현재 활동 상태 <b aria-hidden="true">*</b></span><div><label><input type="checkbox" value="JA0317"> 초등학생</label><label><input type="checkbox" value="JA0318"> 중학생</label><label><input type="checkbox" value="JA0319"> 고등학생</label><label><input type="checkbox" value="JA0320"> 대학생</label><label><input type="checkbox" value="JA0326"> 재직자</label><label><input type="checkbox" value="JA0327"> 구직자</label><label><input type="checkbox" value="SELF_EMPLOYED"> 자영업자</label><label><input type="checkbox" value="JA0313"> 농업 종사자</label><label><input type="checkbox" value="JA0314"> 어업 종사자</label><label><input type="checkbox" value="JA0315"> 축산업 종사자</label><label><input type="checkbox" value="JA0316"> 임업 종사자</label><label><input type="checkbox" value="NONE" data-none> 해당 없음</label></div></div>
+                        <div class="signup-profile__choice"><span>복지 수급 상태 <b aria-hidden="true">*</b></span><div><label><input name="welfare_status" type="radio" value="BASIC" required> 기초생활수급자</label><label><input name="welfare_status" type="radio" value="NEAR_POOR"> 차상위계층</label><label><input name="welfare_status" type="radio" value="NONE"> 해당 없음</label><label><input name="welfare_status" type="radio" value="UNKNOWN"> 잘 모르겠어요</label></div></div>
+                        </fieldset>
+                        <fieldset id="sensitive-section" class="signup-profile__section signup-profile__sensitive is-disabled" aria-disabled="true" aria-describedby="sensitive-notice"><legend>민감정보 <small>선택</small></legend><p class="signup-profile__help">선택한 정보는 관련 혜택 안내를 위해서만 사용하며, 구체적인 질병명이나 상세 주소는 입력받지 않습니다.</p><div class="signup-profile__sensitive-options" data-exclusive-group="sensitive">
+                            <label><input type="checkbox" value="JA0301" data-sensitive-code="JA0301" disabled><span>예비부모·난임</span><small>임신·출산 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label><input type="checkbox" value="JA0302" data-sensitive-code="JA0302" disabled><span>임산부</span><small>임신 중 받을 수 있는 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label><input type="checkbox" value="JA0303" data-sensitive-code="JA0303" disabled><span>출산·입양</span><small>출산·입양 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label><input type="checkbox" value="JA0328" data-sensitive-code="JA0328" disabled><span>장애인</span><small>장애 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label><input type="checkbox" value="JA0329" data-sensitive-code="JA0329" disabled><span>국가보훈대상자</span><small>보훈 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label><input type="checkbox" value="JA0330" data-sensitive-code="JA0330" disabled><span>질병·질환자</span><small>질병 관련 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label><input type="checkbox" value="JA0401" data-sensitive-code="JA0401" disabled><span>다문화가족</span><small>다문화 가구 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label><input type="checkbox" value="JA0402" data-sensitive-code="JA0402" disabled><span>북한이탈주민</span><small>북한이탈주민 지원을 안내하기 위해 물어봐요.</small></label>
+                            <label class="signup-profile__sensitive-none"><input type="checkbox" value="" data-none disabled><span>해당 없음</span><small>관련된 항목이 없음을 표시합니다.</small></label>
+                        </div></fieldset>
+                        <p id="sensitive-notice" class="signup-profile__notice" role="status">민감정보 수집·이용에 동의한 경우에만 선택할 수 있어요. 동의하지 않아도 가입할 수 있습니다.</p>
+                    </div>
+                    <div class="signup-profile__actions"><button class="bk-btn bk-btn--outline bk-btn--lg" type="button" data-signup-prev="consent">이전 단계</button><button id="signup-complete-submit" class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="submit">회원가입 완료 <span aria-hidden="true">›</span></button><a id="signup-login-recovery" class="bk-btn bk-btn--outline bk-btn--lg" href="login.html" hidden>생성된 계정으로 로그인하기</a></div>
+                </form>
+            </section>
+
+            <section class="signup-account__card signup-complete__card card" data-signup-step="complete" aria-labelledby="signup-complete-title" hidden>
+                <ol class="assist-steps assist-steps--icon signup-steps" aria-label="회원가입 진행 단계"><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="1단계 완료">✓</span><strong class="assist-step__label">계정 정보</strong></li><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="2단계 완료">✓</span><strong class="assist-step__label">약관 동의</strong></li><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="3단계 완료">✓</span><strong class="assist-step__label">프로필 입력</strong></li><li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">4</span><strong class="assist-step__label">가입 완료</strong></li></ol>
+                <div class="signup-complete__message"><span class="signup-complete__check" aria-hidden="true">✓</span><h1 id="signup-complete-title">복덩이 가입을 축하드려요!</h1><p>계정 생성과 기본 프로필 저장·완료 처리가 확인되었습니다.</p><p id="signup-sensitive-pending-notice" class="signup-profile__notice" hidden>선택한 민감정보는 이번 가입 과정에서 저장되지 않았습니다. 후속 저장 기능이 연결되면 마이페이지에서 다시 확인해 주세요.</p><a class="btn signup-account__submit signup-complete__home" href="my-page.html">마이페이지로 가기 <span aria-hidden="true">›</span></a></div>
+            </section>
+            </div>
         </div>
     </main>
+    <dialog class="signup-consent__dialog" id="consent-dialog" aria-labelledby="consent-dialog-title"><div class="signup-consent__dialog-header"><h2 id="consent-dialog-title"></h2><button type="button" class="signup-consent__dialog-close" data-dialog-close aria-label="약관 내용 닫기">×</button></div><div id="consent-dialog-content" class="signup-consent__dialog-content"></div><div class="signup-consent__dialog-actions"><button class="btn btn-secondary" type="button" data-dialog-close>닫기</button></div></dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

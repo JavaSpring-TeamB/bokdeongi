@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="./css/signup-account.css">
     <link rel="stylesheet" href="./css/signup-profile.css">
     <script src="./js/common-ui.js" defer></script>
+    <script src="./js/auth-config.local.js" defer></script>
+    <script src="./js/auth.js" defer></script>
     <script src="./js/signup-profile.js" defer></script>
 </head>
 <body class="signup-account-page">
@@ -18,7 +20,7 @@
             <a class="site-brand" href="./index.html" aria-label="복덩이 홈"><img class="site-brand__mark" src="./img/복덩이_로고.png" alt="복덩이 캐릭터 로고"><span class="site-brand__text"><strong>복덩이</strong></span></a>
             <button class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="site-navigation"><span></span><span></span><span></span></button>
             <nav class="site-nav" id="site-navigation" aria-label="주요 메뉴">
-                <a class="site-nav__link" href="./index.html">홈</a><a class="site-nav__link" href="benefit-list.html">복지 혜택 찾기</a><a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a><a class="site-nav__link" href="application-status.html">신청 현황</a><a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a><a class="site-nav__link" href="my-page.html">마이페이지</a>
+                <a class="site-nav__link" href="./index.html">홈</a><a class="site-nav__link" href="benefit-list.html">복지 혜택 찾기</a><a class="site-nav__link" href="benefit-recommend.html">맞춤 혜택 추천</a><a class="site-nav__link" href="application-status.html">신청 현황</a><a class="site-nav__link" href="easy-translator.html">쉬운 말 번역기</a><a class="site-nav__link" href="my-page.html" hidden>마이페이지</a>
                 <span class="mobile-auth-links"><a href="login.html">로그인</a><a href="signup-account.html" aria-current="page">회원가입</a></span>
             </nav>
             <div class="header-tools" aria-label="화면 설정">
@@ -44,7 +46,7 @@
                     <li class="assist-step is-complete"><span class="assist-step__icon" aria-label="1단계 완료">✓</span><strong class="assist-step__label">계정 정보</strong></li><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="2단계 완료">✓</span><strong class="assist-step__label">약관 동의</strong></li><li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">3</span><strong class="assist-step__label">프로필 입력</strong></li><li class="assist-step"><span class="assist-step__icon" aria-hidden="true">4</span><strong class="assist-step__label">가입 완료</strong></li>
                 </ol>
                 <div class="signup-account__form-heading"><div><h2 id="profile-form-title"><span aria-hidden="true">☘</span> 프로필 입력</h2><p>복지 혜택 맞춤 추천을 위한 정보를 입력해 주세요.</p>
-                <p>마이 페이지의 프로필 수정에서 입력 내용을 수정할 수 있습니다</p>
+                <p>현재 프로필 저장 API는 로그인 인증이 필요해요. 회원가입을 완료한 뒤 로그인하여 마이페이지에서 안전하게 입력해 주세요.</p>
                 </div>
                     <p class="signup-account__required-note"><b aria-hidden="true">*</b> 필수 입력 항목입니다.</p></div>
 
@@ -100,7 +102,13 @@
                     <p id="sensitive-notice" class="signup-profile__notice" role="status">민감정보 수집·이용에 동의한 경우에만 선택할 수 있어요. 동의하지 않아도 가입할 수 있습니다.</p>
                     </div>
 
-                    <div class="signup-profile__actions"><a class="bk-btn bk-btn--outline bk-btn--lg" href="signup-consent.html">이전 단계</a><button class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="submit">가입 완료 단계로 <span aria-hidden="true">›</span></button></div>
+                    <section class="signup-profile__section" aria-labelledby="signup-completion-title">
+                        <h3 id="signup-completion-title">회원가입 완료</h3>
+                        <p class="signup-profile__help">보안을 위해 1단계에서 입력한 비밀번호는 저장하지 않았어요. 회원가입을 완료하려면 비밀번호를 다시 입력해 주세요. 위 프로필 항목은 아직 서버에 저장되지 않습니다.</p>
+                        <div class="signup-form-control"><label for="signup-final-password">비밀번호 다시 입력 <b aria-hidden="true">*</b></label><input id="signup-final-password" name="signupFinalPassword" type="password" autocomplete="new-password" maxlength="64" required aria-describedby="signup-final-password-message"><p id="signup-final-password-message" class="signup-profile__error" aria-live="polite"></p></div>
+                        <p id="signup-request-message" class="signup-profile__error" role="alert" aria-live="assertive" tabindex="-1"></p>
+                    </section>
+                    <div class="signup-profile__actions"><a class="bk-btn bk-btn--outline bk-btn--lg" href="signup-consent.html">이전 단계</a><button id="signup-complete-submit" class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="submit">회원가입 완료 <span aria-hidden="true">›</span></button></div>
                 </form>
             </section>
         </div>

@@ -228,20 +228,8 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => { toast.hidden = true; }, 3000);
 }
 
-function renderAuthLinks() {
-  const desktop = document.querySelector('#desktop-auth-links');
-  const mobile = document.querySelector('#mobile-auth-links');
-  const checking = '<span class="auth-links__status" aria-live="polite">인증 확인 중…</span>';
-  const accountLink = '<a class="auth-links__user" href="my-page.html" aria-label="내 계정">내 계정 <span aria-hidden="true">⌄</span></a>';
-  const guestLinks = '<a href="login.html">로그인</a><a class="auth-links__signup" href="signup-account.html">회원가입</a>';
-  const content = authState.status === 'checking' ? checking : authState.status === 'authenticated' ? accountLink : guestLinks;
-  if (desktop) desktop.innerHTML = content;
-  if (mobile) mobile.innerHTML = content;
-}
-
 function renderHome() {
   const state = getSectionState();
-  renderAuthLinks();
   renderSupportSummary(mockPreviewData.supportSummary, false, state);
   renderBenefitSummary(mockPreviewData.benefitSummary, state);
   renderWeeklySummary(mockPreviewData.weeklySummary, state);
