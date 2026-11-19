@@ -3,8 +3,12 @@ package com.bokdeongi.backend.sync.store;
 import com.bokdeongi.backend.benefit.service.DocumentPrepBuilder.MasterDoc;
 import com.bokdeongi.backend.eligibility.Rule;
 import com.bokdeongi.backend.eligibility.store.JsonText;
+import com.bokdeongi.backend.eligibility.label.LabelRuleCatalog;
+import com.bokdeongi.backend.sync.BenefitMapper;
 import com.bokdeongi.backend.sync.BenefitRow;
+import com.bokdeongi.backend.sync.ChangeDetector;
 import com.bokdeongi.backend.sync.ExistingBenefit;
+import com.bokdeongi.backend.sync.LabelRulePlanner;
 import com.bokdeongi.backend.sync.OrgRegionResolver.RegionRow;
 import com.bokdeongi.backend.sync.SyncPlan;
 import java.sql.Date;
@@ -14,9 +18,11 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -147,7 +153,7 @@ public class SyncStore {
      * 계획을 한 트랜잭션으로 반영한다. 중간에 실패하면 이번 변경은 모두 취소되고 마지막 성공 데이터가 남는다.
      */
     @Transactional
-    public void apply(SyncPlan plan, LocalDateTime now) {
+    public void apply(SyncPlan plan, Map<Long, ChangeDetector.Result> changes, LocalDateTime now) {
         Timestamp syncedAt = timestamp(now);
 
         // 1. 새 혜택: 여러 줄 INSERT → id 찾기 → 코드 규칙
@@ -206,6 +212,28 @@ public class SyncStore {
                     plan.updates().stream().map(u -> new Object[] {u.id(), u.id()}).toList());
         }
 
+        // 2-1. 공고 변경 감지 (DATA-08): 의미 있는 칸이 바뀐 혜택만 요약을 남긴다
+        List<Object[]> changeArgs = new ArrayList<>();
+        changes.forEach((id, c) -> {
+            if (c.changed()) {
+                List<Map<String, Object>> fields = new ArrayList<>();
+                for (ChangeDetector.Change ch : c.changes()) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("field", ch.field());
+                    m.put("label", ch.label());
+                    m.put("before", ch.before());
+                    m.put("after", ch.after());
+                    fields.add(m);
+                }
+                changeArgs.add(new Object[] {c.summary(), BenefitMapper.objects(fields), syncedAt, id});
+            }
+        });
+        if (!changeArgs.isEmpty()) {
+            jdbc.batchUpdate("""
+                    UPDATE benefits SET last_change_summary = ?, last_changed_fields = ?, last_changed_at = ?
+                    WHERE id = ?""", changeArgs);
+        }
+
         // 3. 상태·조회수만 바뀐 혜택
         if (!plan.statusChanges().isEmpty()) {
             jdbc.batchUpdate("UPDATE benefits SET status = ?, view_count = ?, synced_at = ? WHERE id = ?",
@@ -225,6 +253,91 @@ public class SyncStore {
         if (!quarantineArgs.isEmpty()) {
             jdbc.batchUpdate("UPDATE benefits SET sync_error = ?, synced_at = ? WHERE id = ?", quarantineArgs);
         }
+    }
+
+    /** 원문이 바뀐 혜택의 바뀌기 전 값 (변경 감지용, DATA-08) */
+    public Map<Long, ChangeDetector.Before> loadBefore(Collection<Long> ids) {
+        Map<Long, ChangeDetector.Before> out = new HashMap<>();
+        for (List<Long> chunk : chunks(new ArrayList<>(ids))) {
+            String in = String.join(", ", Collections.nCopies(chunk.size(), "?"));
+            jdbc.query("""
+                    SELECT id, title, apply_period_text, apply_start, apply_end, date_status, target_text, criteria_text,
+                           max_amount, amount_period, content_text, required_docs_text, apply_method_text,
+                           online_apply_url
+                    FROM benefits WHERE id IN (""" + in + ")", (rs, n) -> {
+                out.put(rs.getLong("id"), new ChangeDetector.Before(rs.getString("title"),
+                        rs.getString("apply_period_text"), localDate(rs, "apply_start"), localDate(rs, "apply_end"),
+                        rs.getString("date_status"), rs.getString("target_text"), rs.getString("criteria_text"),
+                        integer(rs, "max_amount"), rs.getString("amount_period"), rs.getString("content_text"),
+                        rs.getString("required_docs_text"), rs.getString("apply_method_text"),
+                        rs.getString("online_apply_url")));
+                return null;
+            }, chunk.toArray());
+        }
+        return out;
+    }
+
+    // ------------------------------------------------------------------ 검수 라벨 (D-93)
+
+    /** 라벨이 있는 서비스ID들의 지금 상태 */
+    public List<LabelRulePlanner.LabelTarget> loadLabelTargets(Collection<String> serviceIds) {
+        List<LabelRulePlanner.LabelTarget> out = new ArrayList<>();
+        for (List<String> chunk : chunks(new ArrayList<>(serviceIds))) {
+            String in = String.join(", ", Collections.nCopies(chunk.size(), "?"));
+            out.addAll(jdbc.query("""
+                    SELECT b.id, b.service_id, b.api_modified_at, b.rules_status, b.target_scope,
+                           (SELECT COUNT(*) FROM benefit_rules r WHERE r.benefit_id = b.id) AS total_rules,
+                           (SELECT COUNT(*) FROM benefit_rules r WHERE r.benefit_id = b.id AND r.source = 'MANUAL'
+                               AND r.source_modified_at = b.api_modified_at) AS manual_current
+                    FROM benefits b WHERE b.service_id IN (""" + in + ")",
+                    (rs, n) -> new LabelRulePlanner.LabelTarget(rs.getLong("id"), rs.getString("service_id"),
+                            localDateTime(rs, "api_modified_at"), rs.getString("rules_status"),
+                            rs.getString("target_scope"), rs.getInt("total_rules"), rs.getInt("manual_current")),
+                    chunk.toArray()));
+        }
+        return out;
+    }
+
+    /** 라벨 혜택의 규칙을 라벨로 통째로 바꾼다 (코드 규칙도 지움, 원문 우선) */
+    @Transactional
+    public void applyLabels(List<LabelRulePlanner.LabelApply> applies) {
+        if (applies.isEmpty()) {
+            return;
+        }
+        jdbc.batchUpdate("DELETE FROM benefit_rules WHERE benefit_id = ?",
+                applies.stream().map(a -> new Object[] {a.target().id()}).toList());
+        List<Object[]> rows = new ArrayList<>();
+        List<Object[]> benefitArgs = new ArrayList<>();
+        for (LabelRulePlanner.LabelApply a : applies) {
+            Timestamp modified = timestamp(a.target().apiModifiedAt());
+            for (Rule r : a.labels().rules()) {
+                rows.add(new Object[] {a.target().id(), r.group(), r.field(), r.operator().name(),
+                        JsonText.writeStrings(r.values()), r.source(), r.sourceQuote(), modified});
+            }
+            List<Map<String, Object>> unparsed = new ArrayList<>();
+            for (LabelRuleCatalog.Unparsed u : a.labels().unparsed()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("sourceQuote", u.sourceQuote());
+                m.put("ruleGroup", u.ruleGroup());
+                unparsed.add(m);
+            }
+            String unparsedJson = unparsed.isEmpty() ? null : BenefitMapper.objects(unparsed);
+            String scope = a.labels().outOfScope() ? "CORP" : a.target().targetScope();
+            benefitArgs.add(new Object[] {a.labels().rulesStatus(), unparsedJson, scope, a.target().id()});
+        }
+        for (List<Object[]> chunk : chunks(rows)) {
+            StringBuilder sql = new StringBuilder("""
+                    INSERT INTO benefit_rules (benefit_id, rule_group, field, operator, `value`, source, source_quote,
+                        source_modified_at, verified) VALUES """);
+            List<Object> args = new ArrayList<>();
+            for (int i = 0; i < chunk.size(); i++) {
+                sql.append(i == 0 ? "" : ", ").append("(?, ?, ?, ?, ?, ?, ?, ?, TRUE)");
+                Collections.addAll(args, chunk.get(i));
+            }
+            jdbc.update(sql.toString(), args.toArray());
+        }
+        jdbc.batchUpdate("UPDATE benefits SET rules_status = ?, unparsed_conditions = ?, target_scope = ? WHERE id = ?",
+                benefitArgs);
     }
 
     private void addRuleArgs(List<Object[]> out, long benefitId, BenefitRow row) {
@@ -298,6 +411,11 @@ public class SyncStore {
     private static LocalDateTime localDateTime(ResultSet rs, String column) throws SQLException {
         Timestamp t = rs.getTimestamp(column);
         return t == null ? null : t.toLocalDateTime();
+    }
+
+    private static LocalDate localDate(ResultSet rs, String column) throws SQLException {
+        Date d = rs.getDate(column);
+        return d == null ? null : d.toLocalDate();
     }
 
     private static Integer integer(ResultSet rs, String column) throws SQLException {

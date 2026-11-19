@@ -208,7 +208,7 @@ public final class BenefitMapper {
         return m;
     }
 
-    static String objects(List<Map<String, Object>> items) {
+    public static String objects(List<Map<String, Object>> items) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < items.size(); i++) {
             if (i > 0) {

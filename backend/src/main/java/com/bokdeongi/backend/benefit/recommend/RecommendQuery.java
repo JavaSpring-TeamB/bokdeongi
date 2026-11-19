@@ -38,8 +38,14 @@ public class RecommendQuery {
         this.jdbc = jdbc;
     }
 
-    /** 필터: null이면 전체. region은 시·도 이름 또는 "전국", field는 서비스 분야(benefits.service_field) */
-    public record Filter(String region, String field) {
+    /**
+     * 필터: null이면 전체. region은 시·도 이름 또는 "전국", field는 서비스 분야(benefits.service_field),
+     * hashtag는 해시태그 이름 하나 (BEN-10)
+     */
+    public record Filter(String region, String field, String hashtag) {
+        public Filter(String region, String field) {
+            this(region, field, null);
+        }
     }
 
     public List<RecommendRow> page(long userId, RecommendTab tab, Filter filter, RecommendSort sort, int page, int size) {
@@ -146,6 +152,10 @@ public class RecommendQuery {
         if (filter.field() != null) {
             sb.append(" AND b.service_field = ?");
             args.add(filter.field());
+        }
+        if (filter.hashtag() != null) {
+            sb.append(" AND JSON_CONTAINS(b.hashtags, JSON_QUOTE(?))");
+            args.add(filter.hashtag());
         }
         return sb.toString();
     }

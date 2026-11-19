@@ -25,20 +25,21 @@ public class RecommendController {
     }
 
     @Operation(summary = "맞춤 혜택 목록", description = "tab = ELIGIBLE / CONDITIONAL / NEAR_MISS, sort = RECOMMENDED / "
-            + "DEADLINE / AMOUNT / EASY, region = 시·도 이름 또는 전국, field = 서비스 분야")
+            + "DEADLINE / AMOUNT / EASY, region = 시·도 이름 또는 전국, field = 서비스 분야, hashtag = 해시태그 이름(BEN-10)")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/recommended")
     public ResponseEntity<RecommendResponse> recommended(Authentication authentication,
             @RequestParam(required = false) String tab,
             @RequestParam(required = false) String region,
             @RequestParam(required = false) String field,
+            @RequestParam(required = false) String hashtag,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {
-        return ResponseEntity.ok(service.recommended(userId(authentication), tab, region, field, sort, page, size));
+        return ResponseEntity.ok(service.recommended(userId(authentication), tab, region, field, hashtag, sort, page, size));
     }
 
-    static long userId(Authentication authentication) {
+    public static long userId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
         }
