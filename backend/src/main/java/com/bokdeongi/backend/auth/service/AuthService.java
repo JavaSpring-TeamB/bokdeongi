@@ -8,6 +8,7 @@ import com.bokdeongi.backend.auth.dto.request.SignupRequest;
 import com.bokdeongi.backend.auth.dto.response.LoginResponse;
 import com.bokdeongi.backend.auth.dto.response.LoginResult;
 import com.bokdeongi.backend.auth.dto.response.SignupResponse;
+import com.bokdeongi.backend.auth.dto.response.ConsentStatusResponse;
 import com.bokdeongi.backend.auth.entity.User;
 import com.bokdeongi.backend.auth.entity.UserConsent;
 import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
@@ -27,6 +28,7 @@ import com.bokdeongi.backend.common.exception.AccountLockedException;
 import com.bokdeongi.backend.auth.dto.request.PasswordChangeRequest;
 import com.bokdeongi.backend.eligibility.service.ProfileChangedEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -72,6 +74,12 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final LoginAttemptService loginAttemptService;
     private final ApplicationEventPublisher eventPublisher;
+
+    @Value("${app.consent.sensitive-version}")
+    private String sensitiveConsentVersion;
+
+    @Value("${app.consent.optional-info-version}")
+    private String optionalInfoConsentVersion;
 
     /* ==================== 일반 회원가입 ==================== */
 
@@ -124,6 +132,17 @@ public class AuthService {
                 savedUser.getEmail(),
                 "회원가입이 완료되었습니다."
         );
+    }
+
+    /**
+     * 회원가입 시 이메일 사용 가능 여부를 확인한다.
+     *
+     * @param email 확인할 이메일 주소
+     * @return true: 사용 가능, false: 이미 가입된 이메일
+     */
+    @Transactional(readOnly = true)
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmail(email);
     }
 
     /* ==================== 카카오 회원가입 ==================== */
@@ -380,8 +399,14 @@ public class AuthService {
             );
         }
 
-        // 2. 회원 조회
-        User user = userRepository.findById(userId)
+        // 서버에 설정된 동의 문서 버전과 요청 버전 비교
+        validateConsentVersion(
+                request.consentType(),
+                request.docVersion()
+        );
+
+        // 2. 회원 조회 및 동의 변경을 위한 쓰기 잠금
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
                                 "존재하지 않는 회원입니다."
@@ -424,6 +449,71 @@ public class AuthService {
                         request.agreed()
                 )
         );
+    }
+
+    /**
+     * 회원의 최신 동의 상태를 조회한다.
+     *
+     * 동의 이력이 없는 경우 agreed, docVersion, consentId는 null이다.
+     *
+     * @param userId 회원 ID
+     * @return 약관 유형별 최신 동의 상태
+     */
+    @Transactional(readOnly = true)
+    public ConsentStatusResponse getConsentStatus(Long userId) {
+
+        if (!userRepository.existsById(userId)) {
+            throw new IllegalArgumentException("존재하지 않는 회원입니다.");
+        }
+
+        List<ConsentStatusResponse.ConsentItem> consents =
+                List.of("OPTIONAL_INFO", "SENSITIVE")
+                        .stream()
+                        .map(consentType -> userConsentRepository
+                                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                                        userId,
+                                        consentType
+                                )
+                                .map(consent -> new ConsentStatusResponse.ConsentItem(
+                                        consentType,
+                                        consent.getAgreed(),
+                                        consent.getDocVersion(),
+                                        consent.getId()
+                                ))
+                                .orElseGet(() -> new ConsentStatusResponse.ConsentItem(
+                                        consentType,
+                                        null,
+                                        null,
+                                        null
+                                )))
+                        .toList();
+
+        return new ConsentStatusResponse(consents);
+    }
+
+    /**
+     * 동의 유형에 해당하는 서버 문서 버전을 검증한다.
+     *
+     * @param consentType 동의 유형
+     * @param docVersion 요청 문서 버전
+     */
+    private void validateConsentVersion(
+            String consentType,
+            String docVersion
+    ) {
+        String expectedVersion = switch (consentType) {
+            case "OPTIONAL_INFO" -> optionalInfoConsentVersion;
+            case "SENSITIVE" -> sensitiveConsentVersion;
+            default -> throw new IllegalArgumentException(
+                    "지원하지 않는 동의 유형입니다."
+            );
+        };
+
+        if (!expectedVersion.equals(docVersion)) {
+            throw new IllegalArgumentException(
+                    "현재 동의 문서 버전과 일치하지 않습니다."
+            );
+        }
     }
 
     /* ==================== 토큰 재발급 ==================== */

@@ -37,7 +37,6 @@ public class ProfileService {
     private final RegionRepository regionRepository;
     private final IncomeCalculationService incomeCalculationService;
 
-
     public ProfileService(
             UserRepository userRepository,
             RegionRepository regionRepository,
@@ -447,6 +446,7 @@ public class ProfileService {
         return getProfile(userId);
     }
 
+
     /**
      * PROF-01,04: 프로필 4단계 특수 상황 정보 저장.
      *
@@ -460,7 +460,8 @@ public class ProfileService {
             Long userId,
             ProfileStep4Request request
     ) {
-        User user = userRepository.findById(userId)
+        // PATCH 동의 변경과 동일한 사용자 행에 쓰기 잠금을 건다.
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
@@ -485,8 +486,45 @@ public class ProfileService {
             );
         }
 
+        // 최신 민감정보 동의 상태를 확인한다.
+        UserConsent latestSensitiveConsent = userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId,
+                        "SENSITIVE"
+                )
+                .orElse(null);
+
+        // 클라이언트가 조회한 동의 이력 ID와 서버의 최신 ID를 비교한다.
+        // 최초 동의 이력이 없는 경우에는 양쪽 모두 null이어야 한다.
+        Long latestConsentId = latestSensitiveConsent == null
+                ? null
+                : latestSensitiveConsent.getId();
+
+        if (!java.util.Objects.equals(
+                latestConsentId,
+                request.consentId()
+        )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "민감정보 동의 상태가 변경되었습니다. "
+                            + "최신 동의 상태를 다시 조회한 후 요청해 주세요."
+            );
+        }
+
+        // 최초 동의 이후에는 Step4에서 동의 상태를 변경할 수 없다.
+        // 동의 변경은 PATCH /api/auth/consents에서 처리한다.
+        if (latestSensitiveConsent != null
+                && !Boolean.valueOf(latestSensitiveConsent.getAgreed())
+                .equals(request.sensitiveAgreed())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "민감정보 동의 상태가 변경되었습니다. "
+                            + "최신 동의 상태를 확인한 후 다시 요청해 주세요."
+            );
+        }
+
         // 민감정보 코드 목록을 JSON 문자열로 관리한다.
-        // null은 입력 건너뛰기 또는 미동의를 의미한다.
         String sensitiveCodesJson = null;
 
         if (Boolean.TRUE.equals(request.sensitiveAgreed())) {
@@ -546,15 +584,18 @@ public class ProfileService {
             }
         }
 
-        // 민감정보 동의 또는 미동의 이력을 저장한다.
-        userConsentRepository.save(
-                new UserConsent(
-                        user,
-                        "SENSITIVE",
-                        currentDocVersion,
-                        Boolean.TRUE.equals(request.sensitiveAgreed())
-                )
-        );
+        // 최초 동의 이력이 없는 경우에만 동의 상태를 기록한다.
+        // 이후 동의 변경 이력은 PATCH API에서 관리한다.
+        if (latestSensitiveConsent == null) {
+            userConsentRepository.save(
+                    new UserConsent(
+                            user,
+                            "SENSITIVE",
+                            currentDocVersion,
+                            Boolean.TRUE.equals(request.sensitiveAgreed())
+                    )
+            );
+        }
 
         // 민감정보를 저장하거나 미동의 시 기존 정보를 제거한다.
         // JPA Converter가 DB 저장 시 자동으로 암호화한다.

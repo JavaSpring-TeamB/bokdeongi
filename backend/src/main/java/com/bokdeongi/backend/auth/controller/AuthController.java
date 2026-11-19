@@ -7,6 +7,7 @@ import com.bokdeongi.backend.auth.dto.request.SignupRequest;
 import com.bokdeongi.backend.auth.dto.response.LoginResponse;
 import com.bokdeongi.backend.auth.dto.response.LoginResult;
 import com.bokdeongi.backend.auth.dto.response.SignupResponse;
+import com.bokdeongi.backend.auth.dto.response.ConsentStatusResponse;
 import com.bokdeongi.backend.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -24,6 +25,8 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.bokdeongi.backend.auth.dto.request.PasswordChangeRequest;
+import com.bokdeongi.backend.auth.dto.response.EmailAvailabilityResponse;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -52,6 +55,23 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    /**
+     * 회원가입 이메일 사용 가능 여부를 조회한다.
+     *
+     * @param email 중복 확인할 이메일 주소
+     * @return 이메일 사용 가능 여부
+     */
+    @GetMapping("/email-availability")
+    public ResponseEntity<EmailAvailabilityResponse> checkEmailAvailability(
+            @RequestParam String email
+    ) {
+        boolean available = authService.isEmailAvailable(email);
+
+        return ResponseEntity.ok(
+                new EmailAvailabilityResponse(available)
+        );
     }
 
     /**
@@ -156,6 +176,25 @@ public class AuthController {
     @GetMapping("/kakao/csrf")
     public ResponseEntity<CsrfToken> kakaoCsrf(CsrfToken csrfToken) {
         return ResponseEntity.ok(csrfToken);
+    }
+
+    /**
+     * 로그인한 회원의 선택 개인정보 및 민감정보 동의 상태를 조회한다.
+     *
+     * @param authentication 인증된 사용자 정보
+     * @return 동의 유형별 최신 상태
+     */
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/consents")
+    public ResponseEntity<ConsentStatusResponse> getConsentStatus(
+            Authentication authentication
+    ) {
+        Long userId = getAuthenticatedUserId(authentication);
+
+        ConsentStatusResponse response =
+                authService.getConsentStatus(userId);
+
+        return ResponseEntity.ok(response);
     }
 
     /**

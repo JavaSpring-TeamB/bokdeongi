@@ -1,4 +1,3 @@
-
 package com.bokdeongi.backend.profile.service;
 
 import com.bokdeongi.backend.auth.entity.User;
@@ -58,7 +57,7 @@ class ProfileServiceTest {
                 objectMapper,
                 userConsentRepository,
                 eventPublisher,
-                "v1",
+                "v1.0",
                 incomeCalculationService
         );
     }
@@ -387,13 +386,16 @@ class ProfileServiceTest {
                 "UNKNOWN"
         );
 
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
         when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
 
         ProfileStep4Request request = new ProfileStep4Request(
                 true,
-                "v1",
-                null
+                "v1.0",
+                null,  // consentId: 최초 동의 이력이 없는 경우
+                null   // sensitiveCodes
         );
 
         // When: 민감정보 입력을 건너뛰고 저장
@@ -443,6 +445,8 @@ class ProfileServiceTest {
                 "UNKNOWN"
         );
 
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
         when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
 
@@ -452,7 +456,8 @@ class ProfileServiceTest {
 
         ProfileStep4Request request = new ProfileStep4Request(
                 true,
-                "v1",
+                "v1.0",
+                null,
                 List.of()
         );
 
@@ -497,6 +502,8 @@ class ProfileServiceTest {
                 "UNKNOWN"
         );
 
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
         when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
 
@@ -506,7 +513,8 @@ class ProfileServiceTest {
 
         ProfileStep4Request request = new ProfileStep4Request(
                 true,
-                "v1",
+                "v1.0",
+                null,
                 List.of("JA0301")
         );
 
@@ -554,12 +562,15 @@ class ProfileServiceTest {
         // 기존 민감정보는 엔티티에서 JSON 문자열로 관리한다.
         user.updateProfileStep4("[\"JA0301\"]");
 
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
         when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
 
         ProfileStep4Request request = new ProfileStep4Request(
                 false,
-                "v1",
+                "v1.0",
+                null,
                 null
         );
 
