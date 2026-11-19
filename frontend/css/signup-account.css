@@ -11,6 +11,8 @@
 .signup-account__benefit h2 { margin: 0; font-size: var(--font-size-description); }
 .signup-account__benefit p { margin: 1px 0 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); line-height: 1.45; }
 .signup-account__card { align-self: stretch; padding: 18px 20px; box-shadow: 0 6px 16px rgb(29 58 42 / 5%); }
+#signup-flow-card { min-width: 0; }
+#signup-flow-card > .signup-account__card { width: 100%; }
 
 .signup-account__card .signup-steps { margin: 0 0 var(--space-xl); padding: 0; list-style: none; }
 .signup-account__card .signup-steps .assist-step__icon { font-size: 1.25rem; font-weight: 700; }

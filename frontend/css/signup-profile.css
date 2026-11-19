@@ -37,5 +37,6 @@
 .signup-profile__actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
 .signup-profile__actions .bk-btn { width: 100%; }
 .signup-profile__actions .signup-account__submit { margin-top: 0; }
+#signup-login-recovery { grid-column: 1 / -1; }
 @media (max-width: 600px) { .signup-profile { display: block; height: auto; } #signup-profile-form { display: block; overflow: visible; } .signup-profile__form-scroll { display: grid; overflow: visible; padding-right: 0; } .signup-profile__grid, .signup-profile__sensitive-options { grid-template-columns: 1fr; } .signup-profile__choice { grid-column: auto; } .signup-profile__section { padding: 14px; } .signup-profile__actions { grid-template-columns: 1fr; margin-top: var(--space-md); } }
 @media (max-width: 400px) { .signup-profile__choice > div, .signup-profile__code-group > div { display: grid; grid-template-columns: 1fr; gap: var(--space-xs); } }
