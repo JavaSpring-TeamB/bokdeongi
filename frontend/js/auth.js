@@ -236,16 +236,27 @@
 
   async function authenticatedFetch(path, options = {}) {
     if (logoutPending) throw new AuthRequestError('logout-pending');
+    const { shouldRefreshOnUnauthorized, ...requestOptions } = options;
     const generation = authenticationGeneration;
-    const response = await sendAuthenticatedRequest(path, options);
+    const response = await sendAuthenticatedRequest(path, requestOptions);
     if (response.status !== 401) return response;
+
+    if (typeof shouldRefreshOnUnauthorized === 'function') {
+      let shouldRefresh;
+      try {
+        shouldRefresh = await shouldRefreshOnUnauthorized(response.clone());
+      } catch {
+        shouldRefresh = true;
+      }
+      if (shouldRefresh === false) return response;
+    }
 
     if (!isCurrentAuthenticationGeneration(generation)) return response;
 
     const status = await refreshAuthentication();
     if (status !== 'authenticated' || !isCurrentAuthenticationGeneration(generation)) return response;
 
-    const retriedResponse = await sendAuthenticatedRequest(path, options);
+    const retriedResponse = await sendAuthenticatedRequest(path, requestOptions);
     if (retriedResponse.status === 401 && isCurrentAuthenticationGeneration(generation)) {
       clearAuthentication();
       setAuthenticationState('unauthenticated');

@@ -59,6 +59,22 @@
         </div>
     </main>
 
+    <dialog id="withdrawal-dialog" class="my-page__withdraw-dialog" aria-labelledby="withdrawal-dialog-title" aria-describedby="withdrawal-dialog-description withdrawal-dialog-status">
+        <div class="my-page__withdraw-dialog-header">
+            <h2 id="withdrawal-dialog-title">회원 탈퇴</h2>
+            <button class="my-page__withdraw-dialog-close" type="button" data-withdrawal-close aria-label="회원 탈퇴 확인 닫기">×</button>
+        </div>
+        <div class="my-page__withdraw-dialog-content">
+            <p id="withdrawal-dialog-description">회원 탈퇴를 진행하면 서비스 계정과 서버에 연결된 서비스 이용 기록이 삭제되며, 되돌리기 어렵습니다.</p>
+            <p>카카오 등 외부 계정 자체의 삭제나 외부 저장소·백업·로그의 즉시 삭제를 의미하지는 않습니다.</p>
+            <p id="withdrawal-dialog-status" class="my-page__withdraw-dialog-status" role="alert" tabindex="-1"></p>
+        </div>
+        <div class="my-page__withdraw-dialog-actions">
+            <button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-withdrawal-close>취소</button>
+            <button class="bk-btn bk-btn--md my-page__withdraw-confirm" type="button" data-withdrawal-confirm>회원 탈퇴</button>
+        </div>
+    </dialog>
+
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>
