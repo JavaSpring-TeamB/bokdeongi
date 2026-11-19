@@ -41,4 +41,5 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 frontend/.cache/
+# 프론트에서 작업 중인 파일이에요 삭제하지 말아주세요
 /frontend/js/auth-config.local.js
