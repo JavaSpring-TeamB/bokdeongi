@@ -495,4 +495,20 @@ public class Benefit {
     public LocalDateTime getLastChangedAt() {
         return lastChangedAt;
     }
+
+    /**
+     * 쉬운 말·3줄 요약 저장 (EASY-01). 실패하면 status = FAILED, 글은 비운다.
+     * ai_source_modified_at에 그때의 api_modified_at을 남겨, 공고가 바뀌면 다시 만들게 한다.
+     */
+    public void applyEasy(String status, String who, String what, String how, String when, String text,
+                          LocalDateTime generatedAt) {
+        this.aiStatus = status;
+        this.summaryWho = who;
+        this.summaryWhat = what;
+        this.summaryHow = how;
+        this.summaryWhen = when;
+        this.easyText = text;
+        this.aiSourceModifiedAt = this.apiModifiedAt;
+        this.aiGeneratedAt = generatedAt;
+    }
 }
