@@ -105,17 +105,20 @@ public class SecurityConfig {
                         )
                 )
 
-
                 .authorizeHttpRequests(auth -> auth
+                        // CSRF 토큰 조회
                         .requestMatchers(
                                 "/api/auth/csrf"
                         ).permitAll()
 
+                        // 로그인 없이 접근 가능한 GET API
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/regions"
+                                "/api/regions",
+                                "/api/auth/email-availability"
                         ).permitAll()
 
+                        // 로그인 없이 접근 가능한 POST API
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/auth/signup",
@@ -123,6 +126,7 @@ public class SecurityConfig {
                                 "/api/auth/refresh"
                         ).permitAll()
 
+                        // 그 외 API는 인증 필요
                         .anyRequest().authenticated()
                 )
 
