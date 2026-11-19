@@ -1,8 +1,8 @@
 package com.bokdeongi.backend.benefit.easy;
 
 /**
- * 쉬운 말을 만드는 LLM 호출 (EASY-01). 구현은 Spring AI(Gemini)를 백엔드에 붙일 때 만든다.
- * 구현 빈이 없으면 EasyTextService는 LLM을 부르지 않고 FAILED를 돌려준다 (프론트는 원문만 보여 준다).
+ * 쉬운 말을 만드는 LLM 호출 (EASY-01). 구현은 GeminiEasyGenerator (Spring AI Gemini).
+ * 호출이 실패하거나 LLM이 꺼져 있으면 예외를 던지고, EasyTextService는 저장 없이 FAILED를 돌려준다.
  */
 public interface EasyGenerator {
 

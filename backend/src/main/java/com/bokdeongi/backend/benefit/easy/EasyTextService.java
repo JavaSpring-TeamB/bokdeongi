@@ -21,7 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       다시 부르지 않는다 (무료 한도 아끼기, 배치가 다시 만든다)</li>
  *   <li>없으면 LLM으로 만들고 EasyChecker로 검사해 통과하면 저장, 걸리면 FAILED로 저장</li>
  *   <li>LLM 호출 자체가 실패하면(한도·시간 초과) 저장하지 않고 FAILED만 돌려준다 → 다음 조회 때 다시</li>
- *   <li>LLM 구현(EasyGenerator)이 아직 없으면 FAILED → 프론트는 원문만 보여 준다</li>
+ *   <li>키가 없어 LLM이 꺼져 있으면(GeminiEasyGenerator가 예외) 저장 없이 FAILED → 프론트는 원문만 보여 준다</li>
+ *   <li>그래서 한 공고는 api_modified_at 하나당 LLM을 한 번만 부른다 (성공이든 검사 탈락이든 저장되므로)</li>
  * </ul>
  */
 @Service
@@ -49,7 +50,8 @@ public class EasyTextService {
     public EasyResponse easy(Benefit benefit) {
         boolean fresh = benefit.getAiGeneratedAt() != null
                 && Objects.equals(benefit.getAiSourceModifiedAt(), benefit.getApiModifiedAt());
-        if (fresh && DONE.equals(benefit.getAiStatus()) && benefit.getEasyText() != null) {
+        if (fresh && benefit.getEasyText() != null) {
+            // 공고 수정일시가 그대로면 글도 그대로다. 동기화가 ai_status를 PENDING으로 돌려도(종료 후 재개 등) 다시 부르지 않는다
             return done(benefit);
         }
         if (fresh && FAILED.equals(benefit.getAiStatus())) {
