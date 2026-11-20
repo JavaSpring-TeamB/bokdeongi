@@ -78,7 +78,8 @@ class ConditionExtractionServiceTest {
 
     private ConditionExtractionService service(FakeStore store, ConditionExtractor extractor, FakeEligibility e,
             Path dir) {
-        return new ConditionExtractionService(store, extractor, e, dir, () -> LocalDateTime.of(2026, 11, 20, 12, 0));
+        return new ConditionExtractionService(store, extractor, e, dir, true,
+                () -> LocalDateTime.of(2026, 11, 20, 12, 0));
     }
 
     @Test
@@ -161,6 +162,21 @@ class ConditionExtractionServiceTest {
         assertEquals(0, r.saved());
         assertEquals(1, r.failed());
         assertEquals(0, e.judged);
+    }
+
+    @Test
+    void 저장을_끄면_검수_파일만_쓰고_DB와_판정은_그대로() throws Exception {
+        FakeStore store = new FakeStore(List.of(source(1, "S1"), source(2, "S2")));
+        FakeEligibility e = new FakeEligibility();
+        ConditionExtractionService.Report r = new ConditionExtractionService(store, (s, u) -> answerFor(u), e,
+                Files.createTempDirectory("cond"), false, () -> LocalDateTime.of(2026, 11, 20, 12, 0))
+                .run(List.of("S1", "S2"));
+        assertTrue(store.saved.isEmpty());
+        assertEquals(0, e.judged);
+        assertEquals(2, r.reviewed());
+        assertEquals(0, r.saved());
+        assertEquals(0, r.failed());
+        assertEquals(1 + 2 * 6, Files.readAllLines(r.reviewFile(), StandardCharsets.UTF_8).size());
     }
 
     @Test
