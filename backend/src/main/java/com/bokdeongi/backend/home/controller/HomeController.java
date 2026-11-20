@@ -2,6 +2,8 @@ package com.bokdeongi.backend.home.controller;
 
 import com.bokdeongi.backend.home.dto.response.HomeSummaryResponse;
 import com.bokdeongi.backend.home.dto.response.HomeActivityResponse;
+import com.bokdeongi.backend.home.dto.response.HomeCalendarResponse;
+import com.bokdeongi.backend.home.service.HomeCalendarService;
 import com.bokdeongi.backend.home.service.HomeActivityService;
 import com.bokdeongi.backend.home.service.HomeService;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import java.util.Map;
@@ -27,13 +30,16 @@ public class HomeController {
 
     private final HomeService homeService;
     private final HomeActivityService homeActivityService;
+    private final HomeCalendarService homeCalendarService;
 
     public HomeController(
             HomeService homeService,
-            HomeActivityService homeActivityService
+            HomeActivityService homeActivityService,
+            HomeCalendarService homeCalendarService
     ) {
         this.homeService = homeService;
         this.homeActivityService = homeActivityService;
+        this.homeCalendarService = homeCalendarService;
     }
 
     /**
@@ -87,5 +93,29 @@ public class HomeController {
         );
 
         return Map.of("updated", updated);
+    }
+
+    /**
+     * HOME-03 홈 신청 일정 캘린더 조회.
+     *
+     * @param year 조회 연도
+     * @param month 조회 월 (1~12)
+     * @param authentication 인증된 사용자 정보
+     * @return 월별 신청 일정
+     */
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/calendar")
+    public HomeCalendarResponse getCalendar(
+            @RequestParam int year,
+            @RequestParam int month,
+            Authentication authentication
+    ) {
+        long userId = Long.parseLong(authentication.getName());
+
+        return homeCalendarService.getCalendar(
+                userId,
+                year,
+                month
+        );
     }
 }
