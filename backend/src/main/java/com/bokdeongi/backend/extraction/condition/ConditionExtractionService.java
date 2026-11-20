@@ -27,7 +27,8 @@ import org.springframework.stereotype.Service;
  *
  * <ol>
  *   <li>공고 3건씩 묶어 같은 요청을 두 번 보낸다 (D-60, D-97). 호출 수 = 2 × ⌈건수/3⌉</li>
- *   <li>공고마다 검증해(D-59·D-61) LLM 규칙으로 저장한다. 검수 라벨(MANUAL)이 있는 공고는 건너뛴다</li>
+ *   <li>공고마다 검증해(D-59·D-61) LLM 규칙으로 저장한다. 검수 라벨(MANUAL)이 있는 공고는 건너뛴다.
+ *       기본은 저장하지 않고 검수 파일만 쓴다(app.conditions.save=false). 시연 규칙은 검수를 거쳐 수동 규칙으로 들어가서다 (D-99)</li>
  *   <li>B가 검수할 파일을 쓴다. 검수한 줄은 수동 규칙으로 올린다 ({@link ConditionReviewFile})</li>
  *   <li>하나라도 저장했으면 회원 전체를 다시 판정한다</li>
  * </ol>
@@ -45,32 +46,36 @@ public class ConditionExtractionService {
     private final ConditionExtractor extractor;
     private final EligibilityService eligibility;
     private final Path reviewDir;
+    private final boolean save;
     private final Supplier<LocalDateTime> now;
 
     @Autowired
     public ConditionExtractionService(ConditionStore store, ConditionExtractor extractor,
-            EligibilityService eligibility, @Value("${app.conditions.review-dir:conditions-review}") String reviewDir) {
-        this(store, extractor, eligibility, Path.of(reviewDir), () -> LocalDateTime.now(KOREA));
+            EligibilityService eligibility, @Value("${app.conditions.review-dir:conditions-review}") String reviewDir,
+            @Value("${app.conditions.save:false}") boolean save) {
+        this(store, extractor, eligibility, Path.of(reviewDir), save, () -> LocalDateTime.now(KOREA));
     }
 
     ConditionExtractionService(ConditionStore store, ConditionExtractor extractor, EligibilityService eligibility,
-            Path reviewDir, Supplier<LocalDateTime> now) {
+            Path reviewDir, boolean save, Supplier<LocalDateTime> now) {
         this.store = store;
         this.extractor = extractor;
         this.eligibility = eligibility;
         this.reviewDir = reviewDir;
+        this.save = save;
         this.now = now;
     }
 
     /**
      * @param requested 요청한 공고 수
      * @param skipped   검수 라벨이 있어 건너뛴 수
-     * @param saved     LLM 규칙을 저장한 수
+     * @param saved     LLM 규칙을 저장한 수 (저장을 끈 실행은 0)
+     * @param reviewed  검수 파일에 줄을 남긴 공고 수
      * @param failed    호출 실패·응답 누락·저장 중 원문 변경으로 못 한 수
      * @param calls     LLM 호출 수
      */
-    public record Report(int requested, List<String> notFound, int skipped, int saved, int failed, int calls,
-            Path reviewFile, int rejudgedUsers) {
+    public record Report(int requested, List<String> notFound, int skipped, int reviewed, int saved, int failed,
+            int calls, boolean saveEnabled, Path reviewFile, int rejudgedUsers) {
     }
 
     public Report run(List<String> serviceIds) {
@@ -87,6 +92,7 @@ public class ConditionExtractionService {
 
         List<ConditionSource> targets = found.stream().filter(s -> !s.manualCurrent()).toList();
         int skipped = found.size() - targets.size();
+        int reviewed = 0;
         int saved = 0;
         int failed = 0;
         int calls = 0;
@@ -121,8 +127,12 @@ public class ConditionExtractionService {
                 ConditionValidator.ServiceRules result = ConditionValidator.validate(src, a.conditions(),
                         b.conditions());
                 review.addAll(result.review());
+                reviewed++;
                 if (src.apiModifiedAt() != null) {
                     labeledOn.put(src.serviceId(), koreaDate(src.apiModifiedAt()));
+                }
+                if (!save) {
+                    continue;
                 }
                 if (store.save(src, result)) {
                     saved++;
@@ -140,7 +150,8 @@ public class ConditionExtractionService {
             ConditionReviewFile.write(file, review, labeledOn);
         }
         int rejudged = saved > 0 ? rejudgeAll() : 0;
-        Report report = new Report(ids.size(), notFound, skipped, saved, failed, calls, file, rejudged);
+        Report report = new Report(ids.size(), notFound, skipped, reviewed, saved, failed, calls, save, file,
+                rejudged);
         log.info("조건 추출(DATA-03, {}) 결과: {}", ConditionPrompt.VERSION, report);
         return report;
     }
