@@ -115,7 +115,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/regions",
-                                "/api/auth/email-availability"
+                                "/api/auth/email-availability",
+                                "/api/benefits/search",
+                                "/api/benefits"
                         ).permitAll()
 
                         // 로그인 없이 접근 가능한 POST API
