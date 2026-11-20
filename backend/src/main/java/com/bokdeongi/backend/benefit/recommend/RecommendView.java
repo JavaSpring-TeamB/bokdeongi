@@ -154,7 +154,7 @@ public final class RecommendView {
     // ---------------------------------------------------------------- 판정 근거
 
     /** trace JSON → 화면용 목록. ruleId·group은 숫자로 바꾼다 */
-    static List<Map<String, Object>> traceOf(String json) {
+    public static List<Map<String, Object>> traceOf(String json) {
         List<Map<String, Object>> out = new ArrayList<>();
         if (json == null || json.isBlank()) {
             return out;
@@ -202,7 +202,7 @@ public final class RecommendView {
         return List.copyOf(out.values());
     }
 
-    static Check check(String field, String reason, String quote) {
+    public static Check check(String field, String reason, String quote) {
         String label = label(field);
         if (field.startsWith("ANSWER:") && "MISSING_VALUE".equals(reason)) {
             String key = field.substring("ANSWER:".length());
@@ -224,14 +224,19 @@ public final class RecommendView {
     }
 
     static NearMissInfo nearMiss(RecommendRow r, List<Map<String, Object>> trace) {
+        return nearMiss(r.nearMissReason(), trace);
+    }
+
+    /** 첫 미충족 조건 + 아깝게 탈락 이유 (신청 도우미 ① 자격 확인에서도 쓴다, ASST-02) */
+    public static NearMissInfo nearMiss(String nearMissReason, List<Map<String, Object>> trace) {
         for (Map<String, Object> t : trace) {
             if ("FAIL".equals(t.get("outcome"))) {
                 String field = String.valueOf(t.get("field"));
-                return new NearMissInfo(r.nearMissReason(), field, label(field), str(t.get("expected")),
+                return new NearMissInfo(nearMissReason, field, label(field), str(t.get("expected")),
                         str(t.get("actual")), str(t.get("sourceQuote")));
             }
         }
-        return new NearMissInfo(r.nearMissReason(), null, null, null, null, null);
+        return new NearMissInfo(nearMissReason, null, null, null, null, null);
     }
 
     public static List<String> hashtags(String json) {
@@ -244,7 +249,7 @@ public final class RecommendView {
     }
 
     /** 판정 필드 → 화면 이름. 질문·원문 확인·묶음 코드는 null */
-    static String label(String field) {
+    public static String label(String field) {
         if (field.startsWith("JA_GROUP:")) {
             return "지원 대상";
         }
