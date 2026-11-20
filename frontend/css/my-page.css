@@ -74,7 +74,7 @@
 .my-page__profile-accordion[data-profile-accordion="sensitive"] { border-color: var(--color-primary); }
 .my-page__sensitive-intro, .my-page__sensitive-notice { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-description); line-height: 1.5; }
 .my-page__sensitive-consent { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-top: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--color-primary-light); }
-.my-page__sensitive-consent label { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text); font-size: var(--font-size-description); font-weight: 600; }
+.my-page__sensitive-consent label, .my-page__sensitive-consent > span { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text); font-size: var(--font-size-description); font-weight: 600; }
 .my-page__sensitive-consent input { width: 18px; height: 18px; margin: 0; accent-color: var(--color-primary); }
 .my-page__sensitive-consent small { color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: 400; }
 .my-page__sensitive-view { padding: 4px 0; border: 0; background: transparent; color: var(--color-primary); font: inherit; font-size: var(--font-size-caption); font-weight: 600; text-decoration: underline; }
@@ -90,6 +90,7 @@
 .my-page__sensitive-withdraw > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-sm); margin-top: var(--space-sm); }
 .my-page__form-error { min-height: 1.3em; margin: calc(var(--space-sm) * -1) 0 0; color: var(--color-danger); font-size: var(--font-size-caption); }
 .my-page__profile-form-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); }
+.my-page__consent-item { margin-bottom: var(--space-md); }
 .my-page__password-form { display: grid; max-width: 560px; gap: var(--space-lg); }
 .my-page__password-form-status { margin: calc(var(--space-sm) * -1) 0 0; }
 .my-page__password-form input[aria-invalid="true"] { border-color: var(--color-danger); }
@@ -100,13 +101,16 @@
 .my-page__withdraw-dialog-header h2 { margin: 0; font-size: var(--font-size-card-title); }
 .my-page__withdraw-dialog-close { width: 32px; height: 32px; flex: 0 0 auto; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-text); font-size: 1.5rem; line-height: 1; }
 .my-page__withdraw-dialog-close:hover { background: var(--color-primary-light); color: var(--color-primary); }
-.my-page__withdraw-dialog-content { padding: var(--space-lg); color: var(--color-text-secondary); font-size: var(--font-size-description); }
+.my-page__withdraw-dialog-content { max-height: min(440px, calc(100vh - 220px)); overflow-y: auto; padding: var(--space-lg); color: var(--color-text-secondary); font-size: var(--font-size-description); }
 .my-page__withdraw-dialog-content p { margin: 0 0 var(--space-sm); }
 .my-page__withdraw-dialog-content p:last-child { margin-bottom: 0; }
 .my-page__withdraw-dialog-status { min-height: 1.5em; color: var(--color-danger); }
 .my-page__withdraw-dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); padding: 0 var(--space-lg) var(--space-lg); }
 .my-page__withdraw-confirm { border-color: var(--color-danger); background: var(--color-danger); color: var(--color-on-primary); }
 .my-page__withdraw-confirm:hover { opacity: .92; }
+.my-page__withdraw-dialog .consent-document__version { color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.my-page__withdraw-dialog .consent-document__section { margin-top: var(--space-lg); }
+.my-page__withdraw-dialog .consent-document__section h3 { margin: 0 0 var(--space-sm); color: var(--color-text); font-size: var(--font-size-description); }
 .my-page__account-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); }
 .my-page__account-button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-sm); min-height: 86px; padding: var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); text-align: left; }
 .my-page__account-button:hover { border-color: var(--color-primary); }

@@ -2,12 +2,7 @@ const $ = (selector) => document.querySelector(selector);
 const CONSENT_STORAGE_KEY = 'bokdeongi-signup-consents';
 const ACCOUNT_DRAFT_STORAGE_KEY = 'bokdeongi-signup-account-draft';
 const REQUIRED_CONSENTS = ['TERMS', 'PRIVACY'];
-const CONSENT_DOCUMENTS = {
-    TERMS: { title: '서비스 이용약관', version: '1.0' },
-    PRIVACY: { title: '개인정보 수집·이용 동의', version: '1.0' },
-    OPTIONAL_INFO: { title: '선택 정보 수집·이용 동의', version: '1.0' },
-    SENSITIVE: { title: '민감정보 수집·이용 동의', version: '1.0' }
-};
+const consentDocument = (type) => window.BokdeongiConsentDocuments?.get(type) || null;
 
 function showToast(message) {
     const toast = $('#toast');
@@ -25,7 +20,7 @@ function saveConsents() {
     const actedAt = new Date().toISOString();
     const consents = Array.from(document.querySelectorAll('[data-consent-type]')).map((input) => ({
         consent_type: input.dataset.consentType,
-        doc_version: input.dataset.docVersion,
+        doc_version: window.BokdeongiConsentDocuments?.versionFor(input.dataset.consentType) || null,
         agreed: input.checked,
         acted_at: actedAt
     }));
@@ -54,7 +49,7 @@ function clearError() {
 function validateRequiredConsents() {
     const missing = REQUIRED_CONSENTS.filter((type) => !document.querySelector(`[data-consent-type="${type}"]`).checked);
     if (!missing.length) { clearError(); return true; }
-    const labels = missing.map((type) => CONSENT_DOCUMENTS[type].title).join(', ');
+    const labels = missing.map((type) => consentDocument(type)?.title || '필수 약관').join(', ');
     const error = $('#consent-error');
     error.textContent = `필수 약관에 동의해 주세요: ${labels}.`;
     missing.forEach((type) => document.querySelector(`[data-consent-type="${type}"]`).setAttribute('aria-invalid', 'true'));
@@ -89,15 +84,12 @@ function setupConsentDialog() {
     document.addEventListener('click', (event) => {
         const viewButton = event.target.closest('[data-consent-view]');
         if (viewButton) {
-            const documentInfo = CONSENT_DOCUMENTS[viewButton.dataset.consentView];
+            const type = viewButton.dataset.consentView;
+            const documentInfo = consentDocument(type);
+            if (!documentInfo) { showToast('동의 문서를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.'); return; }
             opener = viewButton;
             title.textContent = documentInfo.title;
-            content.replaceChildren();
-            const version = document.createElement('p');
-            version.textContent = `문서 버전: ${documentInfo.version}`;
-            const pending = document.createElement('p');
-            pending.textContent = '정식 약관 문서가 아직 연결되지 않았습니다. 실제 문서가 등록되면 이 화면에서 해당 버전의 내용을 확인할 수 있습니다.';
-            content.append(version, pending);
+            window.BokdeongiConsentDocuments.renderInto(content, type);
             dialog.showModal();
             return;
         }

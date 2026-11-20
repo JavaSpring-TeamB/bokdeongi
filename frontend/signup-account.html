@@ -13,6 +13,7 @@
     <script src="./js/common-ui.js" defer></script>
     <script src="./js/auth-config.local.js" defer></script>
     <script src="./js/auth.js" defer></script>
+    <script src="./js/consent-documents.js" defer></script>
     <script src="./js/signup-account.js" defer></script>
 </head>
 <body class="signup-account-page">
@@ -110,10 +111,10 @@
                     <fieldset class="signup-consent__fieldset"><legend class="signup-consent__sr-only">약관 동의 항목</legend>
                         <div class="signup-consent__all"><input id="consent-all" type="checkbox"><label for="consent-all"><strong>전체 약관에 동의합니다.</strong><span>필수 및 선택 동의 항목을 모두 포함합니다.</span></label></div>
                         <ul class="signup-consent__list" aria-describedby="consent-error">
-                            <li class="signup-consent__item"><input id="consent-terms" name="TERMS" type="checkbox" data-consent-type="TERMS" data-doc-version="1.0"><label for="consent-terms"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>서비스 이용약관 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="TERMS">내용 보기 <span aria-hidden="true">›</span></button></li>
-                            <li class="signup-consent__item"><input id="consent-privacy" name="PRIVACY" type="checkbox" data-consent-type="PRIVACY" data-doc-version="1.0"><label for="consent-privacy"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>개인정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="PRIVACY">내용 보기 <span aria-hidden="true">›</span></button></li>
-                            <li class="signup-consent__item"><input id="consent-optional-info" name="OPTIONAL_INFO" type="checkbox" data-consent-type="OPTIONAL_INFO" data-doc-version="1.0"><label for="consent-optional-info"><span class="signup-consent__badge">선택</span><span>선택 정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="OPTIONAL_INFO">내용 보기 <span aria-hidden="true">›</span></button></li>
-                            <li class="signup-consent__item"><input id="consent-sensitive" name="SENSITIVE" type="checkbox" data-consent-type="SENSITIVE" data-doc-version="1.0"><label for="consent-sensitive"><span class="signup-consent__badge">선택</span><span>민감정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="SENSITIVE">내용 보기 <span aria-hidden="true">›</span></button></li>
+                            <li class="signup-consent__item"><input id="consent-terms" name="TERMS" type="checkbox" data-consent-type="TERMS"><label for="consent-terms"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>서비스 이용약관 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="TERMS">내용 보기 <span aria-hidden="true">›</span></button></li>
+                            <li class="signup-consent__item"><input id="consent-privacy" name="PRIVACY" type="checkbox" data-consent-type="PRIVACY"><label for="consent-privacy"><span class="signup-consent__badge signup-consent__badge--required">필수</span><span>개인정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="PRIVACY">내용 보기 <span aria-hidden="true">›</span></button></li>
+                            <li class="signup-consent__item"><input id="consent-optional-info" name="OPTIONAL_INFO" type="checkbox" data-consent-type="OPTIONAL_INFO"><label for="consent-optional-info"><span class="signup-consent__badge">선택</span><span>선택 정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="OPTIONAL_INFO">내용 보기 <span aria-hidden="true">›</span></button></li>
+                            <li class="signup-consent__item"><input id="consent-sensitive" name="SENSITIVE" type="checkbox" data-consent-type="SENSITIVE"><label for="consent-sensitive"><span class="signup-consent__badge">선택</span><span>민감정보 수집·이용 동의</span></label><button class="signup-consent__view" type="button" data-consent-view="SENSITIVE">내용 보기 <span aria-hidden="true">›</span></button></li>
                         </ul>
                         <p id="consent-error" class="signup-consent__error" role="alert" aria-live="assertive" tabindex="-1"></p>
                     </fieldset>

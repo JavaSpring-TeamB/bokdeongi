@@ -45,16 +45,24 @@ let profileEditorState = {
     gender: '', sido: '부산광역시', sigunguName: '', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
     maritalStatus: '', childrenCount: '', childrenExact: '', youngestYear: '', householdTypes: null, statusCodes: null, welfareStatus: ''
 };
-const SENSITIVE_CONSENT_STORAGE_KEY = 'bokdeongi-signup-consents';
 const SENSITIVE_OPTIONS = [
     ['JA0301', '예비부모·난임', '임신·출산 관련 지원 안내에 활용합니다.'], ['JA0302', '임산부', '임신 중 받을 수 있는 지원 안내에 활용합니다.'],
     ['JA0303', '출산·입양', '출산·입양 관련 지원 안내에 활용합니다.'], ['JA0328', '장애 관련', '장애 관련 지원 안내에 활용합니다.'],
     ['JA0329', '보훈 관련', '보훈 관련 지원 안내에 활용합니다.'], ['JA0330', '질병 관련', '질병 관련 지원 안내에 활용합니다.'],
     ['JA0401', '다문화 가구', '다문화 가구 지원 안내에 활용합니다.'], ['JA0402', '북한이탈주민', '북한이탈주민 지원 안내에 활용합니다.']
 ];
-function initialSensitiveConsent() { try { return (JSON.parse(sessionStorage.getItem(SENSITIVE_CONSENT_STORAGE_KEY)) || []).some((consent) => consent.consent_type === 'SENSITIVE' && consent.agreed === true); } catch (error) { return false; } }
-let sensitiveState = { consent: initialSensitiveConsent(), codes: null };
-let sensitiveEditState = { consent: sensitiveState.consent, codes: sensitiveState.codes };
+const CONSENT_TYPES = ['OPTIONAL_INFO', 'SENSITIVE'];
+let consentLoadState = 'checking';
+let consentLoadErrorStatus = null;
+let consentSubmittingType = null;
+let sensitiveCodesSaving = false;
+let sensitiveWithdrawalOpener = null;
+let sensitiveConsentOpener = null;
+let consentState = {
+    OPTIONAL_INFO: null,
+    SENSITIVE: null
+};
+let sensitiveEditState = { codes: null };
 
 function showToast(message) {
     const toast = $('#toast');
@@ -131,8 +139,84 @@ function applyProfileResponse(profile) {
         statusCodes: Array.isArray(profile.statusCodes) ? [...profile.statusCodes] : null,
         welfareStatus: displayValue(profile.welfareStatus, '')
     };
-    sensitiveState = { consent: false, codes: null };
     profileCompleted = profile.profileCompleted === true;
+}
+
+function isConsentItem(value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function applyConsentResponse(payload) {
+    if (!payload || !Array.isArray(payload.consents)) return false;
+
+    const byType = new Map(payload.consents
+        .filter((item) => isConsentItem(item) && CONSENT_TYPES.includes(item.consentType))
+        .map((item) => [item.consentType, item]));
+
+    consentState = Object.fromEntries(CONSENT_TYPES.map((type) => {
+        const item = byType.get(type);
+        return [type, {
+            agreed: item && typeof item.agreed === 'boolean' ? item.agreed : null,
+            docVersion: item && typeof item.docVersion === 'string' && item.docVersion ? item.docVersion : null,
+            consentId: item && Number.isSafeInteger(item.consentId) && item.consentId > 0 ? item.consentId : null
+        }];
+    }));
+
+    // 서버는 민감 코드 목록을 반환하지 않는다. 이전 브라우저 값으로 복원하지 않는다.
+    sensitiveEditState.codes = null;
+    return true;
+}
+
+function hasVerifiedSensitiveConsent() {
+    return consentLoadState === 'loaded' && consentState.SENSITIVE && consentState.SENSITIVE.agreed === true;
+}
+
+async function loadConsentStatus({ render = true } = {}) {
+    const auth = window.BokdeongiAuth;
+    if (!auth || auth.getAuthenticationState() !== 'authenticated') {
+        consentLoadState = 'error';
+        consentLoadErrorStatus = null;
+        if (render && currentSection === 'profile') renderSection();
+        return false;
+    }
+
+    consentLoadState = 'checking';
+    consentLoadErrorStatus = null;
+    if (render && currentSection === 'profile') renderSection();
+
+    try {
+        const response = await auth.authenticatedFetch('/api/auth/consents');
+        if (response.status === 401) {
+            auth.clearAuthentication();
+            profileLoadState = 'unauthenticated';
+            consentLoadState = 'error';
+            consentLoadErrorStatus = 401;
+            if (render && currentSection === 'profile') renderSection();
+            return false;
+        }
+        if (!response.ok) {
+            consentLoadState = 'error';
+            consentLoadErrorStatus = response.status;
+            if (render && currentSection === 'profile') renderSection();
+            return false;
+        }
+
+        const payload = await response.json();
+        if (!applyConsentResponse(payload)) {
+            consentLoadState = 'error';
+            if (render && currentSection === 'profile') renderSection();
+            return false;
+        }
+
+        consentLoadState = 'loaded';
+        if (render && currentSection === 'profile') renderSection();
+        return true;
+    } catch (error) {
+        consentLoadState = 'error';
+        consentLoadErrorStatus = null;
+        if (render && currentSection === 'profile') renderSection();
+        return false;
+    }
 }
 
 function renderProfileLoadState() {
@@ -177,6 +261,39 @@ function renderPasswordChange() {
         '<div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-password-change-cancel>취소</button><button class="bk-btn bk-btn--primary bk-btn--md" type="submit" data-password-change-submit>비밀번호 변경</button></div></form>';
 }
 
+function renderConsentManagement() {
+    if (consentLoadState === 'checking') {
+        return '<header class="my-page__content-header"><h2>개인정보 동의 관리</h2></header><div class="my-page__empty" role="status">서버에서 현재 동의 상태를 확인하고 있어요.</div>';
+    }
+    if (consentLoadState === 'error') {
+        const message = consentLoadErrorStatus === 401
+            ? '로그인 상태가 만료되어 동의 상태를 확인할 수 없어요. 다시 로그인해 주세요.'
+            : consentLoadErrorStatus === 403
+                ? '보안 확인에 실패해 동의 상태를 불러올 수 없어요. 잠시 후 다시 시도해 주세요.'
+                : '동의 상태를 확인하지 못했어요. 확인 전에는 변경할 수 없어요.';
+        return '<header class="my-page__content-header"><h2>개인정보 동의 관리</h2></header><div class="my-page__empty" role="alert"><p>' + message + '</p><div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-consent-back>돌아가기</button><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-consent-retry>다시 확인</button></div></div>';
+    }
+
+    const item = (type, title, description) => {
+        const consent = consentState[type];
+        const agreed = consent && consent.agreed === true;
+        const hasHistory = consent && typeof consent.agreed === 'boolean';
+        const submitting = consentSubmittingType === type;
+        const status = agreed ? '현재 상태: 동의' : hasHistory ? '현재 상태: 미동의' : '현재 상태: 동의 이력 없음';
+        const action = type === 'SENSITIVE'
+            ? agreed
+                ? '<button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-sensitive-withdraw-start' + (submitting ? ' disabled' : '') + '>' + (submitting ? '변경 중…' : '동의 철회') + '</button>'
+                : '<button class="bk-btn bk-btn--primary bk-btn--sm" type="button" data-sensitive-consent-start' + (submitting ? ' disabled' : '') + '>동의하기</button>'
+            : '<button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-optional-consent-change="' + (agreed ? 'false' : 'true') + '"' + (submitting ? ' disabled' : '') + '>' + (submitting ? '변경 중…' : agreed ? '동의 철회' : '동의하기') + '</button>';
+        return '<section class="my-page__section my-page__consent-item"><div class="my-page__section-heading"><div><h3>' + title + '</h3><p>' + description + '</p><p class="my-page__form-help">' + status + '</p></div>' + action + '</div></section>';
+    };
+
+    return '<header class="my-page__content-header"><div><h2>개인정보 동의 관리</h2><p class="my-page__content-intro">서버에 저장된 최신 동의 상태를 기준으로 변경합니다.</p></div></header>' +
+        item('OPTIONAL_INFO', '선택정보 수집·이용', '선택정보를 제공하면 맞춤 안내를 더 정확하게 받을 수 있어요.') +
+        item('SENSITIVE', '민감정보 수집·이용', '민감정보는 선택 항목이며, 철회하면 관련 정보가 삭제될 수 있어요.') +
+        '<p class="my-page__form-help">민감정보 철회 뒤 맞춤 혜택 판정 결과가 달라질 수 있으며, 재판정 완료 시점은 즉시 확정되지 않아요.</p><div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-consent-back>돌아가기</button></div>';
+}
+
 function renderProfileEditor() {
     const birthDate = profileValue('basics', '생년월일').replaceAll('.', '-');
     const field = (label, name, value, options = '') => '<label class="my-page__form-control"><span>' + label + (options.includes('required') ? ' <em aria-hidden="true">*</em>' : '') + '</span><input name="' + name + '" value="' + escapeHtml(value) + '" ' + options + '></label>';
@@ -198,8 +315,16 @@ function renderProfileEditor() {
     const childVisible = profileEditorState.childrenCount && profileEditorState.childrenCount !== '0';
     const exactChildrenVisible = profileEditorState.childrenCount === '4+';
     const sensitiveCodes = sensitiveEditState.codes;
-    const sensitiveOptions = SENSITIVE_OPTIONS.map(([code, label, description]) => '<label><input type="checkbox" name="sensitiveCodes" value="' + code + '"' + (sensitiveCodes && sensitiveCodes.includes(code) ? ' checked' : '') + (sensitiveEditState.consent ? '' : ' disabled') + '><span><strong>' + label + '</strong><small>' + description + '</small></span></label>').join('') + '<label class="my-page__sensitive-none"><input type="checkbox" name="sensitiveCodes" value="NONE" data-none' + (Array.isArray(sensitiveCodes) && sensitiveCodes.length === 0 ? ' checked' : '') + (sensitiveEditState.consent ? '' : ' disabled') + '><span><strong>해당 없음</strong><small>관련 항목이 없음을 명시합니다.</small></span></label>';
-    const sensitiveContent = '<p class="my-page__sensitive-intro">민감정보는 관련 복지 혜택을 더 정확하게 안내하기 위해 사용됩니다. 입력은 선택 사항이며, 동의 여부와 입력 내용은 변경할 수 있습니다.</p><div class="my-page__sensitive-consent"><label><input type="checkbox" data-sensitive-consent' + (sensitiveEditState.consent ? ' checked' : '') + '> 민감정보 수집·이용 동의 <small>(선택)</small></label><button class="my-page__sensitive-view" type="button" data-sensitive-consent-view>내용 보기</button></div><p class="my-page__sensitive-notice" data-sensitive-reason' + (sensitiveEditState.consent ? ' hidden' : '') + '>동의하지 않으면 민감정보를 입력할 수 없어요. 동의 후에도 입력하지 않고 건너뛸 수 있습니다.</p><div class="my-page__sensitive-options" data-exclusive-group="sensitiveCodes"' + (sensitiveEditState.consent ? '' : ' hidden') + '>' + sensitiveOptions + '</div><div class="my-page__sensitive-withdraw" data-sensitive-withdraw hidden><p>동의를 철회하면 민감정보 선택값이 이 화면에서 해제되며, 추천 혜택이 달라질 수 있어요. 실제 삭제·철회는 저장 API 연동 후 처리됩니다.</p><div><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-sensitive-withdraw-cancel>취소</button><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-sensitive-withdraw-confirm>동의 철회 확인</button></div></div>';
+    const sensitiveEnabled = hasVerifiedSensitiveConsent();
+    const sensitiveOptions = SENSITIVE_OPTIONS.map(([code, label, description]) => '<label><input type="checkbox" name="sensitiveCodes" value="' + code + '"' + (sensitiveCodes && sensitiveCodes.includes(code) ? ' checked' : '') + (sensitiveEnabled ? '' : ' disabled') + '><span><strong>' + label + '</strong><small>' + description + '</small></span></label>').join('') + '<label class="my-page__sensitive-none"><input type="checkbox" name="sensitiveCodes" value="NONE" data-none' + (Array.isArray(sensitiveCodes) && sensitiveCodes.length === 0 ? ' checked' : '') + (sensitiveEnabled ? '' : ' disabled') + '><span><strong>해당 없음</strong><small>관련 항목이 없음을 명시합니다.</small></span></label>';
+    const sensitiveMessage = consentLoadState === 'checking'
+        ? '민감정보 동의 상태를 서버에서 확인하고 있어요.'
+        : consentLoadState === 'error'
+            ? '민감정보 동의 상태를 확인하지 못했어요. 동의 상태를 확인하기 전에는 입력할 수 없어요.'
+            : sensitiveEnabled
+                ? '서버에서 동의 상태를 확인했어요. 저장된 민감 코드 목록은 보안상 다시 표시하지 않아요.'
+                : '동의하지 않은 상태예요. 정식 동의 문서가 연결된 뒤 동의 관리에서 동의하면 입력할 수 있어요.';
+    const sensitiveContent = '<p class="my-page__sensitive-intro">민감정보는 관련 복지 혜택을 더 정확하게 안내하기 위해 사용됩니다. 입력은 선택 사항이며, 동의 여부와 입력 내용은 변경할 수 있습니다.</p><div class="my-page__sensitive-consent"><span><strong>민감정보 수집·이용 동의</strong> <small>(선택)</small></span><button class="my-page__sensitive-view" type="button" data-open-consent-management>동의 관리</button></div><p class="my-page__sensitive-notice" data-sensitive-reason>' + sensitiveMessage + '</p><div class="my-page__sensitive-options" data-exclusive-group="sensitiveCodes"' + (sensitiveEnabled ? '' : ' hidden') + '>' + sensitiveOptions + '</div><div class="my-page__profile-form-actions"' + (sensitiveEnabled ? '' : ' hidden') + '><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-sensitive-codes-save' + (sensitiveCodesSaving ? ' disabled' : '') + '>' + (sensitiveCodesSaving ? '저장 중…' : '민감정보 코드 저장') + '</button></div>';
     return '<header class="my-page__content-header"><div><h2>프로필 수정</h2><p class="my-page__content-intro">변경 내용은 현재 화면에서만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.</p></div><span class="my-page__status">' + (profileCompleted ? '프로필 등록 완료' : '프로필 입력 중') + '</span></header>' +
         '<form class="my-page__profile-form" data-profile-form novalidate>' +
         '<section class="my-page__profile-form-section"><div class="my-page__section-heading"><h3>계정 고유 정보</h3><p>계정 정보는 이 화면에서 변경할 수 없어요.</p></div><div class="my-page__profile-form-grid">' +
@@ -217,6 +342,7 @@ function renderProfileEditor() {
 
 function renderProfile() {
     if (profileLoadState !== 'loaded') return renderProfileLoadState();
+    if (profileMode === 'consents') return renderConsentManagement();
     if (profileMode === 'password') return renderPasswordChange();
     return profileMode === 'edit' ? renderProfileEditor() : renderProfileView();
 }
@@ -303,6 +429,7 @@ async function loadProfile() {
         return;
     }
 
+    const consentPromise = loadConsentStatus({ render: false });
     try {
         const response = await auth.authenticatedFetch('/api/me/profile');
         if (response.status === 401) {
@@ -326,6 +453,7 @@ async function loadProfile() {
 
         applyProfileResponse(profile);
         profileLoadState = 'loaded';
+        await consentPromise;
         if (currentSection === 'profile') renderSection();
     } catch (error) {
         profileLoadState = 'error';
@@ -585,6 +713,212 @@ function addKeyword(form) {
     showToast('관심 키워드를 추가했어요. 이 변경은 현재 브라우저에서만 유지됩니다.');
 }
 
+function currentConsentDocumentVersion(type) {
+    // GET의 docVersion은 과거 동의 이력일 수 있으므로 PATCH 요청 버전으로 재사용하지 않는다.
+    return window.BokdeongiConsentDocuments?.versionFor(type) || null;
+}
+
+function getSensitiveWithdrawalDialog() {
+    return document.getElementById('sensitive-withdraw-dialog');
+}
+
+function getSensitiveConsentDialog() {
+    return document.getElementById('sensitive-consent-dialog');
+}
+
+function openSensitiveConsentDialog(opener) {
+    if (consentSubmittingType || consentLoadState !== 'loaded') return;
+    const dialog = getSensitiveConsentDialog();
+    if (!dialog) return;
+    const documentInfo = window.BokdeongiConsentDocuments?.get('SENSITIVE');
+    const content = dialog.querySelector('[data-sensitive-consent-document]');
+    const confirm = dialog.querySelector('[data-sensitive-consent-confirm]');
+    if (!documentInfo || !content) {
+        if (confirm) confirm.disabled = true;
+        showToast('민감정보 동의 문서를 불러오지 못했습니다. 동의는 진행하지 않습니다.');
+        return;
+    }
+    dialog.querySelector('#sensitive-consent-dialog-title').textContent = documentInfo.title;
+    window.BokdeongiConsentDocuments.renderInto(content, 'SENSITIVE');
+    if (confirm) confirm.disabled = false;
+    sensitiveConsentOpener = opener;
+    dialog.showModal();
+}
+
+function closeSensitiveConsentDialog() {
+    const dialog = getSensitiveConsentDialog();
+    if (dialog && dialog.open) dialog.close();
+}
+
+function openSensitiveWithdrawalDialog(opener) {
+    if (consentSubmittingType || !hasVerifiedSensitiveConsent()) return;
+    const dialog = getSensitiveWithdrawalDialog();
+    if (!dialog) return;
+    sensitiveWithdrawalOpener = opener;
+    dialog.showModal();
+}
+
+function closeSensitiveWithdrawalDialog() {
+    const dialog = getSensitiveWithdrawalDialog();
+    if (dialog && dialog.open && !consentSubmittingType) dialog.close();
+}
+
+async function changeConsent(type, agreed) {
+    if (!CONSENT_TYPES.includes(type) || consentLoadState !== 'loaded' || consentSubmittingType) return;
+    const docVersion = currentConsentDocumentVersion(type);
+    if (!docVersion) {
+        showToast('현재 동의 문서 버전을 확인하지 못했습니다. 동의는 변경하지 않습니다.');
+        return;
+    }
+    const auth = window.BokdeongiAuth;
+    if (!auth || auth.getAuthenticationState() !== 'authenticated') {
+        showToast('로그인 상태를 확인한 뒤 다시 시도해 주세요.');
+        return;
+    }
+
+    consentSubmittingType = type;
+    if (currentSection === 'profile') renderSection();
+    try {
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch('/api/auth/consents', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+            body: JSON.stringify({ consentType: type, docVersion, agreed })
+        });
+
+        if (response.status === 204) {
+            const refreshed = await loadConsentStatus({ render: false });
+            if (!refreshed) {
+                showToast('변경 결과를 다시 확인하지 못했어요. 동의 상태가 확인되기 전에는 저장 완료로 표시하지 않습니다.');
+                return;
+            }
+            if (type === 'SENSITIVE' && !agreed) sensitiveEditState.codes = null;
+            showToast(agreed ? '동의 상태를 서버에 저장했어요.' : '동의 철회 결과를 서버에서 다시 확인했어요.');
+            return;
+        }
+
+        if (response.status === 401) {
+            auth.clearAuthentication();
+            profileLoadState = 'unauthenticated';
+            showToast('로그인 상태가 만료되었어요. 다시 로그인해 주세요.');
+        } else if (response.status === 403) {
+            showToast('보안 확인에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        } else if (response.status === 409) {
+            await loadConsentStatus({ render: false });
+            showToast('동의 상태가 변경되어 최신 상태를 다시 확인했어요.');
+        } else if (response.status === 400) {
+            showToast('동의 문서 버전 또는 요청 내용을 확인해 주세요.');
+        } else if (response.status >= 500) {
+            showToast('서버 오류로 동의 상태를 변경하지 못했어요.');
+        } else {
+            showToast('동의 상태를 변경하지 못했어요. 다시 시도해 주세요.');
+        }
+    } catch (error) {
+        if (error && error.type === 'unauthenticated') {
+            auth.clearAuthentication();
+            profileLoadState = 'unauthenticated';
+            showToast('로그인 상태가 만료되었어요. 다시 로그인해 주세요.');
+        } else if (error && error.type === 'csrf') {
+            showToast('보안 확인에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        } else {
+            showToast('네트워크 오류로 동의 상태를 변경하지 못했어요.');
+        }
+    } finally {
+        consentSubmittingType = null;
+        if (currentSection === 'profile') renderSection();
+    }
+}
+
+async function saveSensitiveCodes(form) {
+    if (sensitiveCodesSaving || !hasVerifiedSensitiveConsent()) return;
+    const docVersion = currentConsentDocumentVersion('SENSITIVE');
+    if (!docVersion) {
+        showToast('현재 동의 문서 버전을 확인하지 못했습니다. 저장하지 않습니다.');
+        return;
+    }
+    const sensitiveConsent = consentState.SENSITIVE;
+    if (!sensitiveConsent || !sensitiveConsent.consentId) {
+        showToast('서버에서 확인한 동의 정보가 없어 저장할 수 없어요. 동의 상태를 다시 확인해 주세요.');
+        return;
+    }
+
+    const selectedCodes = Array.from(form.querySelectorAll('[name="sensitiveCodes"]:checked'), (input) => input.value);
+    if (!selectedCodes.length) {
+        showToast('민감정보 항목을 선택하거나 ‘해당 없음’을 선택해 주세요.');
+        return;
+    }
+    const sensitiveCodes = selectedCodes.includes('NONE') ? [] : selectedCodes.filter((code) => SENSITIVE_OPTIONS.some(([allowed]) => allowed === code));
+    if (sensitiveCodes.length !== (selectedCodes.includes('NONE') ? 0 : selectedCodes.length)) {
+        showToast('허용되지 않은 민감정보 항목이 포함되어 저장할 수 없어요.');
+        return;
+    }
+
+    const auth = window.BokdeongiAuth;
+    if (!auth || auth.getAuthenticationState() !== 'authenticated') {
+        showToast('로그인 상태를 확인한 뒤 다시 시도해 주세요.');
+        return;
+    }
+
+    sensitiveCodesSaving = true;
+    const button = form.querySelector('[data-sensitive-codes-save]');
+    if (button) { button.disabled = true; button.textContent = '저장 중…'; }
+    try {
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch('/api/me/profile/step4', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+            body: JSON.stringify({
+                sensitiveAgreed: true,
+                consentDocVersion: docVersion,
+                consentId: sensitiveConsent.consentId,
+                sensitiveCodes
+            })
+        });
+
+        if (response.status === 200) {
+            sensitiveEditState.codes = null;
+            form.querySelectorAll('[name="sensitiveCodes"]').forEach((input) => { input.checked = false; });
+            showToast('민감정보 코드 저장 요청을 완료했어요. 재판정 결과 반영 시점은 별도로 확인해 주세요.');
+            return;
+        }
+
+        if (response.status === 409) {
+            sensitiveEditState.codes = null;
+            form.querySelectorAll('[name="sensitiveCodes"]').forEach((input) => { input.checked = false; });
+            await loadConsentStatus({ render: false });
+            showToast('동의 상태가 변경되어 저장하지 않았어요. 최신 동의 상태를 다시 확인해 주세요.');
+        } else if (response.status === 401) {
+            auth.clearAuthentication();
+            profileLoadState = 'unauthenticated';
+            showToast('로그인 상태가 만료되었어요. 다시 로그인해 주세요.');
+        } else if (response.status === 403) {
+            showToast('보안 확인에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        } else if (response.status === 400) {
+            showToast('동의 정보 또는 민감정보 항목을 확인해 주세요.');
+        } else if (response.status >= 500) {
+            showToast('서버 오류로 민감정보 코드를 저장하지 못했어요.');
+        } else {
+            showToast('민감정보 코드를 저장하지 못했어요. 다시 시도해 주세요.');
+        }
+    } catch (error) {
+        if (error && error.type === 'unauthenticated') {
+            auth.clearAuthentication();
+            profileLoadState = 'unauthenticated';
+            showToast('로그인 상태가 만료되었어요. 다시 로그인해 주세요.');
+        } else if (error && error.type === 'csrf') {
+            showToast('보안 확인에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        } else {
+            showToast('네트워크 오류로 민감정보 코드를 저장하지 못했어요.');
+        }
+    } finally {
+        sensitiveCodesSaving = false;
+        if (document.body.contains(form)) {
+            const saveButton = form.querySelector('[data-sensitive-codes-save]');
+            if (saveButton) { saveButton.disabled = !hasVerifiedSensitiveConsent(); saveButton.textContent = '민감정보 코드 저장'; }
+        }
+    }
+}
+
 function saveProfile(form) {
     const values = Object.fromEntries(new FormData(form));
     const error = form.querySelector('[data-profile-form-error]');
@@ -605,9 +939,6 @@ function saveProfile(form) {
     if (values.childrenCount !== '0' && (!Number.isInteger(Number(values.youngestYear)) || Number(values.youngestYear) < 1900 || Number(values.youngestYear) > new Date().getFullYear())) { error.textContent = '막내 자녀 출생연도를 확인해 주세요.'; openAndFocus('additional', 'youngestYear'); return; }
 
     profileEditorState = { gender: values.gender, sido: values.sido, regionCode: values.regionCode, householdSize: values.householdSize, housingType: values.housingType, hasHouse: values.hasHouse, incomeInputType: values.incomeInputType, incomeAmount: values.incomeAmount || '', incomeBaseYear: values.incomeBaseYear || String(new Date().getFullYear()), maritalStatus: values.maritalStatus, childrenCount: values.childrenCount, childrenExact: values.childrenExact || '', youngestYear: values.youngestYear || '', householdTypes: valuesOf('householdTypes').includes('NONE') ? [] : exclusiveValues('householdTypes'), statusCodes: valuesOf('statusCodes').includes('NONE') ? [] : exclusiveValues('statusCodes'), welfareStatus: values.welfareStatus };
-    const selectedSensitiveCodes = valuesOf('sensitiveCodes');
-    sensitiveEditState.codes = sensitiveEditState.consent ? (selectedSensitiveCodes.includes('NONE') ? [] : selectedSensitiveCodes.length ? selectedSensitiveCodes : null) : null;
-    sensitiveState = { consent: sensitiveEditState.consent, codes: sensitiveEditState.codes === null ? null : [...sensitiveEditState.codes] };
     setProfileValue('basics', '생년월일', values.birthDate.replaceAll('-', '.'));
     setProfileValue('basics', '거주지역', values.sido);
     setProfileValue('settings', '가구 형태', values.householdSize + '인 가구');
@@ -630,23 +961,65 @@ function setupInteractions() {
             withdrawalOpener = null;
         });
     }
+    const sensitiveWithdrawalDialog = getSensitiveWithdrawalDialog();
+    if (sensitiveWithdrawalDialog) {
+        sensitiveWithdrawalDialog.addEventListener('cancel', (event) => {
+            if (consentSubmittingType) event.preventDefault();
+        });
+        sensitiveWithdrawalDialog.addEventListener('close', () => {
+            if (!consentSubmittingType && sensitiveWithdrawalOpener) sensitiveWithdrawalOpener.focus();
+            sensitiveWithdrawalOpener = null;
+        });
+    }
+    const sensitiveConsentDialog = getSensitiveConsentDialog();
+    if (sensitiveConsentDialog) {
+        sensitiveConsentDialog.addEventListener('close', () => {
+            if (sensitiveConsentOpener) sensitiveConsentOpener.focus();
+            sensitiveConsentOpener = null;
+        });
+    }
     document.addEventListener('click', (event) => {
         if (event.target.closest('[data-withdrawal-close]')) { closeWithdrawalDialog(); return; }
         if (event.target.closest('[data-withdrawal-confirm]')) { submitWithdrawal(); return; }
-        if (event.target.closest('[data-sensitive-consent-view]')) { showToast('정식 민감정보 동의 문서가 아직 연결되지 않았습니다. 가입 단계의 동의 문서와 연결 후 내용을 확인할 수 있어요.'); return; }
-        const withdrawConfirm = event.target.closest('[data-sensitive-withdraw-confirm]');
-        if (withdrawConfirm) {
-            const form = withdrawConfirm.closest('[data-profile-form]');
-            sensitiveEditState = { consent: false, codes: null };
-            form.querySelector('[data-sensitive-consent]').checked = false;
-            form.querySelector('[data-exclusive-group="sensitiveCodes"]').hidden = true;
-            form.querySelector('[data-exclusive-group="sensitiveCodes"]').querySelectorAll('input').forEach((input) => { input.checked = false; input.disabled = true; });
-            form.querySelector('[data-sensitive-reason]').hidden = false;
-            form.querySelector('[data-sensitive-withdraw]').hidden = true;
+        if (event.target.closest('[data-sensitive-withdraw-close]')) { closeSensitiveWithdrawalDialog(); return; }
+        if (event.target.closest('[data-sensitive-withdraw-confirm]')) {
+            closeSensitiveWithdrawalDialog();
+            void changeConsent('SENSITIVE', false);
             return;
         }
-        const withdrawCancel = event.target.closest('[data-sensitive-withdraw-cancel]');
-        if (withdrawCancel) { withdrawCancel.closest('[data-profile-form]').querySelector('[data-sensitive-withdraw]').hidden = true; return; }
+        if (event.target.closest('[data-sensitive-consent-close]')) { closeSensitiveConsentDialog(); return; }
+        const sensitiveConsentConfirm = event.target.closest('[data-sensitive-consent-confirm]');
+        if (sensitiveConsentConfirm) {
+            sensitiveConsentConfirm.disabled = true;
+            closeSensitiveConsentDialog();
+            void changeConsent('SENSITIVE', true);
+            return;
+        }
+        const sensitiveConsentStart = event.target.closest('[data-sensitive-consent-start]');
+        if (sensitiveConsentStart) { openSensitiveConsentDialog(sensitiveConsentStart); return; }
+        const sensitiveWithdrawStart = event.target.closest('[data-sensitive-withdraw-start]');
+        if (sensitiveWithdrawStart) { openSensitiveWithdrawalDialog(sensitiveWithdrawStart); return; }
+        const optionalConsentChange = event.target.closest('[data-optional-consent-change]');
+        if (optionalConsentChange) {
+            void changeConsent('OPTIONAL_INFO', optionalConsentChange.dataset.optionalConsentChange === 'true');
+            return;
+        }
+        if (event.target.closest('[data-consent-retry]')) { void loadConsentStatus(); return; }
+        if (event.target.closest('[data-consent-back]')) { profileMode = 'view'; renderSection(); return; }
+        if (event.target.closest('[data-open-consent-management]')) {
+            profileMode = 'consents';
+            consentLoadState = 'checking';
+            renderSection();
+            void loadConsentStatus();
+            return;
+        }
+        const sensitiveCodesSave = event.target.closest('[data-sensitive-codes-save]');
+        if (sensitiveCodesSave) {
+            const form = sensitiveCodesSave.closest('[data-profile-form]');
+            if (form) void saveSensitiveCodes(form);
+            return;
+        }
+        if (event.target.closest('[data-sensitive-consent-view]')) { openSensitiveConsentDialog(event.target.closest('[data-sensitive-consent-view]')); return; }
         const accordionToggle = event.target.closest('[data-profile-accordion-toggle]');
         if (accordionToggle) {
             const key = accordionToggle.dataset.profileAccordionToggle;
@@ -680,11 +1053,18 @@ function setupInteractions() {
             }
             return;
         }
-        if (event.target.closest('[data-profile-edit]')) { Object.assign(profileAccordion, { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false }); sensitiveEditState = { consent: sensitiveState.consent, codes: sensitiveState.codes === null ? null : [...sensitiveState.codes] }; profileMode = 'edit'; renderSection(); return; }
+        if (event.target.closest('[data-profile-edit]')) { Object.assign(profileAccordion, { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false }); sensitiveEditState = { codes: null }; profileMode = 'edit'; renderSection(); return; }
         if (event.target.closest('[data-profile-cancel]')) { profileMode = 'view'; renderSection(); return; }
         if (event.target.closest('[data-password-change-cancel]')) { passwordChangeSubmitting = false; profileMode = 'view'; renderSection(); return; }
         const accountAction = event.target.closest('[data-account-action]');
         if (accountAction) {
+            if (accountAction.dataset.accountAction === '개인정보 동의 관리') {
+                profileMode = 'consents';
+                consentLoadState = 'checking';
+                renderSection();
+                void loadConsentStatus();
+                return;
+            }
             if (accountAction.dataset.accountAction === '비밀번호 변경') {
                 passwordChangeSubmitting = false;
                 profileMode = 'password';
@@ -734,18 +1114,6 @@ function setupInteractions() {
             const exactInput = exact.querySelector('input');
             const exactVisible = event.target.value === '4+';
             exact.hidden = !exactVisible; exactInput.disabled = !exactVisible; exactInput.required = exactVisible; if (!exactVisible) exactInput.value = '';
-        }
-        if (event.target.matches('[data-sensitive-consent]')) {
-            const sensitiveOptions = form.querySelector('[data-exclusive-group="sensitiveCodes"]');
-            if (event.target.checked) {
-                sensitiveEditState.consent = true;
-                sensitiveOptions.hidden = false;
-                sensitiveOptions.querySelectorAll('input').forEach((input) => { input.disabled = false; });
-                form.querySelector('[data-sensitive-reason]').hidden = true;
-            } else {
-                event.target.checked = true;
-                form.querySelector('[data-sensitive-withdraw]').hidden = false;
-            }
         }
         const group = event.target.closest('[data-exclusive-group]');
         if (group && event.target.matches('input[type="checkbox"]')) {
