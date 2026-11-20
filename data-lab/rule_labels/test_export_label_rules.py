@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from export_label_rules import OUT_COLUMNS, export, write
+from export_label_rules import OUT_COLUMNS, export, merge, write
 
 
 class ExportLabelRulesTest(unittest.TestCase):
@@ -24,6 +24,25 @@ class ExportLabelRulesTest(unittest.TestCase):
     def test_표본에_없는_서비스는_멈춘다(self):
         with self.assertRaises(SystemExit):
             export(self.LABELS, [])
+
+    REVIEWED = [{"service_id": "999000000001", "labeled_on": "2026-11-02", "group": "0", "field": "AGE",
+                 "operator": "GTE", "values": "65", "source_quote": "65세 이상", "question": "", "labeler": "전민정",
+                 "memo": "", "status": "KEPT", "confidence": "1.00", "checks": "", "reason": ""}]
+
+    def test_검수한_LLM_줄은_자기_labeled_on을_쓴다(self):
+        rows = export(merge(self.LABELS, self.REVIEWED), self.SAMPLES)
+        self.assertEqual(3, len(rows))
+        self.assertEqual("2026-11-02", rows[2]["labeled_on"])
+        self.assertEqual(OUT_COLUMNS, list(rows[2].keys()))
+
+    def test_정답셋과_검수_파일에_같은_서비스가_있으면_멈춘다(self):
+        dup = [dict(self.REVIEWED[0], service_id="161300000099")]
+        with self.assertRaises(SystemExit):
+            merge(self.LABELS, dup)
+
+    def test_검수_줄에_labeled_on이_없으면_멈춘다(self):
+        with self.assertRaises(SystemExit):
+            merge(self.LABELS, [dict(self.REVIEWED[0], labeled_on="")])
 
     def test_파일로_쓴다(self):
         with tempfile.TemporaryDirectory() as d:
