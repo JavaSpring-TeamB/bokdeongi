@@ -5,8 +5,8 @@
 
 | 파일 | 내용 |
 | --- | --- |
-| `prompt_c4_system.txt` | system 메시지 (여러 공고를 한 번에 묻는 batch 판, aitest `ConditionPrompt.batchSystem()`과 같은 글). 백엔드 `resources/prompts/conditions-c4-system.txt`와 같아야 한다 (테스트가 본다) |
-| `prompt_c3_system.txt` | c3 기록용 (지금은 안 씀) |
+| `prompt_c5_system.txt` | system 메시지 (여러 공고를 한 번에 묻는 batch 판, aitest `ConditionPrompt.batchSystem()`과 같은 글). 백엔드 `resources/prompts/conditions-c5-system.txt`와 같아야 한다 (테스트가 본다) |
+| `prompt_c4_system.txt`, `prompt_c3_system.txt` | 기록용 (지금은 안 씀) |
 | `prompt_c3_user.txt` | user 메시지 모양 (공고마다 블록 반복, c4도 같음) |
 | `output_format.json` | 응답 JSON 모양과 예시 |
 
@@ -18,6 +18,7 @@
 | c2 | 코드 필드(HOUSEHOLD_TYPE·STATUS·SENSITIVE·HOUSING·WELFARE)는 값 하나여도 IN, 같은 필드 열거는 IN 하나, 미취업·중증 장애는 ANSWER | 30건 F1 0.95 (3.8 Flash LOW) |
 | c3 | c2 + B 검수 반영: 입학생·입학 예정자는 ANSWER / 목록 뒤 범주 이름("군인 및 농부 등 고위험군")은 ANSWER 하나, UNPARSED 없음, 필드 있는 항목은 묶음 따로 (D-98) / 농가·어가·축산(양봉·토봉)·임업은 ANSWER가 있어도 STATUS 같이 / 이름 있는 중복지원 목록은 ANSWER 한 줄 [N] / 단체·시설은 개인 질문 아님 / 서류 이름은 조건 아님, 서비스명·지원내용에서 대상 찾기 / 질병 JA0330은 병명 ANSWER 같이 | 30건 F1 0.93~0.96 (3.8 Flash LOW 2회, D-98 라벨) |
 | c4 | c3 + 중증 장애인은 SENSITIVE JA0328 + 중증 여부 ANSWER를 같은 묶음에 (질병 규칙과 같은 방식, B 라벨 449000000119) | 30건 F1 0.96 (재현율/정밀도 0.96/0.96, 완전히 같은 공고 26/30, 지어낸 근거 0, 천안 중증 정답) |
+| c5 | c4 + INCOME_PCT는 신청자 본인 가구 소득만(원가구·부모·배우자 소득은 ANSWER) / 넓은 코드에 좁은 조건이 붙으면 코드 + ANSWER 같은 묶음(장애·질병 규칙을 합침, 야간대·사이버대 STATUS JA0320 + ANSWER) / "~하며 ~한" 이어진 조건은 ANSWER 줄마다 (B 판정) | 30건 F1 0.95 (재현율/정밀도 0.98/0.92, 완전히 같은 공고 27/30, 지어낸 근거 0, 야간대 라벨 기준 1회) |
 
 ## 호출 설정 (D-97)
 

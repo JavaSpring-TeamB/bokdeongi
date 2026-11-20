@@ -109,7 +109,7 @@ class ConditionExtractionServiceTest {
         assertTrue(lines.get(0).startsWith("﻿service_id,labeled_on,group,field"));
         assertEquals(1 + 4 * 6, lines.size());
         assertTrue(lines.get(1).startsWith("S1,2026-10-28,1,AGE,BETWEEN,60;64,60~64세 주민,"));
-        assertTrue(r.reviewFile().getFileName().toString().startsWith("conditions-review-c4-20261120-120000"));
+        assertTrue(r.reviewFile().getFileName().toString().startsWith("conditions-review-c5-20261120-120000"));
     }
 
     @Test

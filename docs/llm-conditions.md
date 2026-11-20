@@ -1,7 +1,7 @@
 # LLM 판정 조건 추출 (DATA-03)
 
 공고 원문에서 "누가 받을 수 있는지" 조건을 LLM으로 뽑아 `benefit_rules`에 넣는다.
-프롬프트와 출력 형식은 C가 측정한 `data-lab/conditions/`(c4)를 그대로 쓴다.
+프롬프트와 출력 형식은 C가 측정한 `data-lab/conditions/`(c5)를 그대로 쓴다.
 
 ## 범위 (D-93)
 
