@@ -42,8 +42,8 @@ public final class ConditionFields {
     static final Set<String> NUMERIC = Set.of("AGE", "INCOME_PCT", "HOUSEHOLD_SIZE", "CHILDREN_COUNT",
             "YOUNGEST_CHILD_AGE");
 
-    /** benefit_rules.field는 60자 (v2.11). "ANSWER:" 7자를 빼면 key는 53자까지 */
-    private static final Pattern ANSWER_KEY = Pattern.compile("[a-z][a-z0-9_]{0,52}");
+    /** 답 저장 API(PUT /api/me/answers)의 key 형식과 같게 50자까지 (AnswerService.KEY). field 60자(v2.11) 안에 들어간다 */
+    private static final Pattern ANSWER_KEY = Pattern.compile("[a-z][a-z0-9_]{0,49}");
 
     private ConditionFields() {
     }
