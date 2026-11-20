@@ -21,6 +21,8 @@ import org.springframework.security.web.context.NullSecurityContextRepository;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.http.HttpStatus;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 
 import java.util.List;
 
@@ -152,8 +154,21 @@ public class SecurityConfig {
             HttpSecurity http,
             CustomOAuth2UserService customOAuth2UserService,
             OAuth2LoginSuccessHandler oauth2LoginSuccessHandler,
-            OAuth2LoginFailureHandler oauth2LoginFailureHandler
+            OAuth2LoginFailureHandler oauth2LoginFailureHandler,
+            ClientRegistrationRepository clientRegistrationRepository
     ) throws Exception {
+
+        DefaultOAuth2AuthorizationRequestResolver resolver =
+                new DefaultOAuth2AuthorizationRequestResolver(
+                        clientRegistrationRepository,
+                        "/oauth2/authorization"
+                );
+
+        resolver.setAuthorizationRequestCustomizer(builder ->
+                builder.additionalParameters(params ->
+                        params.put("prompt", "login")
+                )
+        );
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -185,6 +200,9 @@ public class SecurityConfig {
                 )
 
                 .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestResolver(resolver)
+                        )
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
                         )

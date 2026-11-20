@@ -390,6 +390,16 @@ public class User {
     /* ==================== 프로필 정보 변경 ==================== */
 
     /**
+     * 이름이 등록되지 않은 회원의 이름을 저장한다.
+     * 기존에 등록된 이름은 변경하지 않는다.
+     */
+    public void updateNameIfAbsent(String name) {
+        if (this.name == null || this.name.isBlank()) {
+            this.name = name;
+        }
+    }
+
+    /**
      * PROF-01: 프로필 1단계 기본 정보 저장.
      *
      * 생년월일, 성별, 거주지를 갱신하고

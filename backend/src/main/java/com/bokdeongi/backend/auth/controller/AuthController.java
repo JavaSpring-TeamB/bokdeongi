@@ -242,11 +242,16 @@ public class AuthController {
         // 서버에 저장된 인증 정보 무효화
         authService.logout(userId);
 
+        // Access Token 쿠키 만료
+        ResponseCookie accessCookie =
+                expireCookie("accessToken", "/");
+
         // Refresh Token 쿠키 만료
         ResponseCookie refreshCookie =
                 expireCookie("refreshToken", "/api/auth");
 
         return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .build();
     }

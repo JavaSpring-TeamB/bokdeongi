@@ -75,6 +75,12 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final ApplicationEventPublisher eventPublisher;
 
+    @Value("${app.consent.terms-version}")
+    private String termsConsentVersion;
+
+    @Value("${app.consent.privacy-version}")
+    private String privacyConsentVersion;
+
     @Value("${app.consent.sensitive-version}")
     private String sensitiveConsentVersion;
 
@@ -192,8 +198,15 @@ public class AuthService {
             );
         }
 
-        // 3. 약관 동의 검증
+        // 3. 약관 동의 및 문서 버전 검증
         validateConsents(request.consents(), true);
+
+        for (ConsentRequest consent : request.consents()) {
+            validateConsentVersion(
+                    consent.consentType(),
+                    consent.docVersion()
+            );
+        }
 
         // 4. 기존 카카오 회원 여부 확인
         if (userRepository.findByKakaoId(kakaoId).isPresent()) {
@@ -202,14 +215,31 @@ public class AuthService {
             );
         }
 
-        // 5. 카카오 회원 생성 및 저장
-        User user = User.createKakaoUser(kakaoId, nickname, email);
-        User savedUser = userRepository.saveAndFlush(user);
+        // 5. 기존 이메일 계정과 중복되는지 확인
+        if (email != null && !email.isBlank()
+                && userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException(
+                    "이미 가입된 이메일입니다. 기존 계정으로 로그인해 주세요."
+            );
+        }
 
-        // 6. 약관 동의 이력 저장
+        // 6. 카카오 회원 생성 및 저장
+        User user = User.createKakaoUser(kakaoId, nickname, email);
+        User savedUser;
+
+        try {
+            savedUser = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            // 동시 가입 요청 등으로 DB 제약 조건에 위반된 경우
+            throw new IllegalArgumentException(
+                    "회원가입 정보를 확인해주세요.", e
+            );
+        }
+
+        // 7. 약관 동의 이력 저장
         saveConsents(savedUser, request.consents());
 
-        // 7. DB 트랜잭션 커밋 성공 후 임시 가입 정보 제거
+        // 8. DB 트랜잭션 커밋 성공 후 임시 가입 정보 제거
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
@@ -502,6 +532,8 @@ public class AuthService {
             String docVersion
     ) {
         String expectedVersion = switch (consentType) {
+            case "TERMS" -> termsConsentVersion;
+            case "PRIVACY" -> privacyConsentVersion;
             case "OPTIONAL_INFO" -> optionalInfoConsentVersion;
             case "SENSITIVE" -> sensitiveConsentVersion;
             default -> throw new IllegalArgumentException(

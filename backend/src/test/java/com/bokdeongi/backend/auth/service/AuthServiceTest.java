@@ -16,6 +16,21 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
+import com.bokdeongi.backend.auth.dto.request.ConsentRequest;
+import com.bokdeongi.backend.auth.dto.request.KakaoSignupRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import java.util.List;
+
+import com.bokdeongi.backend.auth.dto.response.SignupResponse;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import org.springframework.dao.DataIntegrityViolationException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -56,6 +71,18 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(
                 authService,
                 "optionalInfoConsentVersion",
+                "v1.0"
+        );
+
+        ReflectionTestUtils.setField(
+                authService,
+                "termsConsentVersion",
+                "v1.0"
+        );
+
+        ReflectionTestUtils.setField(
+                authService,
+                "privacyConsentVersion",
                 "v1.0"
         );
     }
@@ -190,5 +217,218 @@ class AuthServiceTest {
 
         // 불필요한 프로필 변경 이벤트가 발생하지 않아야 한다.
         verifyNoInteractions(eventPublisher);
+    }
+
+
+    @Test
+    void shouldRejectKakaoSignupWhenTermsVersionMismatch() {
+        // Given: 유효한 카카오 임시 가입 세션
+        HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+
+        when(httpRequest.getSession(false)).thenReturn(session);
+        when(session.getAttribute("KAKAO_SIGNUP_ID"))
+                .thenReturn("123456789");
+        when(session.getAttribute("KAKAO_SIGNUP_CREATED_AT"))
+                .thenReturn(System.currentTimeMillis());
+
+        KakaoSignupRequest request = new KakaoSignupRequest(
+                List.of(
+                        new ConsentRequest("TERMS", "v0.9", true),
+                        new ConsentRequest("PRIVACY", "v1.0", true)
+                )
+        );
+
+        // When & Then: 약관 버전이 다르면 가입 거부
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> authService.kakaoSignup(request, httpRequest)
+        );
+
+        assertEquals(
+                "현재 동의 문서 버전과 일치하지 않습니다.",
+                exception.getMessage()
+        );
+
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void shouldRejectKakaoSignupWhenPrivacyVersionMismatch() {
+        // Given: 유효한 카카오 임시 가입 세션
+        HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+
+        when(httpRequest.getSession(false)).thenReturn(session);
+        when(session.getAttribute("KAKAO_SIGNUP_ID"))
+                .thenReturn("123456789");
+        when(session.getAttribute("KAKAO_SIGNUP_CREATED_AT"))
+                .thenReturn(System.currentTimeMillis());
+
+        KakaoSignupRequest request = new KakaoSignupRequest(
+                List.of(
+                        new ConsentRequest("TERMS", "v1.0", true),
+                        new ConsentRequest("PRIVACY", "v0.9", true)
+                )
+        );
+
+        // When & Then: 개인정보 동의 버전이 다르면 가입 거부
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> authService.kakaoSignup(request, httpRequest)
+        );
+
+        assertEquals(
+                "현재 동의 문서 버전과 일치하지 않습니다.",
+                exception.getMessage()
+        );
+
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void shouldSignupKakaoUserWhenConsentVersionsMatch() {
+        // Given: 유효한 카카오 임시 가입 세션
+        HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+
+        when(httpRequest.getSession(false)).thenReturn(session);
+        when(session.getAttribute("KAKAO_SIGNUP_ID"))
+                .thenReturn("123456789");
+        when(session.getAttribute("KAKAO_SIGNUP_CREATED_AT"))
+                .thenReturn(System.currentTimeMillis());
+        when(session.getAttribute("KAKAO_SIGNUP_NICKNAME"))
+                .thenReturn("테스트");
+        when(session.getAttribute("KAKAO_SIGNUP_EMAIL"))
+                .thenReturn("kakao@example.com");
+
+        when(userRepository.findByKakaoId("123456789"))
+                .thenReturn(Optional.empty());
+
+        when(userRepository.existsByEmail("kakao@example.com"))
+                .thenReturn(false);
+
+        when(userRepository.saveAndFlush(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        KakaoSignupRequest request = new KakaoSignupRequest(
+                List.of(
+                        new ConsentRequest("TERMS", "v1.0", true),
+                        new ConsentRequest("PRIVACY", "v1.0", true)
+                )
+        );
+
+        // 실제 트랜잭션 없이 동기화 등록을 테스트하기 위한 설정
+        TransactionSynchronizationManager.initSynchronization();
+
+        try {
+            // When: 정상 약관 버전으로 카카오 회원가입
+            SignupResponse response = assertDoesNotThrow(
+                    () -> authService.kakaoSignup(request, httpRequest)
+            );
+
+            // Then: 회원 저장 및 약관 이력 저장 확인
+            verify(userRepository).saveAndFlush(any(User.class));
+            verify(userConsentRepository, times(2))
+                    .save(any(UserConsent.class));
+
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void shouldRejectKakaoSignupWhenEmailAlreadyExists() {
+        // Given: 유효한 카카오 임시 가입 세션
+        HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+
+        when(httpRequest.getSession(false)).thenReturn(session);
+        when(session.getAttribute("KAKAO_SIGNUP_ID"))
+                .thenReturn("123456789");
+        when(session.getAttribute("KAKAO_SIGNUP_CREATED_AT"))
+                .thenReturn(System.currentTimeMillis());
+        when(session.getAttribute("KAKAO_SIGNUP_EMAIL"))
+                .thenReturn("existing@example.com");
+
+        // 기존 이메일 회원이 존재하는 상황
+        when(userRepository.findByKakaoId("123456789"))
+                .thenReturn(Optional.empty());
+        when(userRepository.existsByEmail("existing@example.com"))
+                .thenReturn(true);
+
+        KakaoSignupRequest request = new KakaoSignupRequest(
+                List.of(
+                        new ConsentRequest("TERMS", "v1.0", true),
+                        new ConsentRequest("PRIVACY", "v1.0", true)
+                )
+        );
+
+        // When: 동일 이메일로 카카오 회원가입 시도
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> authService.kakaoSignup(request, httpRequest)
+        );
+
+        // Then: 중복 이메일 안내 및 회원 생성 차단
+        assertEquals(
+                "이미 가입된 이메일입니다. 기존 계정으로 로그인해 주세요.",
+                exception.getMessage()
+        );
+
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+        verify(userConsentRepository, never()).save(any(UserConsent.class));
+    }
+
+    @Test
+    void shouldRejectKakaoSignupWhenDatabaseConstraintViolated() {
+        // Given: 유효한 카카오 임시 가입 세션
+        HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+
+        when(httpRequest.getSession(false)).thenReturn(session);
+        when(session.getAttribute("KAKAO_SIGNUP_ID"))
+                .thenReturn("123456789");
+        when(session.getAttribute("KAKAO_SIGNUP_CREATED_AT"))
+                .thenReturn(System.currentTimeMillis());
+        when(session.getAttribute("KAKAO_SIGNUP_EMAIL"))
+                .thenReturn("kakao@example.com");
+
+        // 사전 중복 검사에서는 중복이 발견되지 않음
+        when(userRepository.findByKakaoId("123456789"))
+                .thenReturn(Optional.empty());
+        when(userRepository.existsByEmail("kakao@example.com"))
+                .thenReturn(false);
+
+        // 실제 DB 저장 시 제약 조건 위반 발생
+        when(userRepository.saveAndFlush(any(User.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "Duplicate entry"
+                ));
+
+        KakaoSignupRequest request = new KakaoSignupRequest(
+                List.of(
+                        new ConsentRequest("TERMS", "v1.0", true),
+                        new ConsentRequest("PRIVACY", "v1.0", true)
+                )
+        );
+
+        // When: 카카오 회원가입 시도
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> authService.kakaoSignup(request, httpRequest)
+        );
+
+        // Then: DB 오류를 회원가입 오류로 변환
+        assertEquals(
+                "회원가입 정보를 확인해주세요.",
+                exception.getMessage()
+        );
+
+        verify(userRepository).saveAndFlush(any(User.class));
+
+        // 회원 저장 실패 시 약관 이력은 저장하지 않음
+        verify(userConsentRepository, never())
+                .save(any(UserConsent.class));
     }
 }

@@ -143,6 +143,22 @@ public class ProfileService {
                         "회원을 찾을 수 없습니다."
                 ));
 
+        // 이름이 등록되지 않은 카카오 회원은 이름 입력이 필수다.
+        if (user.getKakaoId() != null
+                && (user.getName() == null || user.getName().isBlank())) {
+
+            String name = request.name();
+
+            if (name == null || name.isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "이름을 입력해 주세요."
+                );
+            }
+
+            user.updateNameIfAbsent(name.trim());
+        }
+
         Region region = regionRepository.findById(request.regionCode())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
