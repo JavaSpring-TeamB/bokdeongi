@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "serviceId": "161300000099",
+      "conditions": [
+        {
+          "group": 0,
+          "field": "AGE",
+          "operator": "BETWEEN",
+          "values": ["19", "34"],
+          "sourceQuote": "만 19~34세 이하",
+          "question": null
+        },
+        {
+          "group": 0,
+          "field": "ANSWER:parent_household_income_100",
+          "operator": "EQ",
+          "values": ["Y"],
+          "sourceQuote": "청년 원가구*의 소득이 기준 중위소득 100% 이하",
+          "question": "부모님 가구 소득이 기준 중위소득 100% 이하인가요?"
+        }
+      ]
+    }
+  ]
+}

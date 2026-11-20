@@ -1,0 +1,10 @@
+# 공고 여러 건을 한 번에 보낼 때 user 메시지 모양. 공고마다 아래 블록을 반복한다 (N = 1, 2, 3 ...)
+# {..} 자리에 benefits 칸 원문을 그대로 넣는다. 빈 칸은 빈 문자열
+
+===== 공고 N (service_id: {service_id}) =====
+[서비스명] {title}
+[소관기관] {org_name}
+[지원대상] {target_text}
+[선정기준] {criteria_text}
+[지원내용] {content_text}
+[신청방법] {apply_method_text}
