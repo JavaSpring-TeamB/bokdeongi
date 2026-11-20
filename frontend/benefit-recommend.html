@@ -92,6 +92,14 @@
             <p class="recommend-total" aria-live="polite">총 <strong data-result-count>0</strong>건</p>
         </section>
 
+        <section class="recommend-hashtags" aria-labelledby="recommend-hashtags-title" hidden>
+            <div class="recommend-hashtags__heading">
+                <h2 id="recommend-hashtags-title">해시태그</h2>
+                <p>태그별 수는 전체 신청 가능 혜택 수예요.</p>
+            </div>
+            <div class="recommend-hashtags__list" data-hashtag-list aria-live="polite"></div>
+        </section>
+
         <section id="recommend-results" class="recommend-results" role="tabpanel" aria-labelledby="eligible-tab" aria-live="polite">
             <h2 class="sr-only">추천 혜택 목록</h2>
             <div data-recommend-list></div>

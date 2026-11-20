@@ -35,6 +35,7 @@
         tab: 'ELIGIBLE',
         region: '',
         field: '',
+        hashtag: '',
         sort: 'RECOMMENDED',
         page: 0,
         size: PAGE_SIZE
@@ -43,6 +44,9 @@
     let loadingRequestKey = null;
     let pageInfo = { page: 0, totalPages: 0, totalElements: 0 };
     let pageRecoveryScope = null;
+    let latestHashtagRequestId = 0;
+    let hashtagLoadState = 'idle';
+    let hashtagOptions = [];
     const questionSelections = new Map();
     const submittingBenefitIds = new Set();
 
@@ -63,7 +67,7 @@
     }
 
     function requestKey(state) {
-        return [state.tab, state.region, state.field, state.sort, state.page, state.size].join('|');
+        return [state.tab, state.region, state.field, state.hashtag, state.sort, state.page, state.size].join('|');
     }
 
     function setBanner(tabKey) {
@@ -154,6 +158,151 @@
         queryState.field = '';
         filterSelect('region').value = '';
         filterSelect('category').value = '';
+    }
+
+    function hashtagSection() {
+        return $('.recommend-hashtags');
+    }
+
+    function hashtagList() {
+        return $('[data-hashtag-list]');
+    }
+
+    function clearHashtagUi() {
+        latestHashtagRequestId += 1;
+        hashtagLoadState = 'idle';
+        hashtagOptions = [];
+        queryState.hashtag = '';
+        hashtagList().replaceChildren();
+        hashtagSection().hidden = true;
+    }
+
+    function parseHashtagPayload(payload) {
+        if (!isRecord(payload) || !Array.isArray(payload.tags)
+            || !Number.isSafeInteger(payload.untaggedCount) || payload.untaggedCount < 0) {
+            return null;
+        }
+        const names = new Set();
+        const tags = [];
+        for (const tag of payload.tags) {
+            if (!isRecord(tag) || typeof tag.name !== 'string' || !tag.name.trim()
+                || !Number.isSafeInteger(tag.count) || tag.count < 0
+                || (tag.category !== null && tag.category !== undefined && typeof tag.category !== 'string')
+                || (tag.description !== null && tag.description !== undefined && typeof tag.description !== 'string')) {
+                return null;
+            }
+            const name = tag.name.trim();
+            if (names.has(name)) return null;
+            names.add(name);
+            tags.push({ name, category: text(tag.category), description: text(tag.description), count: tag.count });
+        }
+        return tags;
+    }
+
+    function renderHashtagMessage(message, options = {}) {
+        const section = hashtagSection();
+        const list = hashtagList();
+        section.hidden = false;
+        const state = document.createElement('p');
+        state.className = 'recommend-hashtag-message';
+        state.setAttribute('role', options.role || 'status');
+        state.textContent = message;
+        const fragment = document.createDocumentFragment();
+        fragment.append(state);
+        if (options.retry) {
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'bk-btn bk-btn--secondary bk-btn--sm';
+            retry.textContent = '다시 시도';
+            retry.addEventListener('click', () => loadHashtags({ force: true }));
+            fragment.append(retry);
+        }
+        list.replaceChildren(fragment);
+    }
+
+    function renderHashtagOptions() {
+        const section = hashtagSection();
+        const list = hashtagList();
+        section.hidden = false;
+        if (!hashtagOptions.length) {
+            renderHashtagMessage('현재 사용할 수 있는 해시태그가 없어요.');
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        hashtagOptions.forEach((tag) => {
+            const button = document.createElement('button');
+            const selected = queryState.hashtag === tag.name;
+            button.type = 'button';
+            button.className = 'recommend-hashtag-chip';
+            button.setAttribute('aria-pressed', String(selected));
+            button.setAttribute('aria-label', '#' + tag.name + ', 전체 신청 가능 혜택 ' + tag.count + '건');
+            if (tag.description) button.title = tag.description;
+            button.textContent = '#' + tag.name + ' ' + tag.count;
+            button.addEventListener('click', () => selectHashtag(tag.name));
+            fragment.append(button);
+        });
+        list.replaceChildren(fragment);
+    }
+
+    function selectHashtag(name) {
+        if (!hashtagOptions.some((tag) => tag.name === name)) return;
+        queryState.hashtag = queryState.hashtag === name ? '' : name;
+        queryState.page = 0;
+        pageRecoveryScope = null;
+        renderHashtagOptions();
+        loadSelectedTab();
+    }
+
+    function hashtagErrorMessage(status) {
+        if (status === 403) return '해시태그 필터에 접근할 수 없어요. 잠시 후 다시 시도해 주세요.';
+        if (status >= 500) return '해시태그를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+        return '해시태그를 불러오지 못했어요. 다시 시도해 주세요.';
+    }
+
+    async function loadHashtags(options = {}) {
+        if (!window.BokdeongiAuth || window.BokdeongiAuth.getAuthenticationState() !== 'authenticated') return;
+        if (hashtagLoadState === 'loading' || (hashtagLoadState === 'ready' && !options.force)) return;
+
+        const requestId = ++latestHashtagRequestId;
+        hashtagLoadState = 'loading';
+        renderHashtagMessage('해시태그를 불러오는 중이에요.');
+        try {
+            const response = await window.BokdeongiAuth.authenticatedFetch('/api/hashtags');
+            if (requestId !== latestHashtagRequestId
+                || window.BokdeongiAuth.getAuthenticationState() !== 'authenticated') return;
+            if (response.status === 401) return;
+            if (!response.ok) {
+                hashtagLoadState = 'failed';
+                renderHashtagMessage(hashtagErrorMessage(response.status), { role: 'alert', retry: true });
+                return;
+            }
+
+            let payload;
+            try {
+                payload = await response.json();
+            } catch {
+                hashtagLoadState = 'failed';
+                renderHashtagMessage('해시태그 목록 응답을 확인하지 못했어요. 다시 시도해 주세요.', { role: 'alert', retry: true });
+                return;
+            }
+            const tags = parseHashtagPayload(payload);
+            if (requestId !== latestHashtagRequestId) return;
+            if (!tags) {
+                hashtagLoadState = 'failed';
+                renderHashtagMessage('해시태그 목록 응답을 확인하지 못했어요. 다시 시도해 주세요.', { role: 'alert', retry: true });
+                return;
+            }
+            hashtagOptions = tags;
+            hashtagLoadState = 'ready';
+            renderHashtagOptions();
+        } catch (error) {
+            if (requestId !== latestHashtagRequestId || (error && error.type === 'unauthenticated')) return;
+            hashtagLoadState = 'failed';
+            renderHashtagMessage('해시태그를 불러오지 못했어요. 네트워크 상태를 확인하고 다시 시도해 주세요.', {
+                role: 'alert', retry: true
+            });
+        }
     }
 
     function clearPagination() {
@@ -898,6 +1047,7 @@
             });
             if (requestedState.region) parameters.set('region', requestedState.region);
             if (requestedState.field) parameters.set('field', requestedState.field);
+            if (requestedState.hashtag) parameters.set('hashtag', requestedState.hashtag);
 
             const response = await window.BokdeongiAuth.authenticatedFetch('/api/benefits/recommended?' + parameters);
             if (requestId !== latestRequestId || requestedKey !== requestKey(queryState)) return;
@@ -1002,11 +1152,13 @@
         const status = event.detail && event.detail.status;
         if (status === 'authenticated') {
             loadSelectedTab();
+            loadHashtags();
         } else if (status === 'checking') {
             showState('로그인 정보를 확인하고 있어요.');
         } else {
             latestRequestId += 1;
             loadingRequestKey = null;
+            clearHashtagUi();
             showLoginGuidance();
         }
     }
@@ -1026,9 +1178,11 @@
         const status = window.BokdeongiAuth.getAuthenticationState();
         if (status === 'authenticated') {
             loadSelectedTab();
+            loadHashtags();
         } else if (status === 'checking') {
             showState('로그인 정보를 확인하고 있어요.');
         } else {
+            clearHashtagUi();
             showLoginGuidance();
         }
     });
