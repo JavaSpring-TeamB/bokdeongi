@@ -13,6 +13,7 @@
     <script src="./js/common-ui.js" defer></script>
     <script src="./js/auth-config.local.js" defer></script>
     <script src="./js/auth.js" defer></script>
+    <script src="./js/regions.js" defer></script>
     <script src="./js/consent-documents.js" defer></script>
     <script src="./js/signup-account.js" defer></script>
 </head>
@@ -133,7 +134,7 @@
                         <fieldset class="signup-profile__section" data-profile-request-step="1"><legend>기본 정보</legend><div class="signup-profile__grid">
                             <div class="signup-profile__choice"><span>성별 <b aria-hidden="true">*</b></span><div><label><input name="gender" type="radio" value="M" required> 남성</label><label><input name="gender" type="radio" value="F"> 여성</label></div></div>
                             <div class="signup-form-control"><label for="profile-sido">거주 지역 <b aria-hidden="true">*</b></label><select id="profile-sido" name="sido" required><option value="">시·도 선택</option></select></div>
-                            <div class="signup-form-control"><label for="profile-sigungu" class="signup-profile__select-label">시·군·구 <b aria-hidden="true">*</b></label><select id="profile-sigungu" name="region_code" required disabled><option value="">시·도를 먼저 선택해 주세요.</option></select></div>
+                            <div class="signup-form-control"><label for="profile-sigungu" class="signup-profile__select-label">시·군·구 <b aria-hidden="true">*</b></label><select id="profile-sigungu" name="region_code" required disabled><option value="">시·도를 먼저 선택해 주세요.</option></select><p id="profile-region-message" class="signup-form-message" aria-live="polite"></p><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-signup-region-retry hidden>지역 목록 다시 불러오기</button></div>
                         </div><p class="signup-profile__help">상세 주소와 우편번호는 수집하지 않아요.</p></fieldset>
                         <fieldset class="signup-profile__section" data-profile-request-step="2"><legend>가구 및 주거 정보</legend><div class="signup-profile__grid">
                             <div class="signup-form-control"><label for="profile-household-size">가구원 수 <b aria-hidden="true">*</b></label><select id="profile-household-size" name="household_size" required><option value="">선택해 주세요.</option><option value="1">1명</option><option value="2">2명</option><option value="3">3명</option><option value="4">4명</option><option value="5">5명 이상</option></select></div>

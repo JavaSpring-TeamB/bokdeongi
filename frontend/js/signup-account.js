@@ -1,6 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const signupState = { account: null, consents: null, sensitiveCodes: null };
 const workflow = { signupAttempted: false, accountCreated: false, authenticated: false, profileStep: 0, profileCompleted: false, submitting: false, completed: false, allowRecoveryNavigation: false };
+const emailAvailability = { status: 'unchecked', checkedEmail: '', requestId: 0 };
 const kakaoSignup = {
  requested: new URLSearchParams(window.location.search).get('kakaoSignup') === 'true',
  active: false,
@@ -10,7 +11,6 @@ const kakaoSignup = {
  outcomeUnknown: false,
  redirecting: false
 };
-const REGIONS = { '서울특별시': [['종로구','11110'],['강남구','11680'],['마포구','11440']], '부산광역시': [['중구','26110'],['해운대구','26350'],['사하구','26380']], '대구광역시': [['중구','27110'],['수성구','27260'],['달성군','27710']], '인천광역시': [['중구','28110'],['남동구','28200'],['서구','28260']], '광주광역시': [['동구','29110'],['북구','29170'],['광산구','29200']], '대전광역시': [['동구','30110'],['서구','30170'],['유성구','30200']], '울산광역시': [['중구','31110'],['남구','31140'],['울주군','31710']], '세종특별자치시': [['세종특별자치시','36110']], '경기도': [['수원시','41110'],['성남시','41130'],['고양시','41280']], '강원특별자치도': [['춘천시','42110'],['원주시','42130'],['강릉시','42150']], '충청북도': [['청주시','43110'],['충주시','43130'],['제천시','43150']], '충청남도': [['천안시','44130'],['공주시','44150'],['아산시','44200']], '전북특별자치도': [['전주시','45110'],['군산시','45130'],['익산시','45140']], '전라남도': [['목포시','46110'],['여수시','46130'],['순천시','46150']], '경상북도': [['포항시','47110'],['경주시','47130'],['구미시','47190']], '경상남도': [['창원시','48120'],['진주시','48170'],['김해시','48250']], '제주특별자치도': [['제주시','50110'],['서귀포시','50130']] };
 const MIN_BIRTH_DATE = '1900-01-01';
 const today = () => {const now=new Date(),month=String(now.getMonth()+1).padStart(2,'0'),day=String(now.getDate()).padStart(2,'0');return `${now.getFullYear()}-${month}-${day}`;};
 function notice(s, v) { const e=$(s); if(e){e.textContent=v;if(v)e.focus();} }
@@ -21,6 +21,32 @@ const REQUIRED_CONSENTS = ['TERMS', 'PRIVACY'];
 const consentDocument = (type) => window.BokdeongiConsentDocuments?.get(type) || null;
 
 function validateEmail(showEmpty=true){const input=$('#signup-email'),value=input.value.trim();if(!value){field('email',showEmpty?'이메일을 입력해 주세요.':'');return false;}if(value.length>100||!emailPattern.test(value)||!input.validity.valid){field('email','이메일 형식을 확인해 주세요.');return false;}field('email','이메일 형식이 올바릅니다.',true);return true;}
+function currentEmail(){return $('#signup-email')?.value.trim()||'';}
+function setEmailCheckButton(checking){const button=$('[data-email-check]');if(!button)return;button.disabled=checking;button.setAttribute('aria-busy',String(checking));}
+function resetEmailAvailability(){emailAvailability.requestId+=1;emailAvailability.status='unchecked';emailAvailability.checkedEmail='';setEmailCheckButton(false);}
+function hasAvailableEmail(){return emailAvailability.status==='available'&&emailAvailability.checkedEmail===currentEmail();}
+function emailAvailabilityBlockMessage(){if(emailAvailability.status==='checking')return '이메일 중복 확인이 끝날 때까지 기다려 주세요.';if(emailAvailability.status==='duplicated')return '이미 가입된 이메일입니다. 다른 이메일을 입력해 주세요.';return '이메일 중복 확인을 해주세요.';}
+async function checkEmailAvailability(){
+ if(emailAvailability.status==='checking'||!validateEmail())return;
+ const auth=window.BokdeongiAuth,email=currentEmail(),requestId=++emailAvailability.requestId;
+ emailAvailability.status='checking';emailAvailability.checkedEmail=email;setEmailCheckButton(true);field('email','이메일 중복 여부를 확인하고 있어요.',true);
+ try{
+  if(!auth)throw new Error('authentication configuration is unavailable');
+  const query=new URLSearchParams({email});
+  const response=await fetch(auth.getApiUrl(`/api/auth/email-availability?${query.toString()}`),{credentials:'include'});
+  const payload=await readJson(response);
+  if(requestId!==emailAvailability.requestId||email!==currentEmail())return;
+  if(!response.ok||!payload||typeof payload.available!=='boolean')throw new Error('invalid email availability response');
+  emailAvailability.status=payload.available?'available':'duplicated';
+  field('email',payload.available?'사용 가능한 이메일입니다.':'이미 가입된 이메일입니다. 다른 이메일을 입력해 주세요.',payload.available);
+ }catch{
+  if(requestId!==emailAvailability.requestId||email!==currentEmail())return;
+  emailAvailability.status='error';
+  field('email','이메일 중복 여부를 확인하지 못했습니다. 다시 시도해 주세요.');
+ }finally{
+  if(requestId===emailAvailability.requestId&&email===currentEmail())setEmailCheckButton(false);
+ }
+}
 function validatePassword(showEmpty=true){const value=$('#signup-password').value;if(!value){field('password',showEmpty?'비밀번호를 입력해 주세요.':'');return false;}if(value.length<8||value.length>64){field('password','비밀번호는 8~64자로 입력해 주세요.');return false;}field('password','사용 가능한 비밀번호 길이입니다.',true);return true;}
 function validatePasswordConfirm(showEmpty=true){const value=$('#signup-password-confirm').value,password=$('#signup-password').value;if(!value){field('password-confirm',showEmpty?'비밀번호를 다시 입력해 주세요.':'');return false;}if(value!==password){field('password-confirm','비밀번호가 일치하지 않습니다.');return false;}field('password-confirm','비밀번호가 일치합니다.',true);return true;}
 function validateName(showEmpty=true){const input=$('#signup-name');input.value=input.value.trim();if(!input.value){field('name',showEmpty?'이름을 입력해 주세요.':'');return false;}if(input.value.length>50){field('name','이름은 50자 이내로 입력해 주세요.');return false;}field('name','',true);return true;}
@@ -31,13 +57,13 @@ function validatePhone(showEmpty=true){const input=$('#signup-phone'),digits=pho
 function isCalendarDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const [year,month,day]=value.split('-').map(Number),date=new Date(year,month-1,day);return date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day;}
 function validateBirthDate(showEmpty=true){const input=$('#signup-birth-date'),currentDate=today(),value=input.value;input.min=MIN_BIRTH_DATE;input.max=currentDate;if(!value){field('birth-date',showEmpty?'생년월일을 입력해 주세요.':'');return false;}if(!isCalendarDate(value)){field('birth-date','생년월일을 실제 날짜 형식으로 입력해 주세요.');return false;}if(value<MIN_BIRTH_DATE){field('birth-date','생년월일은 1900-01-01부터 입력해 주세요.');return false;}if(value>currentDate){field('birth-date','생년월일은 오늘 또는 이전 날짜로 입력해 주세요.');return false;}field('birth-date','',true);return true;}
 function account(){const valid=[validateEmail(),validatePassword(),validatePasswordConfirm(),validateName(),validatePhone(),validateBirthDate()].every(Boolean);if(!valid)return null;return {email:$('#signup-email').value.trim(),password:$('#signup-password').value,name:$('#signup-name').value.trim(),phoneNumber:phoneDigits($('#signup-phone').value),birthDate:$('#signup-birth-date').value};}
-function showStep(step){const target=document.querySelector(`[data-signup-step="${step}"]`);if(!target)return false;document.querySelectorAll('[data-signup-step]').forEach(section=>{section.hidden=section!==target;});if(step==='consent')syncAllConsent();if(step==='profile')syncSensitiveProfile();target.querySelector('h2, h1, input, button')?.focus();return true;}
+function showStep(step){const target=document.querySelector(`[data-signup-step="${step}"]`);if(!target)return false;document.querySelectorAll('[data-signup-step]').forEach(section=>{section.hidden=section!==target;});if(step==='consent')syncAllConsent();if(step==='profile'){syncSensitiveProfile();void ensureSignupRegions();}target.querySelector('h2, h1, input, button')?.focus();return true;}
 function setupAccount(){const form=$('#signup-account-form'),next=$('#signup-submit'),emailCheck=$('[data-email-check]');if(!form||!next)return;$('#signup-birth-date').min=MIN_BIRTH_DATE;$('#signup-birth-date').max=today();if(signupState.account){$('#signup-email').value=signupState.account.email;$('#signup-password').value=signupState.account.password||'';$('#signup-password-confirm').value=signupState.account.password||'';$('#signup-name').value=signupState.account.name;$('#signup-phone').value=formatPhoneNumber(signupState.account.phoneNumber);$('#signup-birth-date').value=signupState.account.birthDate;}
  const validators={email:validateEmail,password:validatePassword,passwordConfirm:validatePasswordConfirm,name:validateName,phone:validatePhone,birthDate:validateBirthDate};
- form.addEventListener('input',event=>{if(event.target.name==='phone')formatPhoneInput(event.target);const validator=validators[event.target.name];if(!validator)return;validator(false);if(event.target.name==='password'&&$('#signup-password-confirm').value)validatePasswordConfirm(false);});
+ form.addEventListener('input',event=>{if(event.target.name==='phone')formatPhoneInput(event.target);if(event.target.name==='email'&&(emailAvailability.status!=='unchecked'||emailAvailability.checkedEmail!==currentEmail()))resetEmailAvailability();const validator=validators[event.target.name];if(!validator)return;validator(false);if(event.target.name==='password'&&$('#signup-password-confirm').value)validatePasswordConfirm(false);});
  form.addEventListener('blur',event=>{const validator=validators[event.target.name];if(validator)validator(true);},true);
- emailCheck?.addEventListener('click',()=>{if(!validateEmail())return;field('email','이메일 형식만 확인했습니다. 중복 여부는 회원가입 요청 시 서버에서 확인됩니다.',true);});
- const proceed=()=>{const value=account();if(!value){notice('#signup-form-message','필수 입력 항목과 입력 형식을 확인해 주세요.');return;}notice('#signup-form-message','');signupState.account=value;showStep('consent');};
+ emailCheck?.addEventListener('click',()=>{void checkEmailAvailability();});
+ const proceed=()=>{const value=account();if(!value){notice('#signup-form-message','필수 입력 항목과 입력 형식을 확인해 주세요.');return;}if(!hasAvailableEmail()){notice('#signup-form-message',emailAvailabilityBlockMessage());return;}notice('#signup-form-message','');signupState.account=value;showStep('consent');};
  next.addEventListener('click',proceed);form.addEventListener('submit',event=>{event.preventDefault();proceed();});
  form.querySelectorAll('[data-password-toggle]').forEach(button=>button.addEventListener('click',()=>{const input=$('#'+button.dataset.passwordToggle);if(!input)return;const visible=input.type==='text';input.type=visible?'password':'text';button.setAttribute('aria-pressed',String(!visible));button.setAttribute('aria-label',visible?'비밀번호 표시':'비밀번호 숨기기');button.textContent=visible?'◉':'◌';}));
  document.querySelector('[data-signup-step="consent"] [data-signup-prev="account"]')?.addEventListener('click',()=>showStep('account'));
@@ -154,7 +180,12 @@ function setupKakaoSignup(){
  handleKakaoSignupAuthenticationState(window.BokdeongiAuth.getAuthenticationState());
  window.addEventListener('bokdeongi:auth-state-change',event=>handleKakaoSignupAuthenticationState(event.detail?.status));
 }
-function setupProfileRegions(){const sido=$('#profile-sido'),sigungu=$('#profile-sigungu');if(!sido||!sigungu)return;Object.keys(REGIONS).forEach(name=>sido.add(new Option(name,name)));const updateSigungu=()=>{const regions=REGIONS[sido.value]||[];sigungu.replaceChildren(new Option(regions.length?'시·군·구 선택':'시·도를 먼저 선택해 주세요.',''));regions.forEach(([name,code])=>sigungu.add(new Option(name,code)));sigungu.disabled=!regions.length;};sido.addEventListener('change',updateSigungu);updateSigungu();}
+function signupRegionMessage(message){const target=$('#profile-region-message');if(target)target.textContent=message;}
+function signupRegionErrorMessage(){return window.BokdeongiRegions?.getError()?.code==='empty'?'현재 선택 가능한 지역 정보가 없습니다.':'지역 목록을 불러오지 못했습니다. 다시 시도해 주세요.';}
+function populateSignupSigungu(){const sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),regions=window.BokdeongiRegions?.getData()?.selectableFor(sido?.value);if(!sido||!sigungu)return;if(!regions){sigungu.disabled=true;return;}const sejong=regions.length===1&&regions[0].regionCode==='36110'&&regions[0].sigunguName===null;if(sejong){sigungu.replaceChildren(new Option(regions[0].sidoName,regions[0].regionCode));sigungu.disabled=false;return;}sigungu.replaceChildren(new Option(regions.length?'시·군·구 선택':'선택 가능한 시·군·구가 없습니다.',''));regions.forEach(region=>sigungu.add(new Option(region.sigunguName||region.sidoName,region.regionCode)));sigungu.disabled=!regions.length;}
+function renderSignupRegions(data){const sido=$('#profile-sido'),sigungu=$('#profile-sigungu');if(!sido||!sigungu)return;const selectedSido=sido.value,selectedCode=sigungu.value;sido.replaceChildren(new Option('시·도 선택',''));data.sidos.forEach(name=>sido.add(new Option(name,name)));sido.value=selectedSido;populateSignupSigungu();if(selectedCode&&[...sigungu.options].some(option=>option.value===selectedCode))sigungu.value=selectedCode;signupRegionMessage('');}
+async function ensureSignupRegions(retry=false){const provider=window.BokdeongiRegions,sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),retryButton=$('[data-signup-region-retry]');if(!provider){if(sido)sido.disabled=true;if(sigungu)sigungu.disabled=true;signupRegionMessage('지역 목록 설정을 확인하지 못했습니다.');return;}if(provider.getStatus()!=='ready'){if(sido)sido.disabled=true;if(sigungu)sigungu.disabled=true;signupRegionMessage('지역 목록을 불러오고 있어요.');}if(retryButton)retryButton.hidden=true;try{const data=await(retry?provider.retry():provider.load());renderSignupRegions(data);if(sido)sido.disabled=false;if(sigungu&&sido?.value)populateSignupSigungu();}catch{signupRegionMessage(signupRegionErrorMessage());if(retryButton)retryButton.hidden=false;}}
+function setupProfileRegions(){const sido=$('#profile-sido'),retryButton=$('[data-signup-region-retry]');if(!sido)return;sido.addEventListener('change',()=>{populateSignupSigungu();signupRegionMessage('');});retryButton?.addEventListener('click',()=>{void ensureSignupRegions(true);});}
 function sensitiveConsentGiven(){return document.querySelector('[data-signup-step="consent"] [data-consent-type="SENSITIVE"]')?.checked===true;}
 function sensitiveInputs(){return [...document.querySelectorAll('#sensitive-section input[type="checkbox"]')];}
 function captureSensitiveCodes(){if(!sensitiveConsentGiven()){signupState.sensitiveCodes=null;return;}const inputs=sensitiveInputs(),none=inputs.find(input=>input.dataset.none!==undefined),selected=inputs.filter(input=>input.dataset.sensitiveCode&&input.checked).map(input=>input.dataset.sensitiveCode);signupState.sensitiveCodes=none?.checked?[]:(selected.length?selected:null);}
