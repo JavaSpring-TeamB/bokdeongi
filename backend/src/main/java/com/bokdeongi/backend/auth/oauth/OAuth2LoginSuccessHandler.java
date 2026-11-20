@@ -30,18 +30,18 @@ import java.util.Optional;
 public class OAuth2LoginSuccessHandler
         implements AuthenticationSuccessHandler {
 
-    private static final String FRONTEND_URL =
-            "http://localhost:63342/bokdeongi/frontend/index.html";
-
     private final UserRepository userRepository;
     private final AuthService authService;
+    private final OAuthFrontendRedirectUrl frontendRedirectUrl;
 
     public OAuth2LoginSuccessHandler(
             UserRepository userRepository,
-            AuthService authService
+            AuthService authService,
+            OAuthFrontendRedirectUrl frontendRedirectUrl
     ) {
         this.userRepository = userRepository;
         this.authService = authService;
+        this.frontendRedirectUrl = frontendRedirectUrl;
     }
 
     /**
@@ -79,7 +79,7 @@ public class OAuth2LoginSuccessHandler
             saveSignupSession(request, oauth2User, kakaoId);
 
             response.sendRedirect(
-                    FRONTEND_URL + "?kakaoSignup=true"
+                    frontendRedirectUrl.kakaoSignupRequired()
             );
             return;
         }
@@ -101,7 +101,7 @@ public class OAuth2LoginSuccessHandler
         SecurityContextHolder.clearContext();
 
         // 로그인 완료 후 메인 화면으로 이동
-        response.sendRedirect(FRONTEND_URL);
+        response.sendRedirect(frontendRedirectUrl.home());
     }
 
     /**

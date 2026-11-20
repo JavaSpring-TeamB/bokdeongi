@@ -117,7 +117,7 @@
                         </ul>
                         <p id="consent-error" class="signup-consent__error" role="alert" aria-live="assertive" tabindex="-1"></p>
                     </fieldset>
-                    <div class="signup-consent__actions"><button class="bk-btn bk-btn--outline bk-btn--lg" type="button" data-signup-prev="account">이전 단계</button><button class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="button" data-signup-next="profile">다음 단계로 <span aria-hidden="true">›</span></button></div>
+                    <div class="signup-consent__actions"><button class="bk-btn bk-btn--outline bk-btn--lg" type="button" data-signup-prev="account">이전 단계</button><button class="bk-btn bk-btn--primary bk-btn--lg signup-account__submit" type="button" data-signup-next="profile">다음 단계로 <span aria-hidden="true">›</span></button><button id="kakao-signup-restart" class="bk-btn bk-btn--outline bk-btn--lg" type="button" hidden>카카오 로그인 다시 시작</button></div>
                 </form>
             </section>
 
@@ -168,7 +168,8 @@
 
             <section class="signup-account__card signup-complete__card card" data-signup-step="complete" aria-labelledby="signup-complete-title" hidden>
                 <ol class="assist-steps assist-steps--icon signup-steps" aria-label="회원가입 진행 단계"><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="1단계 완료">✓</span><strong class="assist-step__label">계정 정보</strong></li><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="2단계 완료">✓</span><strong class="assist-step__label">약관 동의</strong></li><li class="assist-step is-complete"><span class="assist-step__icon" aria-label="3단계 완료">✓</span><strong class="assist-step__label">프로필 입력</strong></li><li class="assist-step is-current" aria-current="step"><span class="assist-step__icon" aria-hidden="true">4</span><strong class="assist-step__label">가입 완료</strong></li></ol>
-                <div class="signup-complete__message"><span class="signup-complete__check" aria-hidden="true">✓</span><h1 id="signup-complete-title">복덩이 가입을 축하드려요!</h1><p>계정 생성과 기본 프로필 저장·완료 처리가 확인되었습니다.</p><p id="signup-sensitive-pending-notice" class="signup-profile__notice" hidden>선택한 민감정보는 이번 가입 과정에서 저장되지 않았습니다. 후속 저장 기능이 연결되면 마이페이지에서 다시 확인해 주세요.</p><a class="btn signup-account__submit signup-complete__home" href="my-page.html">마이페이지로 가기 <span aria-hidden="true">›</span></a></div>
+                <div id="email-signup-complete-content" class="signup-complete__message"><span class="signup-complete__check" aria-hidden="true">✓</span><h1 id="signup-complete-title">복덩이 가입을 축하드려요!</h1><p>계정 생성과 기본 프로필 저장·완료 처리가 확인되었습니다.</p><p id="signup-sensitive-pending-notice" class="signup-profile__notice" hidden>선택한 민감정보는 이번 가입 과정에서 저장되지 않았습니다. 후속 저장 기능이 연결되면 마이페이지에서 다시 확인해 주세요.</p><a class="btn signup-account__submit signup-complete__home" href="my-page.html">마이페이지로 가기 <span aria-hidden="true">›</span></a></div>
+                <div id="kakao-signup-complete-content" class="signup-complete__message" hidden><span class="signup-complete__check" aria-hidden="true">✓</span><h1>카카오 가입이 완료되었어요</h1><p>가입만 완료된 상태입니다. 안전하게 로그인하려면 아래 버튼을 눌러 카카오 로그인을 다시 진행해 주세요.</p><button id="kakao-signup-relogin" class="btn signup-account__submit signup-complete__home" type="button">카카오로 로그인하기 <span aria-hidden="true">›</span></button></div>
             </section>
             </div>
         </div>

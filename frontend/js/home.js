@@ -12,6 +12,11 @@ function isDevelopmentPreviewEnabled() {
 const AUTH_STATES = new Set(['checking', 'authenticated', 'unauthenticated', 'error']);
 const authState = { status: 'checking' };
 const developmentPreview = { enabled: isDevelopmentPreviewEnabled(), mockLogin: false, dashboardState: 'ready' };
+const oauthParameters = new URLSearchParams(window.location.search);
+const oauthResult = {
+  kakaoSignupRequested: oauthParameters.get('login') !== 'failed' && oauthParameters.get('kakaoSignup') === 'true',
+  kakaoSignupHandled: false
+};
 
 function formatDateKey(year, monthIndex, day) {
   return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -228,6 +233,36 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => { toast.hidden = true; }, 3000);
 }
 
+function showOAuthResultNotice() {
+  const parameters = new URLSearchParams(window.location.search);
+
+  if (parameters.get('login') === 'failed') {
+    showToast('카카오 로그인을 완료하지 못했습니다. 다시 시도해 주세요.');
+    window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.hash}`);
+  }
+}
+
+function handleKakaoSignupRedirect() {
+  if (!oauthResult.kakaoSignupRequested || oauthResult.kakaoSignupHandled) return;
+  if (authState.status === 'checking') return;
+
+  oauthResult.kakaoSignupHandled = true;
+
+  if (authState.status === 'authenticated') {
+    showToast('로그인된 계정이 있어 카카오 가입 절차를 시작하지 않았습니다.');
+    window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.hash}`);
+    return;
+  }
+
+  if (authState.status === 'unauthenticated') {
+    window.location.replace('signup-account.html?kakaoSignup=true');
+    return;
+  }
+
+  showToast('인증 상태를 확인하지 못해 카카오 가입 절차를 시작하지 않았습니다. 다시 로그인해 주세요.');
+  window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.hash}`);
+}
+
 function renderHome() {
   const state = getSectionState();
   renderSupportSummary(mockPreviewData.supportSummary, false, state);
@@ -266,6 +301,7 @@ function setAuthenticationStatus(status) {
   if (!AUTH_STATES.has(status)) return;
   authState.status = status;
   renderHome();
+  handleKakaoSignupRedirect();
 }
 
 window.addEventListener('bokdeongi:auth-state-change', (event) => {
@@ -312,6 +348,7 @@ function initializeHome() {
   renderHome();
   updateDevelopmentPreview();
   bindEvents();
+  showOAuthResultNotice();
   if (!window.BokdeongiAuth) {
     setAuthenticationStatus('error');
     return;
