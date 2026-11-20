@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,14 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
     private static final Logger log =
             LoggerFactory.getLogger(OAuth2LoginFailureHandler.class);
 
+    private final OAuthFrontendRedirectUrl frontendRedirectUrl;
+
+    public OAuth2LoginFailureHandler(
+            OAuthFrontendRedirectUrl frontendRedirectUrl
+    ) {
+        this.frontendRedirectUrl = frontendRedirectUrl;
+    }
+
     /**
      * 카카오 인증 실패 시 실행된다.
      */
@@ -32,17 +41,21 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
             AuthenticationException exception
     ) throws IOException {
 
-        // 인증 실패 유형과 원인을 서버 로그에 기록
-        log.warn(
-                "카카오 로그인 실패: {}",
-                exception.getClass().getSimpleName()
-        );
+        String oauth2ErrorCode =
+                exception instanceof OAuth2AuthenticationException oauth2Exception
+                        ? oauth2Exception.getError().getErrorCode()
+                        : "not_available";
 
-        log.debug("카카오 로그인 실패 상세", exception);
+        // 인증 코드·state·토큰·세션·개인정보 없이 실패 분류만 기록
+        log.warn(
+                "카카오 로그인 실패: stage=oauth2-callback, type={}, oauth2Error={}",
+                exception.getClass().getSimpleName(),
+                oauth2ErrorCode
+        );
 
         // 로그인 실패 결과를 프론트엔드에 전달
         response.sendRedirect(
-                "http://localhost:63342/bokdeongi/frontend/index.html?login=failed"
+                frontendRedirectUrl.loginFailed()
         );
     }
 }

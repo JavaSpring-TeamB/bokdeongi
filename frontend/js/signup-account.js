@@ -1,6 +1,15 @@
 const $ = (s) => document.querySelector(s);
 const signupState = { account: null, consents: null, sensitiveCodes: null };
 const workflow = { signupAttempted: false, accountCreated: false, authenticated: false, profileStep: 0, profileCompleted: false, submitting: false, completed: false, allowRecoveryNavigation: false };
+const kakaoSignup = {
+ requested: new URLSearchParams(window.location.search).get('kakaoSignup') === 'true',
+ active: false,
+ submitting: false,
+ completed: false,
+ retryRequired: false,
+ outcomeUnknown: false,
+ redirecting: false
+};
 const REGIONS = { '서울특별시': [['종로구','11110'],['강남구','11680'],['마포구','11440']], '부산광역시': [['중구','26110'],['해운대구','26350'],['사하구','26380']], '대구광역시': [['중구','27110'],['수성구','27260'],['달성군','27710']], '인천광역시': [['중구','28110'],['남동구','28200'],['서구','28260']], '광주광역시': [['동구','29110'],['북구','29170'],['광산구','29200']], '대전광역시': [['동구','30110'],['서구','30170'],['유성구','30200']], '울산광역시': [['중구','31110'],['남구','31140'],['울주군','31710']], '세종특별자치시': [['세종특별자치시','36110']], '경기도': [['수원시','41110'],['성남시','41130'],['고양시','41280']], '강원특별자치도': [['춘천시','42110'],['원주시','42130'],['강릉시','42150']], '충청북도': [['청주시','43110'],['충주시','43130'],['제천시','43150']], '충청남도': [['천안시','44130'],['공주시','44150'],['아산시','44200']], '전북특별자치도': [['전주시','45110'],['군산시','45130'],['익산시','45140']], '전라남도': [['목포시','46110'],['여수시','46130'],['순천시','46150']], '경상북도': [['포항시','47110'],['경주시','47130'],['구미시','47190']], '경상남도': [['창원시','48120'],['진주시','48170'],['김해시','48250']], '제주특별자치도': [['제주시','50110'],['서귀포시','50130']] };
 const MIN_BIRTH_DATE = '1900-01-01';
 const today = () => {const now=new Date(),month=String(now.getMonth()+1).padStart(2,'0'),day=String(now.getDate()).padStart(2,'0');return `${now.getFullYear()}-${month}-${day}`;};
@@ -44,7 +53,112 @@ function syncAllConsent(){const inputs=consentInputs(),all=$('#consent-all');if(
 function setAllConsents(checked){consentInputs().forEach(input=>{input.checked=checked;});const all=$('#consent-all');if(all){all.checked=checked;all.indeterminate=false;}clearConsentError();captureConsents();syncSensitiveProfile();}
 function clearConsentError(){const error=$('#consent-error');if(error)error.textContent='';consentInputs().forEach(input=>input.removeAttribute('aria-invalid'));}
 function validateRequiredConsents(){const missing=REQUIRED_CONSENTS.filter(type=>!document.querySelector(`[data-signup-step="consent"] [data-consent-type="${type}"]`)?.checked);if(!missing.length){clearConsentError();return true;}const error=$('#consent-error');const labels=missing.map(type=>CONSENT_DOCUMENTS[type].title).join(', ');if(error){error.textContent=`필수 약관에 동의해 주세요: ${labels}.`;error.focus();}missing.forEach(type=>document.querySelector(`[data-signup-step="consent"] [data-consent-type="${type}"]`)?.setAttribute('aria-invalid','true'));return false;}
-function setupConsent(){const form=$('#signup-consent-form'),all=$('#consent-all'),next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]'),inputs=consentInputs();if(!form||!all||!next)return;const syncAndCapture=()=>{syncAllConsent();clearConsentError();captureConsents();};all.addEventListener('change',()=>setAllConsents(all.checked));inputs.forEach(input=>input.addEventListener('change',syncAndCapture));const proceed=()=>{if(!validateRequiredConsents())return;captureConsents();showStep('profile');};next.addEventListener('click',proceed);form.addEventListener('submit',event=>{event.preventDefault();proceed();});document.querySelector('[data-signup-step="profile"] [data-signup-prev="consent"]')?.addEventListener('click',()=>showStep('consent'));syncAllConsent();captureConsents();}
+function setupConsent(){const form=$('#signup-consent-form'),all=$('#consent-all'),next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]'),inputs=consentInputs();if(!form||!all||!next)return;const syncAndCapture=()=>{syncAllConsent();clearConsentError();captureConsents();};all.addEventListener('change',()=>setAllConsents(all.checked));inputs.forEach(input=>input.addEventListener('change',syncAndCapture));const proceed=()=>{if(!validateRequiredConsents())return;captureConsents();if(kakaoSignup.active){submitKakaoSignup();return;}showStep('profile');};next.addEventListener('click',proceed);form.addEventListener('submit',event=>{event.preventDefault();proceed();});document.querySelector('[data-signup-step="profile"] [data-signup-prev="consent"]')?.addEventListener('click',()=>showStep('consent'));syncAllConsent();captureConsents();}
+
+function clearKakaoSignupQuery(){window.history.replaceState(null,document.title,`${window.location.pathname}${window.location.hash}`);}
+function setKakaoSignupSubmitting(submitting,label='카카오 가입 완료 ›'){
+ kakaoSignup.submitting=submitting;
+ const next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]');
+ const controls=[...consentInputs(),$('#consent-all')].filter(Boolean);
+ controls.forEach(control=>{control.disabled=submitting;});
+ if(next){next.disabled=submitting||kakaoSignup.completed||kakaoSignup.outcomeUnknown;next.textContent=submitting?'카카오 가입 처리 중…':label;}
+}
+function showKakaoRestart(){const restart=$('#kakao-signup-restart');if(restart)restart.hidden=false;}
+function hideKakaoRestart(){const restart=$('#kakao-signup-restart');if(restart)restart.hidden=true;}
+function showKakaoSignupFailure(message,unknown=false){
+ kakaoSignup.retryRequired=true;
+ kakaoSignup.outcomeUnknown=unknown;
+ setKakaoSignupSubmitting(false);
+ const next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]');
+ if(next)next.disabled=true;
+ notice('#consent-error',message);
+ showKakaoRestart();
+}
+function showKakaoSignupComplete(){
+ kakaoSignup.completed=true;
+ setKakaoSignupSubmitting(false);
+ hideKakaoRestart();
+ const emailComplete=$('#email-signup-complete-content'),kakaoComplete=$('#kakao-signup-complete-content');
+ if(emailComplete)emailComplete.hidden=true;
+ if(kakaoComplete)kakaoComplete.hidden=false;
+ showStep('complete');
+}
+function activateKakaoSignupMode(){
+ if(kakaoSignup.active)return;
+ kakaoSignup.active=true;
+ clearKakaoSignupQuery();
+ document.body.classList.add('is-kakao-signup');
+ const previous=document.querySelector('[data-signup-step="consent"] [data-signup-prev="account"]');
+ if(previous)previous.hidden=true;
+ const accountSection=document.querySelector('[data-signup-step="account"]');
+ if(accountSection)accountSection.hidden=true;
+ const consentTitle=$('#consent-form-title');
+ if(consentTitle)consentTitle.textContent='카카오 가입 약관 동의';
+ const next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]');
+ if(next)next.textContent='카카오 가입 완료 ›';
+ showStep('consent');
+}
+function handleKakaoSignupAuthenticationState(status){
+ if(!kakaoSignup.requested||kakaoSignup.active||kakaoSignup.completed)return;
+ if(status==='checking')return;
+ if(status==='unauthenticated'){activateKakaoSignupMode();return;}
+ clearKakaoSignupQuery();
+ if(status==='authenticated')notice('#signup-form-message','로그인된 계정이 있어 카카오 가입 절차를 시작하지 않았습니다. 현재 계정은 유지됩니다.');
+ else notice('#signup-form-message','인증 상태를 확인하지 못해 카카오 가입 절차를 시작하지 않았습니다. 다시 로그인해 주세요.');
+}
+async function requestKakaoCsrf(auth){
+ let response;
+ try{response=await fetch(auth.getApiUrl('/api/auth/kakao/csrf'),{credentials:'include'});}catch{throw new SignupWorkflowError('kakao-csrf','카카오 가입을 위한 보안 확인에 실패했습니다. 카카오 로그인을 다시 시작해 주세요.');}
+ const payload=await readJson(response);
+ if(!response.ok||!payload||typeof payload.headerName!=='string'||typeof payload.token!=='string'||!payload.headerName||!payload.token)throw new SignupWorkflowError('kakao-csrf','카카오 가입을 위한 보안 확인에 실패했습니다. 카카오 로그인을 다시 시작해 주세요.',response.status);
+ return payload;
+}
+function kakaoSignupErrorMessage(status){
+ if(status===400)return '카카오 가입 정보를 확인하지 못했습니다. 카카오 로그인을 다시 시작해 주세요.';
+ if(status===401)return '카카오 인증 세션을 확인하지 못했습니다. 카카오 로그인을 다시 시작해 주세요.';
+ if(status===403)return '카카오 가입 보안 확인에 실패했습니다. 카카오 로그인을 다시 시작해 주세요.';
+ if(status===409)return '가입 처리 중 계정 충돌이 발생했습니다. 기존 계정과 자동 연결하지 않았습니다. 카카오 로그인을 다시 시작해 주세요.';
+ if(status>=500)return '가입 처리 중 서버 오류가 발생했습니다. 카카오 로그인을 다시 시작해 주세요.';
+ return '카카오 가입을 완료하지 못했습니다. 카카오 로그인을 다시 시작해 주세요.';
+}
+async function submitKakaoSignup(){
+ if(!kakaoSignup.active||kakaoSignup.submitting||kakaoSignup.completed||kakaoSignup.retryRequired||kakaoSignup.outcomeUnknown)return;
+ const auth=window.BokdeongiAuth;
+ if(!auth){showKakaoSignupFailure('인증 서버 설정을 확인하지 못했습니다. 카카오 로그인을 다시 시작해 주세요.');return;}
+ setKakaoSignupSubmitting(true);
+ hideKakaoRestart();
+ let csrf;
+ try{csrf=await requestKakaoCsrf(auth);}catch(error){showKakaoSignupFailure(error.message);return;}
+ let response;
+ try{
+  response=await fetch(auth.getApiUrl('/api/auth/kakao/signup'),{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',[csrf.headerName]:csrf.token},body:JSON.stringify({consents:signupState.consents})});
+ }catch{
+  showKakaoSignupFailure('가입 요청 결과를 확인하지 못했습니다. 중복 가입을 방지하기 위해 다시 전송하지 않습니다. 카카오 로그인을 다시 시작해 계정 상태를 확인해 주세요.',true);
+  return;
+ }
+ const payload=await readJson(response);
+ if(response.status!==201){showKakaoSignupFailure(kakaoSignupErrorMessage(response.status));return;}
+ if(!payload||!Number.isFinite(payload.userId)){showKakaoSignupFailure('가입 처리 결과를 확인하지 못했습니다. 중복 가입을 방지하기 위해 다시 전송하지 않습니다. 카카오 로그인을 다시 시작해 계정 상태를 확인해 주세요.',true);return;}
+ showKakaoSignupComplete();
+}
+function startKakaoOAuth(button){
+ if(kakaoSignup.redirecting)return;
+ const auth=window.BokdeongiAuth;
+ if(!auth){notice('#consent-error','인증 서버 설정을 확인하지 못했습니다.');return;}
+ let authorizationUrl;
+ try{authorizationUrl=auth.getApiUrl('/oauth2/authorization/kakao');}catch{notice('#consent-error','인증 서버 설정을 확인하지 못했습니다.');return;}
+ kakaoSignup.redirecting=true;
+ if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
+ try{window.location.assign(authorizationUrl);}catch{if(button){button.disabled=false;button.setAttribute('aria-busy','false');}kakaoSignup.redirecting=false;notice('#consent-error','카카오 로그인을 시작하지 못했습니다. 다시 시도해 주세요.');}
+}
+function setupKakaoSignup(){
+ $('#kakao-signup-restart')?.addEventListener('click',event=>startKakaoOAuth(event.currentTarget));
+ $('#kakao-signup-relogin')?.addEventListener('click',event=>startKakaoOAuth(event.currentTarget));
+ if(!kakaoSignup.requested)return;
+ if(!window.BokdeongiAuth){handleKakaoSignupAuthenticationState('error');return;}
+ handleKakaoSignupAuthenticationState(window.BokdeongiAuth.getAuthenticationState());
+ window.addEventListener('bokdeongi:auth-state-change',event=>handleKakaoSignupAuthenticationState(event.detail?.status));
+}
 function setupProfileRegions(){const sido=$('#profile-sido'),sigungu=$('#profile-sigungu');if(!sido||!sigungu)return;Object.keys(REGIONS).forEach(name=>sido.add(new Option(name,name)));const updateSigungu=()=>{const regions=REGIONS[sido.value]||[];sigungu.replaceChildren(new Option(regions.length?'시·군·구 선택':'시·도를 먼저 선택해 주세요.',''));regions.forEach(([name,code])=>sigungu.add(new Option(name,code)));sigungu.disabled=!regions.length;};sido.addEventListener('change',updateSigungu);updateSigungu();}
 function sensitiveConsentGiven(){return document.querySelector('[data-signup-step="consent"] [data-consent-type="SENSITIVE"]')?.checked===true;}
 function sensitiveInputs(){return [...document.querySelectorAll('#sensitive-section input[type="checkbox"]')];}
@@ -198,4 +312,4 @@ function setupProfileForm(){
  updateIncome();updateChildren();setWorkflowSubmitting(false);
 }
 
-document.addEventListener('DOMContentLoaded',()=>{setupAccount();setupConsent();setupConsentDialog();setupProfileRegions();setupSensitiveProfile();setupProfileForm();});
+document.addEventListener('DOMContentLoaded',()=>{setupAccount();setupConsent();setupConsentDialog();setupProfileRegions();setupSensitiveProfile();setupProfileForm();setupKakaoSignup();});
