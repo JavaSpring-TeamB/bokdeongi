@@ -1,7 +1,7 @@
 # LLM 판정 조건 추출 (DATA-03)
 
 공고 원문에서 "누가 받을 수 있는지" 조건을 LLM으로 뽑아 `benefit_rules`에 넣는다.
-프롬프트와 출력 형식은 C가 측정한 `data-lab/conditions/`(c3)를 그대로 쓴다.
+프롬프트와 출력 형식은 C가 측정한 `data-lab/conditions/`(c4)를 그대로 쓴다.
 
 ## 범위 (D-93)
 
@@ -20,7 +20,7 @@
    CONDITIONS_SERVICE_IDS=161300000099,449000000119
    ```
 
-2. 서버를 띄우면 시작 직후 한 번 돈다. 로그에 `조건 추출(DATA-03, c3) 결과: Report[...]`가 찍힌다
+2. 서버를 띄우면 시작 직후 한 번 돈다. 로그에 `조건 추출(DATA-03, c4) 결과: Report[...]`가 찍힌다
 3. **돌린 뒤 `CONDITIONS_SERVICE_IDS`를 비운다.** 그대로 두면 서버를 띄울 때마다 다시 부른다
 
 호출 수는 `2 × ⌈공고 수 / 3⌉`이다 (3건씩 묶어 같은 요청을 두 번, D-60·D-97). 30건이면 20번.
@@ -43,7 +43,7 @@
 
 ## 검수 → 수동 규칙
 
-1. 실행하면 `backend/conditions-review/conditions-review-c3-{시각}.csv`가 생긴다 (커밋하지 않음)
+1. 실행하면 `backend/conditions-review/conditions-review-c4-{시각}.csv`가 생긴다 (커밋하지 않음)
    - 앞 칸은 `rule_labels.csv`와 같고 `labeled_on`(원문 수정일, 한국 날짜)이 더 있다
    - 뒤 칸 `status`·`confidence`·`checks`·`reason`은 검수 참고용 (`KEPT` / `LOW_CONFIDENCE` / `DROPPED` / `UNPARSED` / `SPECIAL` / `REPEAT_ONLY`)
 2. 라벨 기준(`data-lab/rule_labels/README.md`)으로 줄을 고치고, 맞는 줄만 `data-lab/conditions/reviewed_rules.csv`에 붙인다.

@@ -7,14 +7,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * DATA-03 판정 조건 추출 프롬프트. system 글은 C가 측정한 data-lab/conditions/prompt_c3_system.txt를 그대로 복사한
- * resources/prompts/conditions-c3-system.txt를 쓴다 (두 파일이 같은지 테스트가 본다).
+ * DATA-03 판정 조건 추출 프롬프트. system 글은 C가 측정한 data-lab/conditions/prompt_c4_system.txt를 그대로 복사한
+ * resources/prompts/conditions-c4-system.txt를 쓴다 (두 파일이 같은지 테스트가 본다).
  * 프롬프트를 바꾸면 data-lab에서 측정한 뒤 복사하고 VERSION을 올린다.
  */
 public final class ConditionPrompt {
 
-    public static final String VERSION = "c3";
-    static final String SYSTEM_RESOURCE = "/prompts/conditions-c3-system.txt";
+    public static final String VERSION = "c4";
+    static final String SYSTEM_RESOURCE = "/prompts/conditions-c4-system.txt";
 
     private static volatile String system;
 
@@ -37,7 +37,7 @@ public final class ConditionPrompt {
         return s;
     }
 
-    /** user 메시지 (data-lab/conditions/prompt_c3_user.txt 모양). 공고마다 블록을 반복한다 */
+    /** user 메시지 (data-lab/conditions/prompt_c3_user.txt 모양, c4도 같음). 공고마다 블록을 반복한다 */
     public static String user(List<ConditionSource> sources) {
         StringBuilder sb = new StringBuilder();
         int n = 1;

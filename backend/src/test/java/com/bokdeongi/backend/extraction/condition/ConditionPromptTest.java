@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 class ConditionPromptTest {
 
     @Test
-    void system은_data_lab에서_측정한_c3와_같다() throws Exception {
-        Path measured = Path.of("..", "data-lab", "conditions", "prompt_c3_system.txt");
+    void system은_data_lab에서_측정한_c4와_같다() throws Exception {
+        Path measured = Path.of("..", "data-lab", "conditions", "prompt_c4_system.txt");
         Assumptions.assumeTrue(Files.exists(measured), "레포 루트 밖에서 실행");
         assertEquals(Files.readString(measured, StandardCharsets.UTF_8), ConditionPrompt.system());
     }
