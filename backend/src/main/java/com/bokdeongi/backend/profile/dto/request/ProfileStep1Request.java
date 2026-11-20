@@ -33,6 +33,9 @@ public record ProfileStep1Request(
         String sidoName,
 
         @Size(max = 20)
-        String sigunguName
+        String sigunguName,
+
+        @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
+        String name
 ) {
 }

@@ -693,7 +693,8 @@ class ProfileServiceTest {
                 "M",
                 "11140",
                 "서울특별시",
-                "중구"
+                "중구",
+                null
         );
 
         Region region = mock(Region.class);
@@ -716,5 +717,172 @@ class ProfileServiceTest {
 
         verify(eventPublisher, times(1))
                 .publishEvent(new ProfileChangedEvent(userId));
+    }
+
+    @Test
+    void shouldSaveNameForKakaoUserWithoutName() {
+        // Given: 이름이 등록되지 않은 카카오 회원
+        Long userId = 200L;
+
+        User user = User.createKakaoUser(
+                "kakao-12345",
+                "카카오닉네임",
+                "kakao@example.com"
+        );
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        Region region = mock(Region.class);
+
+        when(region.getRegionCode()).thenReturn("11140");
+        when(region.getSidoName()).thenReturn("서울특별시");
+        when(region.getSigunguName()).thenReturn("중구");
+
+        when(regionRepository.findById("11140"))
+                .thenReturn(Optional.of(region));
+
+        ProfileStep1Request request = new ProfileStep1Request(
+                LocalDate.of(2000, 1, 1),
+                "M",
+                "11140",
+                "서울특별시",
+                "중구",
+                "홍길동"
+        );
+
+        // When: 프로필 1단계 저장
+        profileService.saveProfileStep1(userId, request);
+
+        // Then: 입력한 이름이 저장되어야 한다.
+        assertEquals("홍길동", user.getName());
+
+        // 카카오 닉네임은 유지되어야 한다.
+        assertEquals("카카오닉네임", user.getNickname());
+
+        // 프로필 1단계도 정상적으로 완료되어야 한다.
+        assertEquals((short) 1, user.getProfileStep());
+
+        verify(eventPublisher).publishEvent(
+                any(ProfileChangedEvent.class)
+        );
+    }
+
+    @Test
+    void shouldRejectMissingNameForKakaoUser() {
+        Long userId = 201L;
+
+        User user = User.createKakaoUser(
+                "kakao-201",
+                "카카오닉네임",
+                "kakao201@example.com"
+        );
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        ProfileStep1Request request = new ProfileStep1Request(
+                LocalDate.of(2000, 1, 1),
+                "M",
+                "11140",
+                "서울특별시",
+                "중구",
+                null
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> profileService.saveProfileStep1(userId, request)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertNull(user.getName());
+
+        verifyNoInteractions(regionRepository);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void shouldRejectBlankNameForKakaoUser() {
+        Long userId = 202L;
+
+        User user = User.createKakaoUser(
+                "kakao-202",
+                "카카오닉네임",
+                "kakao202@example.com"
+        );
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        ProfileStep1Request request = new ProfileStep1Request(
+                LocalDate.of(2000, 1, 1),
+                "M",
+                "11140",
+                "서울특별시",
+                "중구",
+                "   "
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> profileService.saveProfileStep1(userId, request)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertNull(user.getName());
+
+        verifyNoInteractions(regionRepository);
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void shouldPreserveExistingEmailUserName() {
+        // Given: 이미 이름이 등록된 이메일 회원
+        Long userId = 203L;
+
+        User user = new User(
+                "email203@example.com",
+                "passwordHash",
+                "기존이름",
+                "01012345678",
+                null
+        );
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        Region region = mock(Region.class);
+
+        when(region.getRegionCode()).thenReturn("11140");
+        when(region.getSidoName()).thenReturn("서울특별시");
+        when(region.getSigunguName()).thenReturn("중구");
+
+        when(regionRepository.findById("11140"))
+                .thenReturn(Optional.of(region));
+
+        // 요청에 다른 이름이 포함되어 있어도 변경하지 않아야 한다.
+        ProfileStep1Request request = new ProfileStep1Request(
+                LocalDate.of(2000, 1, 1),
+                "M",
+                "11140",
+                "서울특별시",
+                "중구",
+                "변경하려는이름"
+        );
+
+        // When: 프로필 1단계 저장
+        profileService.saveProfileStep1(userId, request);
+
+        // Then: 기존 이메일 회원의 이름은 유지되어야 한다.
+        assertEquals("기존이름", user.getName());
+
+        // 다른 프로필 정보는 정상적으로 저장되어야 한다.
+        assertEquals("11140", user.getRegionCode());
+        assertEquals((short) 1, user.getProfileStep());
+
+        verify(eventPublisher).publishEvent(
+                any(ProfileChangedEvent.class)
+        );
     }
 }

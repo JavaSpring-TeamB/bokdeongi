@@ -100,8 +100,16 @@ public class OAuth2LoginSuccessHandler
         // OAuth2 인증 컨텍스트 정리
         SecurityContextHolder.clearContext();
 
-        // 로그인 완료 후 메인 화면으로 이동
-        response.sendRedirect(frontendRedirectUrl.home());
+        // 기존 카카오 회원의 프로필 완료 여부에 따라 이동
+        if (user.getProfileCompletedAt() == null) {
+            // 프로필 미완료: 프론트에서 인증 및 프로필 상태 재검증
+            response.sendRedirect(
+                    frontendRedirectUrl.home() + "?profileOnboarding=true"
+            );
+        } else {
+            // 프로필 완료: 기존과 동일하게 홈으로 이동
+            response.sendRedirect(frontendRedirectUrl.home());
+        }
     }
 
     /**
