@@ -31,7 +31,8 @@ class ConditionFieldsTest {
         assertEquals(List.of("N"), ConditionFields.check("ANSWER:public_rental", "EQ", List.of("n")).spec().values());
         assertFalse(ConditionFields.check("ANSWER:Public-Rental", "EQ", List.of("Y")).ok());
         assertFalse(ConditionFields.check("ANSWER:public_rental", "EQ", List.of("예")).ok());
-        assertFalse(ConditionFields.check("ANSWER:" + "a".repeat(54), "EQ", List.of("Y")).ok());
+        assertTrue(ConditionFields.check("ANSWER:" + "a".repeat(50), "EQ", List.of("Y")).ok());
+        assertFalse(ConditionFields.check("ANSWER:" + "a".repeat(51), "EQ", List.of("Y")).ok());
     }
 
     @Test
