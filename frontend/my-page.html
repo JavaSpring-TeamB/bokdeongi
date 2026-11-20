@@ -10,6 +10,7 @@
     <script src="./js/common-ui.js" defer></script>
     <script src="./js/auth-config.local.js" defer></script>
     <script src="./js/auth.js" defer></script>
+    <script src="./js/consent-documents.js" defer></script>
     <script src="./js/my-page.js" defer></script>
 </head>
 <body class="my-page">
@@ -72,6 +73,35 @@
         <div class="my-page__withdraw-dialog-actions">
             <button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-withdrawal-close>취소</button>
             <button class="bk-btn bk-btn--md my-page__withdraw-confirm" type="button" data-withdrawal-confirm>회원 탈퇴</button>
+        </div>
+    </dialog>
+
+    <dialog id="sensitive-consent-dialog" class="my-page__withdraw-dialog" aria-labelledby="sensitive-consent-dialog-title" aria-describedby="sensitive-consent-dialog-description">
+        <div class="my-page__withdraw-dialog-header">
+            <h2 id="sensitive-consent-dialog-title">민감정보 수집·이용 동의</h2>
+            <button class="my-page__withdraw-dialog-close" type="button" data-sensitive-consent-close aria-label="민감정보 동의 안내 닫기">×</button>
+        </div>
+        <div id="sensitive-consent-dialog-description" class="my-page__withdraw-dialog-content" data-sensitive-consent-document>
+            <p>민감정보 동의 문서를 불러오는 중입니다.</p>
+        </div>
+        <div class="my-page__withdraw-dialog-actions">
+            <button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-sensitive-consent-close>취소</button>
+            <button class="bk-btn bk-btn--md" type="button" data-sensitive-consent-confirm>내용을 확인하고 동의</button>
+        </div>
+    </dialog>
+
+    <dialog id="sensitive-withdraw-dialog" class="my-page__withdraw-dialog" aria-labelledby="sensitive-withdraw-dialog-title" aria-describedby="sensitive-withdraw-dialog-description">
+        <div class="my-page__withdraw-dialog-header">
+            <h2 id="sensitive-withdraw-dialog-title">민감정보 동의 철회</h2>
+            <button class="my-page__withdraw-dialog-close" type="button" data-sensitive-withdraw-close aria-label="민감정보 동의 철회 확인 닫기">×</button>
+        </div>
+        <div class="my-page__withdraw-dialog-content">
+            <p id="sensitive-withdraw-dialog-description">동의를 철회하면 서비스에 저장된 관련 민감정보가 삭제될 수 있어요.</p>
+            <p>맞춤 혜택 판정 결과가 변경될 수 있으며, 재입력하려면 다시 동의해야 할 수 있어요.</p>
+        </div>
+        <div class="my-page__withdraw-dialog-actions">
+            <button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-sensitive-withdraw-close>취소</button>
+            <button class="bk-btn bk-btn--md my-page__withdraw-confirm" type="button" data-sensitive-withdraw-confirm>동의 철회</button>
         </div>
     </dialog>
 
