@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 /**
  * LLM이 낸 조건 한 줄의 필드·연산자·값이 엔진이 읽을 수 있는 모양인지 보고 표준형으로 맞춘다 (DATA-03 저장 전 검증 3번).
  *
- * <p>목록은 data-lab/conditions/prompt_c4_system.txt의 [필드]와 같다. 프롬프트 필드를 바꾸면 여기도 바꾼다.
+ * <p>목록은 data-lab/conditions/prompt_c5_system.txt의 [필드]와 같다. 프롬프트 필드를 바꾸면 여기도 바꾼다.
  */
 public final class ConditionFields {
 
