@@ -29,17 +29,32 @@ let profileCompleted = false;
 let profileInterests = ['주거·생활', '취업·교육'];
 let bookmarkPage = 1;
 const BOOKMARK_PAGE_SIZE = 4;
-const PROFILE_REGIONS = {
-    '서울특별시': [['종로구', '11110'], ['강남구', '11680'], ['마포구', '11440']], '부산광역시': [['중구', '26110'], ['해운대구', '26350'], ['사하구', '26380']],
-    '대구광역시': [['중구', '27110'], ['수성구', '27260'], ['달성군', '27710']], '인천광역시': [['중구', '28110'], ['남동구', '28200'], ['서구', '28260']],
-    '광주광역시': [['동구', '29110'], ['북구', '29170'], ['광산구', '29200']], '대전광역시': [['동구', '30110'], ['서구', '30170'], ['유성구', '30200']],
-    '울산광역시': [['중구', '31110'], ['남구', '31140'], ['울주군', '31710']], '세종특별자치시': [['세종특별자치시', '36110']],
-    '경기도': [['수원시', '41110'], ['성남시', '41130'], ['고양시', '41280']], '강원특별자치도': [['춘천시', '42110'], ['원주시', '42130'], ['강릉시', '42150']],
-    '충청북도': [['청주시', '43110'], ['충주시', '43130'], ['제천시', '43150']], '충청남도': [['천안시', '44130'], ['공주시', '44150'], ['아산시', '44200']],
-    '전북특별자치도': [['전주시', '45110'], ['군산시', '45130'], ['익산시', '45140']], '전라남도': [['목포시', '46110'], ['여수시', '46130'], ['순천시', '46150']],
-    '경상북도': [['포항시', '47110'], ['경주시', '47130'], ['구미시', '47190']], '경상남도': [['창원시', '48120'], ['진주시', '48170'], ['김해시', '48250']],
-    '제주특별자치도': [['제주시', '50110'], ['서귀포시', '50130']]
-};
+let regionLoadState = 'idle';
+
+function getMyPageRegions() {
+    return window.BokdeongiRegions?.getData() || null;
+}
+
+function myPageRegionMessage() {
+    if (regionLoadState === 'loading' || regionLoadState === 'idle') return '지역 목록을 불러오고 있어요.';
+    if (regionLoadState === 'error') return window.BokdeongiRegions?.getError()?.code === 'empty' ? '현재 선택 가능한 지역 정보가 없습니다.' : '지역 목록을 불러오지 못했습니다. 다시 시도해 주세요.';
+    const current = getMyPageRegions()?.findByCode(profileEditorState.regionCode);
+    return profileEditorState.regionCode && !current ? '현재 저장된 지역 정보가 목록에 없습니다. 현재 지역을 다시 선택해 주세요.' : '상세 주소와 우편번호는 수집하지 않아요.';
+}
+
+async function ensureMyPageRegions(retry = false) {
+    const provider = window.BokdeongiRegions;
+    if (!provider) { regionLoadState = 'error'; if (profileMode === 'edit') renderSection(); return; }
+    regionLoadState = 'loading';
+    if (profileMode === 'edit') renderSection();
+    try {
+        await (retry ? provider.retry() : provider.load());
+        regionLoadState = 'ready';
+    } catch {
+        regionLoadState = 'error';
+    }
+    if (profileMode === 'edit') renderSection();
+}
 const profileAccordion = { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false };
 let profileEditorState = {
     gender: '', sido: '부산광역시', sigunguName: '', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
@@ -302,14 +317,19 @@ function renderProfileEditor() {
     const radio = (name, value, label, state) => '<label><input type="radio" name="' + name + '" value="' + value + '"' + (state === value ? ' checked' : '') + '> ' + label + '</label>';
     const checks = (group, items, values) => items.map(([value, label, none]) => '<label><input type="checkbox" value="' + value + '"' + (none ? ' data-none' : '') + (values && (none ? values.length === 0 : values.includes(value)) ? ' checked' : '') + '> ' + label + '</label>').join('');
     const accordion = (key, title, content) => '<section class="my-page__profile-accordion" data-profile-accordion="' + key + '"><button class="my-page__profile-accordion-button" type="button" aria-expanded="' + profileAccordion[key] + '" aria-controls="profile-panel-' + key + '" data-profile-accordion-toggle="' + key + '"><span>' + title + '</span><span aria-hidden="true">⌄</span></button><div class="my-page__profile-accordion-panel" id="profile-panel-' + key + '"' + (profileAccordion[key] ? '' : ' hidden') + '>' + content + '</div></section>';
-    const regionNames = Object.keys(PROFILE_REGIONS);
-    if (profileEditorState.sido && !regionNames.includes(profileEditorState.sido)) regionNames.push(profileEditorState.sido);
-    const regionOptions = regionNames.map((name) => '<option value="' + escapeHtml(name) + '"' + selected(profileEditorState.sido, name) + '>' + escapeHtml(name) + '</option>').join('');
-    const sigunguRegions = [...(PROFILE_REGIONS[profileEditorState.sido] || [])];
-    if (profileEditorState.regionCode && !sigunguRegions.some(([, code]) => code === profileEditorState.regionCode)) {
-        sigunguRegions.push([profileEditorState.sigunguName || profileEditorState.regionCode, profileEditorState.regionCode]);
+    const regionData = getMyPageRegions();
+    const matchedRegion = regionData?.findByCode(profileEditorState.regionCode);
+    const selectedSido = matchedRegion?.sidoName || profileEditorState.sido;
+    const regionNames = regionData ? [...regionData.sidos] : [];
+    if (selectedSido && !regionNames.includes(selectedSido)) regionNames.push(selectedSido);
+    const regionOptions = regionNames.map((name) => '<option value="' + escapeHtml(name) + '"' + selected(selectedSido, name) + '>' + escapeHtml(name) + '</option>').join('');
+    const sigunguRegions = regionData ? [...regionData.selectableFor(selectedSido)] : [];
+    if (profileEditorState.regionCode && !sigunguRegions.some((region) => region.regionCode === profileEditorState.regionCode)) {
+        sigunguRegions.push({ regionCode: profileEditorState.regionCode, sidoName: selectedSido, sigunguName: profileEditorState.sigunguName || profileEditorState.regionCode });
     }
-    const sigunguOptions = sigunguRegions.map(([name, code]) => '<option value="' + escapeHtml(code) + '"' + selected(profileEditorState.regionCode, code) + '>' + escapeHtml(name) + '</option>').join('');
+    const sigunguOptions = sigunguRegions.map((region) => '<option value="' + escapeHtml(region.regionCode) + '"' + selected(profileEditorState.regionCode, region.regionCode) + '>' + escapeHtml(region.sigunguName || region.sidoName) + '</option>').join('');
+    const regionControlsDisabled = regionLoadState !== 'ready';
+    const regionMessage = myPageRegionMessage();
     const currentYear = new Date().getFullYear();
     const incomeVisible = ['ANNUAL', 'MONTHLY'].includes(profileEditorState.incomeInputType);
     const childVisible = profileEditorState.childrenCount && profileEditorState.childrenCount !== '0';
@@ -331,7 +351,7 @@ function renderProfileEditor() {
         field('이름', 'name', profileValue('basics', '이름'), 'type="text" disabled') +
         field('이메일', 'email', profileValue('basics', '이메일'), 'type="email" disabled') +
         '</div></section>' +
-        accordion('basic', '기본 정보', '<div class="my-page__profile-form-grid">' + field('생년월일', 'birthDate', birthDate, 'type="date" required max="' + new Date().toISOString().slice(0, 10) + '"') + '<fieldset class="my-page__choice-field"><legend>성별 <em aria-hidden="true">*</em></legend><div>' + radio('gender', 'M', '남성', profileEditorState.gender) + radio('gender', 'F', '여성', profileEditorState.gender) + '</div></fieldset><label class="my-page__form-control"><span>시·도 <em aria-hidden="true">*</em></span><select name="sido" required><option value="">시·도 선택</option>' + regionOptions + '</select></label><label class="my-page__form-control"><span>시·군·구 <em aria-hidden="true">*</em></span><select name="regionCode" required' + (profileEditorState.sido ? '' : ' disabled') + '><option value="">' + (profileEditorState.sido ? '시·군·구 선택' : '시·도를 먼저 선택해 주세요.') + '</option>' + sigunguOptions + '</select></label></div><p class="my-page__form-help">상세 주소와 우편번호는 수집하지 않아요.</p>') +
+        accordion('basic', '기본 정보', '<div class="my-page__profile-form-grid">' + field('생년월일', 'birthDate', birthDate, 'type="date" required max="' + new Date().toISOString().slice(0, 10) + '"') + '<fieldset class="my-page__choice-field"><legend>성별 <em aria-hidden="true">*</em></legend><div>' + radio('gender', 'M', '남성', profileEditorState.gender) + radio('gender', 'F', '여성', profileEditorState.gender) + '</div></fieldset><label class="my-page__form-control"><span>시·도 <em aria-hidden="true">*</em></span><select name="sido" required' + (regionControlsDisabled ? ' disabled' : '') + '><option value="">시·도 선택</option>' + regionOptions + '</select></label><label class="my-page__form-control"><span>시·군·구 <em aria-hidden="true">*</em></span><select name="regionCode" required' + (regionControlsDisabled || !selectedSido || !sigunguRegions.length ? ' disabled' : '') + '><option value="">' + (selectedSido ? '시·군·구 선택' : '시·도를 먼저 선택해 주세요.') + '</option>' + sigunguOptions + '</select></label></div><p class="my-page__form-help" data-profile-region-message>' + escapeHtml(regionMessage) + '</p>' + (regionLoadState === 'error' ? '<button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-profile-region-retry>지역 목록 다시 불러오기</button>' : '') + '</div>') +
         accordion('household', '가구 및 주거 정보', '<div class="my-page__profile-form-grid"><label class="my-page__form-control"><span>가구원 수 <em aria-hidden="true">*</em></span><select name="householdSize" required><option value="">선택해 주세요.</option>' + ['1', '2', '3', '4', '5'].map((value) => '<option value="' + value + '"' + selected(profileEditorState.householdSize, value) + '>' + (value === '5' ? '5명 이상' : value + '명') + '</option>').join('') + '</select></label><fieldset class="my-page__choice-field"><legend>주거 형태 <em aria-hidden="true">*</em></legend><div>' + radio('housingType', 'OWN', '자가', profileEditorState.housingType) + radio('housingType', 'JEONSE', '전세', profileEditorState.housingType) + radio('housingType', 'MONTHLY', '월세', profileEditorState.housingType) + radio('housingType', 'ETC', '기타', profileEditorState.housingType) + '</div></fieldset><fieldset class="my-page__choice-field"><legend>주택 보유 여부 <em aria-hidden="true">*</em></legend><div>' + radio('hasHouse', 'true', '보유', profileEditorState.hasHouse) + radio('hasHouse', 'false', '미보유', profileEditorState.hasHouse) + '</div></fieldset></div>') +
         accordion('income', '소득 정보', '<p class="my-page__form-help">입력한 금액은 현재 화면에서만 임시로 보관됩니다.</p><fieldset class="my-page__choice-field"><legend>입력 방식 <em aria-hidden="true">*</em></legend><div>' + radio('incomeInputType', 'ANNUAL', '연소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'MONTHLY', '월소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'UNKNOWN', '잘 모르겠어요', profileEditorState.incomeInputType) + '</div></fieldset><div class="my-page__profile-form-grid" data-income-fields' + (incomeVisible ? '' : ' hidden') + '>' + field('소득 금액', 'incomeAmount', profileEditorState.incomeAmount, 'type="number" min="0" inputmode="numeric"' + (incomeVisible ? ' required' : ' disabled')) + field('소득 기준 연도', 'incomeBaseYear', profileEditorState.incomeBaseYear, 'type="number" min="2000" max="' + currentYear + '" inputmode="numeric"' + (incomeVisible ? ' required' : ' disabled')) + '</div>') +
         accordion('additional', '추가 정보', '<div class="my-page__profile-form-grid"><fieldset class="my-page__choice-field"><legend>혼인 여부 <em aria-hidden="true">*</em></legend><div>' + radio('maritalStatus', 'SINGLE', '미혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'MARRIED', '기혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'ETC', '기타', profileEditorState.maritalStatus) + '</div></fieldset><label class="my-page__form-control"><span>자녀 수 <em aria-hidden="true">*</em></span><select name="childrenCount" required><option value="">선택해 주세요.</option><option value="0"' + selected(profileEditorState.childrenCount, '0') + '>없음</option><option value="1"' + selected(profileEditorState.childrenCount, '1') + '>1명</option><option value="2"' + selected(profileEditorState.childrenCount, '2') + '>2명</option><option value="3"' + selected(profileEditorState.childrenCount, '3') + '>3명</option><option value="4+"' + selected(profileEditorState.childrenCount, '4+') + '>4명 이상</option></select></label><label class="my-page__form-control" data-exact-children-field' + (exactChildrenVisible ? '' : ' hidden') + '><span>정확한 자녀 수 <em aria-hidden="true">*</em></span><input name="childrenExact" type="number" min="4" inputmode="numeric" value="' + escapeHtml(profileEditorState.childrenExact) + '"' + (exactChildrenVisible ? ' required' : ' disabled') + '></label><label class="my-page__form-control" data-youngest-field' + (childVisible ? '' : ' hidden') + '><span>막내 자녀 출생연도 <em aria-hidden="true">*</em></span><input name="youngestYear" type="number" min="1900" max="' + currentYear + '" inputmode="numeric" value="' + escapeHtml(profileEditorState.youngestYear) + '"' + (childVisible ? ' required' : ' disabled') + '></label></div><fieldset class="my-page__multi-choice" data-exclusive-group="householdTypes"><legend>가구 유형 <em aria-hidden="true">*</em></legend><div>' + checks('householdTypes', [['JA0404', '1인 가구'], ['JA0403', '한부모 가구'], ['JA0403', '조손 가구'], ['JA0411', '다자녀 가구'], ['JA0413', '신규 전입 가구'], ['JA0414', '확대가족'], ['NONE', '해당 없음', true]], profileEditorState.householdTypes) + '</div></fieldset><fieldset class="my-page__multi-choice" data-exclusive-group="statusCodes"><legend>현재 활동 상태 <em aria-hidden="true">*</em></legend><div>' + checks('statusCodes', [['JA0317', '초등학생'], ['JA0318', '중학생'], ['JA0319', '고등학생'], ['JA0320', '대학생'], ['JA0326', '재직자'], ['JA0327', '구직자'], ['SELF_EMPLOYED', '자영업자'], ['JA0313', '농업 종사자'], ['JA0314', '어업 종사자'], ['JA0315', '축산업 종사자'], ['JA0316', '임업 종사자'], ['NONE', '해당 없음', true]], profileEditorState.statusCodes) + '</div></fieldset><fieldset class="my-page__choice-field"><legend>복지 수급 상태 <em aria-hidden="true">*</em></legend><div>' + radio('welfareStatus', 'BASIC', '기초생활수급자', profileEditorState.welfareStatus) + radio('welfareStatus', 'NEAR_POOR', '차상위계층', profileEditorState.welfareStatus) + radio('welfareStatus', 'NONE', '해당 없음', profileEditorState.welfareStatus) + radio('welfareStatus', 'UNKNOWN', '잘 모르겠어요', profileEditorState.welfareStatus) + '</div></fieldset>') +
@@ -453,6 +473,7 @@ async function loadProfile() {
 
         applyProfileResponse(profile);
         profileLoadState = 'loaded';
+        void ensureMyPageRegions();
         await consentPromise;
         if (currentSection === 'profile') renderSection();
     } catch (error) {
@@ -1020,6 +1041,7 @@ function setupInteractions() {
             return;
         }
         if (event.target.closest('[data-sensitive-consent-view]')) { openSensitiveConsentDialog(event.target.closest('[data-sensitive-consent-view]')); return; }
+        if (event.target.closest('[data-profile-region-retry]')) { void ensureMyPageRegions(true); return; }
         const accordionToggle = event.target.closest('[data-profile-accordion-toggle]');
         if (accordionToggle) {
             const key = accordionToggle.dataset.profileAccordionToggle;
@@ -1053,7 +1075,7 @@ function setupInteractions() {
             }
             return;
         }
-        if (event.target.closest('[data-profile-edit]')) { Object.assign(profileAccordion, { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false }); sensitiveEditState = { codes: null }; profileMode = 'edit'; renderSection(); return; }
+        if (event.target.closest('[data-profile-edit]')) { Object.assign(profileAccordion, { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false }); sensitiveEditState = { codes: null }; profileMode = 'edit'; renderSection(); if (regionLoadState !== 'ready') void ensureMyPageRegions(); return; }
         if (event.target.closest('[data-profile-cancel]')) { profileMode = 'view'; renderSection(); return; }
         if (event.target.closest('[data-password-change-cancel]')) { passwordChangeSubmitting = false; profileMode = 'view'; renderSection(); return; }
         const accountAction = event.target.closest('[data-account-action]');
@@ -1094,9 +1116,15 @@ function setupInteractions() {
         if (!form) return;
         if (event.target.name === 'sido') {
             const sigungu = form.elements.regionCode;
-            const options = PROFILE_REGIONS[event.target.value] || [];
+            const options = getMyPageRegions()?.selectableFor(event.target.value) || [];
+            const sejong = options.length === 1 && options[0].regionCode === '36110' && options[0].sigunguName === null;
+            if (sejong) {
+                sigungu.replaceChildren(new Option(options[0].sidoName, options[0].regionCode));
+                sigungu.disabled = false;
+                return;
+            }
             sigungu.replaceChildren(new Option(options.length ? '시·군·구 선택' : '시·도를 먼저 선택해 주세요.', ''));
-            options.forEach(([name, code]) => sigungu.add(new Option(name, code)));
+            options.forEach((region) => sigungu.add(new Option(region.sigunguName || region.sidoName, region.regionCode)));
             sigungu.disabled = !options.length;
         }
         if (event.target.name === 'incomeInputType') {
