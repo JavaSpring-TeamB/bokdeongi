@@ -11,6 +11,12 @@ const kakaoSignup = {
  outcomeUnknown: false,
  redirecting: false
 };
+const profileOnboarding = {
+ requested: new URLSearchParams(window.location.search).get('profileOnboarding') === 'true',
+ active: false,
+ loading: false,
+ profile: null
+};
 const MIN_BIRTH_DATE = '1900-01-01';
 const today = () => {const now=new Date(),month=String(now.getMonth()+1).padStart(2,'0'),day=String(now.getDate()).padStart(2,'0');return `${now.getFullYear()}-${month}-${day}`;};
 function notice(s, v) { const e=$(s); if(e){e.textContent=v;if(v)e.focus();} }
@@ -77,6 +83,7 @@ function validateRequiredConsents(){const missing=REQUIRED_CONSENTS.filter(type=
 function setupConsent(){const form=$('#signup-consent-form'),all=$('#consent-all'),next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]'),inputs=consentInputs();if(!form||!all||!next)return;const syncAndCapture=()=>{syncAllConsent();clearConsentError();captureConsents();};all.addEventListener('change',()=>setAllConsents(all.checked));inputs.forEach(input=>input.addEventListener('change',syncAndCapture));const proceed=()=>{if(!validateRequiredConsents())return;captureConsents();if(kakaoSignup.active){submitKakaoSignup();return;}showStep('profile');};next.addEventListener('click',proceed);form.addEventListener('submit',event=>{event.preventDefault();proceed();});document.querySelector('[data-signup-step="profile"] [data-signup-prev="consent"]')?.addEventListener('click',()=>showStep('consent'));syncAllConsent();captureConsents();}
 
 function clearKakaoSignupQuery(){window.history.replaceState(null,document.title,`${window.location.pathname}${window.location.hash}`);}
+function clearProfileOnboardingQuery(){window.history.replaceState(null,document.title,`${window.location.pathname}${window.location.hash}`);}
 function setKakaoSignupSubmitting(submitting,label='카카오 가입 완료 ›'){
  kakaoSignup.submitting=submitting;
  const next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]');
@@ -180,6 +187,47 @@ function setupKakaoSignup(){
  handleKakaoSignupAuthenticationState(window.BokdeongiAuth.getAuthenticationState());
  window.addEventListener('bokdeongi:auth-state-change',event=>handleKakaoSignupAuthenticationState(event.detail?.status));
 }
+function profileOnboardingPayloadIsValid(profile){return profile&&typeof profile.profileCompleted==='boolean'&&Number.isInteger(Number(profile.profileStep))&&Number(profile.profileStep)>=0&&Number(profile.profileStep)<=3;}
+function setChecked(name,value){const input=document.querySelector(`[name="${name}"][value="${value}"]`);if(input)input.checked=true;}
+function setCodes(group,values){if(!Array.isArray(values))return;const selected=new Set(values);document.querySelectorAll(`[data-exclusive-group="${group}"] input`).forEach(input=>{input.checked=input.dataset.none!==undefined?selected.length===0:selected.has(input.value);});}
+function restoreProfileRegion(profile){const sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),region=window.BokdeongiRegions?.getData()?.findByCode(profile.regionCode);if(!sido||!sigungu||!region)return;sido.value=region.sidoName;populateSignupSigungu();sigungu.value=region.regionCode;}
+function restoreProfileOnboarding(profile){
+ const name=$('#profile-onboarding-name'),birthDate=$('#profile-onboarding-birth-date');
+ if(name){name.value=typeof profile.name==='string'?profile.name:'';name.readOnly=Boolean(name.value);}
+ if(birthDate)birthDate.value=typeof profile.birthDate==='string'?profile.birthDate:'';
+ setChecked('gender',profile.gender);restoreProfileRegion(profile);
+ if(profile.householdSize!==null&&profile.householdSize!==undefined)$('#profile-household-size').value=String(profile.householdSize);
+ setChecked('housing_type',profile.housingType);if(typeof profile.hasHouse==='boolean')setChecked('has_house',String(profile.hasHouse));
+ setChecked('income_input_type',profile.incomeInputType);setCodes('household',profile.householdTypeCodes);
+ setCodes('status',profile.statusCodes);setChecked('marital_status',profile.maritalStatus);
+ if(profile.childrenCount!==null&&profile.childrenCount!==undefined){const count=Number(profile.childrenCount);$('#profile-children-count').value=count>3?'4+':String(count);if(count>3)$('#profile-children-exact').value=String(count);}
+ if(profile.youngestChildBirthYear!==null&&profile.youngestChildBirthYear!==undefined)$('#profile-youngest-year').value=String(profile.youngestChildBirthYear);
+ setChecked('welfare_status',profile.welfareStatus);
+ document.querySelectorAll('[name="income_input_type"], #profile-children-count').forEach(input=>input.dispatchEvent(new Event('change',{bubbles:true})));
+ for(let step=1;step<=workflow.profileStep;step+=1)lockSavedProfileStep(step);
+}
+function activateProfileOnboarding(profile){
+ if(profileOnboarding.active)return;
+ profileOnboarding.active=true;profileOnboarding.profile=profile;workflow.accountCreated=true;workflow.authenticated=true;workflow.profileStep=Number(profile.profileStep);workflow.profileCompleted=false;
+ clearProfileOnboardingQuery();document.body.classList.add('is-profile-onboarding');
+ const accountSection=document.querySelector('[data-signup-step="account"]'),consentSection=document.querySelector('[data-signup-step="consent"]'),previous=document.querySelector('[data-signup-step="profile"] [data-signup-prev="consent"]');
+ if(accountSection)accountSection.hidden=true;if(consentSection)consentSection.hidden=true;if(previous)previous.hidden=true;
+ $('#profile-onboarding-name-field').hidden=false;$('#profile-onboarding-birth-date-field').hidden=false;
+ const title=$('#profile-form-title');if(title)title.textContent='카카오 프로필 입력';
+ const submit=$('#signup-complete-submit');if(submit)submit.textContent='프로필 저장 완료 ›';
+ showStep('profile');void ensureSignupRegions().then(()=>restoreProfileOnboarding(profile));
+}
+function showProfileOnboardingError(message){clearProfileOnboardingQuery();showStep('account');notice('#signup-form-message',message);}
+async function loadProfileOnboarding(status){
+ if(!profileOnboarding.requested||profileOnboarding.active||profileOnboarding.loading)return;
+ if(status==='checking')return;
+ if(status!=='authenticated'||!window.BokdeongiAuth){showProfileOnboardingError('로그인 상태를 확인하지 못해 프로필 입력을 시작하지 않았습니다. 다시 로그인해 주세요.');return;}
+ profileOnboarding.loading=true;
+ try{const response=await window.BokdeongiAuth.authenticatedFetch('/api/me/profile'),profile=await readJson(response);if(!response.ok||!profileOnboardingPayloadIsValid(profile)){showProfileOnboardingError('프로필 상태를 확인하지 못해 입력을 시작하지 않았습니다. 다시 로그인해 주세요.');return;}if(profile.profileCompleted){clearProfileOnboardingQuery();window.location.replace('index.html');return;}activateProfileOnboarding(profile);}
+ catch{showProfileOnboardingError('프로필 상태를 확인하지 못해 입력을 시작하지 않았습니다. 다시 로그인해 주세요.');}
+ finally{profileOnboarding.loading=false;}
+}
+function setupProfileOnboarding(){if(!profileOnboarding.requested)return;if(!window.BokdeongiAuth){showProfileOnboardingError('인증 서버 설정을 확인하지 못했습니다. 다시 로그인해 주세요.');return;}void loadProfileOnboarding(window.BokdeongiAuth.getAuthenticationState());window.addEventListener('bokdeongi:auth-state-change',event=>{void loadProfileOnboarding(event.detail?.status);});}
 function signupRegionMessage(message){const target=$('#profile-region-message');if(target)target.textContent=message;}
 function signupRegionErrorMessage(){return window.BokdeongiRegions?.getError()?.code==='empty'?'현재 선택 가능한 지역 정보가 없습니다.':'지역 목록을 불러오지 못했습니다. 다시 시도해 주세요.';}
 function populateSignupSigungu(){const sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),regions=window.BokdeongiRegions?.getData()?.selectableFor(sido?.value);if(!sido||!sigungu)return;if(!regions){sigungu.disabled=true;return;}const sejong=regions.length===1&&regions[0].regionCode==='36110'&&regions[0].sigunguName===null;if(sejong){sigungu.replaceChildren(new Option(regions[0].sidoName,regions[0].regionCode));sigungu.disabled=false;return;}sigungu.replaceChildren(new Option(regions.length?'시·군·구 선택':'선택 가능한 시·군·구가 없습니다.',''));regions.forEach(region=>sigungu.add(new Option(region.sigunguName||region.sidoName,region.regionCode)));sigungu.disabled=!regions.length;}
@@ -195,17 +243,18 @@ function setupSensitiveProfile(){const section=$('#sensitive-section'),sensitive
 function setupConsentDialog(){const dialog=$('#consent-dialog'),title=$('#consent-dialog-title'),content=$('#consent-dialog-content');if(!dialog||!title||!content)return;let opener=null;document.addEventListener('click',event=>{const viewButton=event.target.closest('[data-consent-view]');if(viewButton){const type=viewButton.dataset.consentView,info=consentDocument(type);if(!info){notice('#consent-error','동의 문서를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');return;}opener=viewButton;title.textContent=info.title;window.BokdeongiConsentDocuments.renderInto(content,type);dialog.showModal();return;}if(event.target.closest('[data-dialog-close]'))dialog.close();});dialog.addEventListener('close',()=>opener?.focus());}
 function radio(n){return document.querySelector(`[name="${n}"]:checked`)?.value||'';} function codes(g){const a=[...document.querySelectorAll(`[data-exclusive-group="${g}"] input:checked`)];return !a.length?null:a.some(i=>i.dataset.none!==undefined)?[]:[...new Set(a.map(i=>i.value))];}
 function profile(){
- const birthDate=signupState.account?.birthDate||'',gender=radio('gender'),sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),householdSize=Number($('#profile-household-size').value),housingType=radio('housing_type'),hasHouse=radio('has_house'),incomeInputType=radio('income_input_type'),maritalStatus=radio('marital_status'),childrenChoice=$('#profile-children-count').value,householdTypeCodes=codes('household'),statusCodes=codes('status'),welfareStatus=radio('welfare_status');
- if(!birthDate||!gender||!sido.value||!sigungu.value||!householdSize||!housingType||!hasHouse||!incomeInputType||!maritalStatus||!childrenChoice||householdTypeCodes===null||statusCodes===null||!welfareStatus){notice('#profile-form-error','필수 프로필 항목을 확인해 주세요.');return null;}
+ const onboarding=profileOnboarding.active,birthDate=onboarding?$('#profile-onboarding-birth-date').value:signupState.account?.birthDate||'',name=onboarding?$('#profile-onboarding-name').value.trim():signupState.account?.name||'',gender=radio('gender'),sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),householdSize=Number($('#profile-household-size').value),housingType=radio('housing_type'),hasHouse=radio('has_house'),incomeInputType=radio('income_input_type'),maritalStatus=radio('marital_status'),childrenChoice=$('#profile-children-count').value,householdTypeCodes=codes('household'),statusCodes=codes('status'),welfareStatus=radio('welfare_status');
+ const needsStep1=workflow.profileStep<1,needsStep2=workflow.profileStep<2,needsStep3=workflow.profileStep<3;
+ if((needsStep1&&(!isCalendarDate(birthDate)||birthDate<MIN_BIRTH_DATE||birthDate>today()||!gender||!sido.value||!sigungu.value||(onboarding&&!name)||name.length>50))||(needsStep2&&(!householdSize||!housingType||!hasHouse||!incomeInputType||householdTypeCodes===null))||(needsStep3&&(!maritalStatus||!childrenChoice||statusCodes===null||!welfareStatus))){notice('#profile-form-error','필수 프로필 항목을 확인해 주세요.');return null;}
  const usesIncomeAmount=['ANNUAL','MONTHLY'].includes(incomeInputType),incomeAmountValue=$('#profile-income-amount').value;
- if(usesIncomeAmount&&(incomeAmountValue===''||!Number.isFinite(Number(incomeAmountValue))||Number(incomeAmountValue)<0)){notice('#profile-form-error','0원 이상의 소득 금액을 입력해 주세요.');return null;}
+ if(needsStep2&&usesIncomeAmount&&(incomeAmountValue===''||!Number.isFinite(Number(incomeAmountValue))||Number(incomeAmountValue)<0)){notice('#profile-form-error','0원 이상의 소득 금액을 입력해 주세요.');return null;}
  const childrenCount=childrenChoice==='4+'?Number($('#profile-children-exact').value):Number(childrenChoice);
- if(!Number.isInteger(childrenCount)||childrenCount<0||childrenCount>32767||(childrenChoice==='4+'&&childrenCount<4)){notice('#profile-form-error','자녀 수를 확인해 주세요.');return null;}
+ if(needsStep3&&(!Number.isInteger(childrenCount)||childrenCount<0||childrenCount>32767||(childrenChoice==='4+'&&childrenCount<4))){notice('#profile-form-error','자녀 수를 확인해 주세요.');return null;}
  const youngestValue=$('#profile-youngest-year').value,youngestChildBirthYear=youngestValue===''?null:Number(youngestValue),currentYear=new Date().getFullYear(),memberBirthYear=Number(birthDate.slice(0,4));
- if(childrenCount>0&&(youngestChildBirthYear===null||!Number.isInteger(youngestChildBirthYear)||youngestChildBirthYear<1900||youngestChildBirthYear>currentYear||youngestChildBirthYear<memberBirthYear)){notice('#profile-form-error','막내 자녀 출생연도를 확인해 주세요.');return null;}
+ if(needsStep3&&childrenCount>0&&(youngestChildBirthYear===null||!Number.isInteger(youngestChildBirthYear)||youngestChildBirthYear<1900||youngestChildBirthYear>currentYear||youngestChildBirthYear<memberBirthYear)){notice('#profile-form-error','막내 자녀 출생연도를 확인해 주세요.');return null;}
  notice('#profile-form-error','');
  return [
-  {birthDate,gender,regionCode:sigungu.value,sidoName:sido.value,sigunguName:sigungu.options[sigungu.selectedIndex].text},
+  {birthDate,gender,regionCode:sigungu.value,sidoName:sido.value,sigunguName:sigungu.options[sigungu.selectedIndex].text,name:name||null},
   {householdSize,incomeInputType,incomeAmount:usesIncomeAmount?Number(incomeAmountValue):null,medianIncomePct:null,housingType,noHouse:hasHouse==='false',householdTypeCodes},
   {statusCodes,maritalStatus,childrenCount,youngestChildBirthYear:childrenCount===0?null:youngestChildBirthYear,welfareStatus}
  ];
@@ -299,10 +348,11 @@ async function completeProfile(){
  workflow.profileCompleted=true;
 }
 
-function finishSignup(){if(!workflow.profileCompleted)throw new SignupWorkflowError('profile-complete','서버에서 프로필 완료 상태를 확인하지 못했습니다.');const pendingSensitive=Array.isArray(signupState.sensitiveCodes)&&signupState.sensitiveCodes.length>0,noticeTarget=$('#signup-sensitive-pending-notice');if(noticeTarget)noticeTarget.hidden=!pendingSensitive;if(!showStep('complete'))throw new SignupWorkflowError('completion','계정과 프로필은 저장되었지만 완료 화면을 표시하지 못했습니다.');workflow.completed=true;clearSignupPasswords();clearSensitiveCodes();}
+function finishSignup(){if(!workflow.profileCompleted)throw new SignupWorkflowError('profile-complete','서버에서 프로필 완료 상태를 확인하지 못했습니다.');workflow.completed=true;clearSignupPasswords();clearSensitiveCodes();if(profileOnboarding.active){window.location.replace('index.html');return;}const pendingSensitive=Array.isArray(signupState.sensitiveCodes)&&signupState.sensitiveCodes.length>0,noticeTarget=$('#signup-sensitive-pending-notice');if(noticeTarget)noticeTarget.hidden=!pendingSensitive;if(!showStep('complete'))throw new SignupWorkflowError('completion','계정과 프로필은 저장되었지만 완료 화면을 표시하지 못했습니다.');}
 
 function handleWorkflowError(error){
  const failure=error instanceof SignupWorkflowError?error:new SignupWorkflowError('unknown','회원가입 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+ if(profileOnboarding.active){showStep('profile');notice('#profile-form-error',failure.message);if(!workflow.authenticated)showRecoveryLink('login.html','다시 로그인하기');return;}
  if(failure.stage==='signup'&&!workflow.accountCreated){showStep('account');notice('#signup-form-message',failure.message);return;}
  showStep('profile');
  if(failure.stage==='signup-unknown'){clearSignupPasswords();notice('#profile-form-error',failure.message);showRecoveryLink('login.html','계정 생성 여부를 로그인으로 확인하기');return;}
@@ -316,6 +366,7 @@ function handleWorkflowError(error){
 async function runSignupWorkflow(){
  if(workflow.submitting||workflow.completed||(workflow.signupAttempted&&!workflow.accountCreated))return;
  hideRecoveryLink();
+ if(profileOnboarding.active){const requests=profile();if(!requests)return;setWorkflowSubmitting(true,workflow.profileStep<3?`프로필 ${workflow.profileStep+1}단계 저장 중…`:'프로필 완료 처리 중…');try{if(workflow.profileStep<requests.length)await saveProfileSteps(requests);setWorkflowSubmitting(true,'프로필 완료 처리 중…');await completeProfile();finishSignup();}catch(error){handleWorkflowError(error);}finally{setWorkflowSubmitting(false);}return;}
  if(!workflow.accountCreated){const accountValue=account();if(!accountValue){showStep('account');notice('#signup-form-message','필수 입력 항목과 입력 형식을 확인해 주세요.');return;}signupState.account=accountValue;if(!validateRequiredConsents()){showStep('consent');return;}captureConsents();}
  const requests=profile();if(!requests)return;
  captureSensitiveCodes();
@@ -338,4 +389,4 @@ function setupProfileForm(){
  updateIncome();updateChildren();setWorkflowSubmitting(false);
 }
 
-document.addEventListener('DOMContentLoaded',()=>{setupAccount();setupConsent();setupConsentDialog();setupProfileRegions();setupSensitiveProfile();setupProfileForm();setupKakaoSignup();});
+document.addEventListener('DOMContentLoaded',()=>{setupAccount();setupConsent();setupConsentDialog();setupProfileRegions();setupSensitiveProfile();setupProfileForm();setupKakaoSignup();setupProfileOnboarding();void ensureSignupRegions();});
