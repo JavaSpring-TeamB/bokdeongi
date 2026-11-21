@@ -15,7 +15,9 @@ const developmentPreview = { enabled: isDevelopmentPreviewEnabled(), mockLogin: 
 const oauthParameters = new URLSearchParams(window.location.search);
 const oauthResult = {
   kakaoSignupRequested: oauthParameters.get('login') !== 'failed' && oauthParameters.get('kakaoSignup') === 'true',
-  kakaoSignupHandled: false
+  kakaoSignupHandled: false,
+  profileOnboardingRequested: oauthParameters.get('profileOnboarding') === 'true',
+  profileOnboardingHandled: false
 };
 
 function formatDateKey(year, monthIndex, day) {
@@ -263,6 +265,52 @@ function handleKakaoSignupRedirect() {
   window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.hash}`);
 }
 
+function clearOAuthQuery() {
+  window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.hash}`);
+}
+
+function isProfileOnboardingResponse(payload) {
+  return payload
+    && typeof payload.profileCompleted === 'boolean'
+    && Number.isInteger(Number(payload.profileStep))
+    && Number(payload.profileStep) >= 0
+    && Number(payload.profileStep) <= 3;
+}
+
+async function handleProfileOnboardingRedirect() {
+  if (!oauthResult.profileOnboardingRequested || oauthResult.profileOnboardingHandled) return;
+  if (authState.status === 'checking') return;
+
+  oauthResult.profileOnboardingHandled = true;
+
+  if (authState.status !== 'authenticated' || !window.BokdeongiAuth) {
+    showToast('로그인 상태를 확인하지 못해 프로필 입력을 시작하지 않았습니다. 다시 로그인해 주세요.');
+    clearOAuthQuery();
+    return;
+  }
+
+  try {
+    const response = await window.BokdeongiAuth.authenticatedFetch('/api/me/profile');
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok || !isProfileOnboardingResponse(payload)) {
+      showToast('프로필 상태를 확인하지 못해 입력을 시작하지 않았습니다. 다시 로그인해 주세요.');
+      clearOAuthQuery();
+      return;
+    }
+
+    if (payload.profileCompleted) {
+      clearOAuthQuery();
+      return;
+    }
+
+    window.location.replace('signup-account.html?profileOnboarding=true');
+  } catch {
+    showToast('프로필 상태를 확인하지 못해 입력을 시작하지 않았습니다. 다시 로그인해 주세요.');
+    clearOAuthQuery();
+  }
+}
+
 function renderHome() {
   const state = getSectionState();
   renderSupportSummary(mockPreviewData.supportSummary, false, state);
@@ -302,6 +350,7 @@ function setAuthenticationStatus(status) {
   authState.status = status;
   renderHome();
   handleKakaoSignupRedirect();
+  void handleProfileOnboardingRedirect();
 }
 
 window.addEventListener('bokdeongi:auth-state-change', (event) => {
