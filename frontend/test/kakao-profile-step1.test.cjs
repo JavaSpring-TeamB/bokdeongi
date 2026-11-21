@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'signup-account.js'), 'utf8');
 
-function buildProfileRequest(name) {
+function buildProfileRequest(name, selectionOverrides = {}, elementOverrides = {}) {
   const elements = {
     '#profile-onboarding-name': { value: name },
     '#profile-onboarding-birth-date': { value: '2000-01-01' },
@@ -25,8 +25,10 @@ function buildProfileRequest(name) {
     has_house: 'false',
     income_input_type: 'UNKNOWN',
     marital_status: 'SINGLE',
-    welfare_status: 'NONE'
+    welfare_status: 'NONE',
+    ...selectionOverrides
   };
+  Object.assign(elements, elementOverrides);
   const document = {
     querySelector(selector) {
       const match = selector.match(/^\[name="([^"]+)"\]:checked$/);
@@ -56,4 +58,21 @@ test('sends the entered actual name in the Kakao Step 1 request', () => {
   const requests = buildProfileRequest('홍길동');
   assert.equal(requests[0].name, '홍길동');
   assert.equal(requests[0].birthDate, '2000-01-01');
+});
+
+test('sends DTO-valid defaults when all optional Step 3 fields are omitted', () => {
+  const requests = buildProfileRequest('홍길동', {
+    marital_status: '',
+    welfare_status: ''
+  }, {
+    '#profile-children-count': { value: '' }
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(requests[2])), {
+    statusCodes: [],
+    maritalStatus: 'ETC',
+    childrenCount: 0,
+    youngestChildBirthYear: null,
+    welfareStatus: 'UNKNOWN'
+  });
 });

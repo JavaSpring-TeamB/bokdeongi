@@ -49,6 +49,10 @@
     let hashtagOptions = [];
     const questionSelections = new Map();
     const submittingBenefitIds = new Set();
+    const savedAnswersByKey = new Map();
+    let answerLoadState = 'idle';
+    let answerLoadErrorStatus = null;
+    let latestAnswerLoadRequestId = 0;
 
     function text(value, fallback = '') {
         return typeof value === 'string' && value.trim() ? value.trim() : fallback;
@@ -60,6 +64,104 @@
 
     function isRecord(value) {
         return value !== null && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    function savedAnswerForQuestion(selectionKey, questionKey) {
+        if (questionSelections.has(selectionKey)) {
+            return { value: questionSelections.get(selectionKey), saved: false };
+        }
+        const value = savedAnswersByKey.get(questionKey);
+        return ANSWER_VALUES.has(value) ? { value, saved: true } : { value: undefined, saved: false };
+    }
+
+    function applySavedAnswers(entries) {
+        const next = new Map();
+        if (Array.isArray(entries)) {
+            entries.forEach((entry) => {
+                if (!isRecord(entry)) return;
+                const key = text(entry.key);
+                if (QUESTION_KEY_PATTERN.test(key) && ANSWER_VALUES.has(entry.value)) {
+                    next.set(key, entry.value);
+                }
+            });
+        } else if (isRecord(entries)) {
+            Object.entries(entries).forEach(([key, value]) => {
+                if (QUESTION_KEY_PATTERN.test(key) && ANSWER_VALUES.has(value)) next.set(key, value);
+            });
+        } else {
+            return false;
+        }
+        savedAnswersByKey.clear();
+        next.forEach((value, key) => savedAnswersByKey.set(key, value));
+        return true;
+    }
+
+    function answerRestoreMessage() {
+        if (answerLoadState === 'loading') return '저장된 답변을 확인하고 있어요.';
+        if (answerLoadState === 'error') {
+            if (answerLoadErrorStatus === 401) return '저장된 답변을 보려면 다시 로그인해 주세요.';
+            if (answerLoadErrorStatus === 403) return '저장된 답변을 확인할 권한이 없어요.';
+            return '저장된 답변을 불러오지 못했어요. 현재 선택한 답변은 유지됩니다.';
+        }
+        return savedAnswersByKey.size ? '저장된 답변을 불러왔어요. 변경한 답변만 저장해 주세요.' : '저장된 추가 답변이 없어요.';
+    }
+
+    function updateRenderedAnswerRestoration() {
+        document.querySelectorAll('.conditional-question__restore-status').forEach((status) => {
+            status.textContent = answerRestoreMessage();
+            status.classList.toggle('is-error', answerLoadState === 'error');
+            status.setAttribute('role', answerLoadState === 'error' ? 'alert' : 'status');
+        });
+        document.querySelectorAll('.conditional-question__question[data-question-key]').forEach((question) => {
+            const selectionKey = question.dataset.selectionKey;
+            const questionKey = question.dataset.questionKey;
+            if (!selectionKey || !questionKey || questionSelections.has(selectionKey)) return;
+            const choices = question.querySelector('.conditional-question__choices');
+            const message = question.querySelector('.conditional-question__selection');
+            if (!choices || !message) return;
+            const restored = savedAnswerForQuestion(selectionKey, questionKey);
+            updateQuestionChoiceState(choices, restored.value, message, restored.saved);
+        });
+    }
+
+    async function loadSavedAnswers() {
+        const auth = window.BokdeongiAuth;
+        if (!auth || auth.getAuthenticationState() !== 'authenticated') return;
+
+        const requestId = ++latestAnswerLoadRequestId;
+        answerLoadState = 'loading';
+        answerLoadErrorStatus = null;
+        updateRenderedAnswerRestoration();
+        try {
+            const response = await auth.authenticatedFetch('/api/me/profile/answers');
+            if (requestId !== latestAnswerLoadRequestId) return;
+            if (response.status === 401 || auth.getAuthenticationState() !== 'authenticated') {
+                answerLoadState = 'error';
+                answerLoadErrorStatus = 401;
+                showLoginGuidance();
+                return;
+            }
+            if (!response.ok) {
+                answerLoadState = 'error';
+                answerLoadErrorStatus = response.status;
+                return;
+            }
+            const payload = await response.json();
+            if (!applySavedAnswers(payload)) {
+                answerLoadState = 'error';
+                answerLoadErrorStatus = null;
+                return;
+            }
+            answerLoadState = 'ready';
+            answerLoadErrorStatus = null;
+        } catch (error) {
+            if (requestId !== latestAnswerLoadRequestId) return;
+            answerLoadState = 'error';
+            answerLoadErrorStatus = error && error.type === 'unauthenticated' ? 401 : null;
+            if (answerLoadErrorStatus === 401) showLoginGuidance();
+        } finally {
+            if (requestId === latestAnswerLoadRequestId) updateRenderedAnswerRestoration();
+        }
     }
 
     function selectedTabKey() {
@@ -711,6 +813,11 @@
             }
 
             clearSubmittedSelections(item, cardIndex, request.answers);
+            latestAnswerLoadRequestId += 1;
+            applySavedAnswers(result.answers);
+            answerLoadState = 'ready';
+            answerLoadErrorStatus = null;
+            updateRenderedAnswerRestoration();
             if (result.benefit) {
                 applyImmediateBenefitResult(result.benefit, request.benefitId, cardIndex, viewKey);
                 appendSubmissionStatus(controls.status, '답변을 저장했고 서버 판정 결과를 반영하고 있어요.');
@@ -737,7 +844,7 @@
         }
     }
 
-    function updateQuestionChoiceState(choices, selectedValue, selectedMessage) {
+    function updateQuestionChoiceState(choices, selectedValue, selectedMessage, isSaved = false) {
         choices.querySelectorAll('button').forEach((button) => {
             const selected = button.dataset.answerValue === selectedValue;
             button.setAttribute('aria-pressed', String(selected));
@@ -745,7 +852,7 @@
         });
         const selectedOption = ANSWER_OPTIONS.find((option) => option.value === selectedValue);
         selectedMessage.textContent = selectedOption
-            ? '선택한 답변: ' + selectedOption.label + ' (아직 저장되지 않음)'
+            ? (isSaved ? '저장된 답변: ' : '선택한 답변: ') + selectedOption.label + (isSaved ? '' : ' (아직 저장되지 않음)')
             : '답변을 선택할 수 있어요. 선택한 답변은 아직 저장되지 않아요.';
     }
 
@@ -767,6 +874,8 @@
         }
 
         const selectionKey = questionSelectionKey(item, cardIndex, check, checkIndex);
+        question.dataset.questionKey = check.questionKey;
+        question.dataset.selectionKey = selectionKey;
         const choices = document.createElement('div');
         choices.className = 'conditional-question__choices';
         choices.setAttribute('role', 'group');
@@ -788,7 +897,8 @@
             });
             choices.append(button);
         });
-        updateQuestionChoiceState(choices, questionSelections.get(selectionKey), selectedMessage);
+        const restored = savedAnswerForQuestion(selectionKey, check.questionKey);
+        updateQuestionChoiceState(choices, restored.value, selectedMessage, restored.saved);
         question.append(choices, selectedMessage);
         return question;
     }
@@ -846,6 +956,15 @@
 
         const answerableQuestions = validChecks.filter(isAnswerableQuestion);
         const submitControls = answerableQuestions.length ? createAnswerSubmitControls(item, cardIndex) : null;
+        if (answerableQuestions.length) {
+            const restoreStatus = document.createElement('p');
+            restoreStatus.className = 'conditional-question__submission-status conditional-question__restore-status';
+            restoreStatus.setAttribute('aria-live', 'polite');
+            restoreStatus.textContent = answerRestoreMessage();
+            restoreStatus.classList.toggle('is-error', answerLoadState === 'error');
+            restoreStatus.setAttribute('role', answerLoadState === 'error' ? 'alert' : 'status');
+            section.append(restoreStatus);
+        }
 
         validChecks.forEach((check, checkIndex) => {
             if (check.type === 'QUESTION') {
@@ -1151,6 +1270,7 @@
     function handleAuthenticationState(event) {
         const status = event.detail && event.detail.status;
         if (status === 'authenticated') {
+            loadSavedAnswers();
             loadSelectedTab();
             loadHashtags();
         } else if (status === 'checking') {
@@ -1158,6 +1278,10 @@
         } else {
             latestRequestId += 1;
             loadingRequestKey = null;
+            latestAnswerLoadRequestId += 1;
+            savedAnswersByKey.clear();
+            answerLoadState = 'idle';
+            answerLoadErrorStatus = null;
             clearHashtagUi();
             showLoginGuidance();
         }
@@ -1177,6 +1301,7 @@
 
         const status = window.BokdeongiAuth.getAuthenticationState();
         if (status === 'authenticated') {
+            loadSavedAnswers();
             loadSelectedTab();
             loadHashtags();
         } else if (status === 'checking') {
