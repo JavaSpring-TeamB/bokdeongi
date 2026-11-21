@@ -1,6 +1,6 @@
 const $ = (s) => document.querySelector(s);
 const signupState = { account: null, consents: null, sensitiveCodes: null };
-const workflow = { signupAttempted: false, accountCreated: false, authenticated: false, profileStep: 0, profileCompleted: false, submitting: false, completed: false, allowRecoveryNavigation: false };
+const workflow = { signupAttempted: false, accountCreated: false, authenticated: false, profileStep: 0, profileCompleted: false, sensitiveProfileSaved: false, submitting: false, completed: false, allowRecoveryNavigation: false };
 const emailAvailability = { status: 'unchecked', checkedEmail: '', requestId: 0 };
 const kakaoSignup = {
  requested: new URLSearchParams(window.location.search).get('kakaoSignup') === 'true',
@@ -25,6 +25,8 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^01[016789]\d{7,8}$/;
 const REQUIRED_CONSENTS = ['TERMS', 'PRIVACY'];
 const consentDocument = (type) => window.BokdeongiConsentDocuments?.get(type) || null;
+const SENSITIVE_PROFILE_CODES = new Set(['JA0301', 'JA0302', 'JA0303', 'JA0328', 'JA0329', 'JA0330', 'JA0401', 'JA0402']);
+const STATUS_GROUPS = ['education-status', 'employment-status', 'occupation-industry'];
 
 function validateEmail(showEmpty=true){const input=$('#signup-email'),value=input.value.trim();if(!value){field('email',showEmpty?'이메일을 입력해 주세요.':'');return false;}if(value.length>100||!emailPattern.test(value)||!input.validity.valid){field('email','이메일 형식을 확인해 주세요.');return false;}field('email','이메일 형식이 올바릅니다.',true);return true;}
 function currentEmail(){return $('#signup-email')?.value.trim()||'';}
@@ -190,6 +192,7 @@ function setupKakaoSignup(){
 function profileOnboardingPayloadIsValid(profile){return profile&&typeof profile.profileCompleted==='boolean'&&Number.isInteger(Number(profile.profileStep))&&Number(profile.profileStep)>=0&&Number(profile.profileStep)<=3;}
 function setChecked(name,value){const input=document.querySelector(`[name="${name}"][value="${value}"]`);if(input)input.checked=true;}
 function setCodes(group,values){if(!Array.isArray(values))return;const selected=new Set(values);document.querySelectorAll(`[data-exclusive-group="${group}"] input`).forEach(input=>{input.checked=input.dataset.none!==undefined?selected.length===0:selected.has(input.value);});}
+function setStatusCodes(values){if(!Array.isArray(values))return;const selected=new Set(values);STATUS_GROUPS.forEach(group=>{const inputs=[...document.querySelectorAll(`[data-exclusive-group="${group}"] input`)],hasSelection=inputs.some(input=>input.dataset.none===undefined&&selected.has(input.value));inputs.forEach(input=>{input.checked=input.dataset.none!==undefined?!hasSelection:selected.has(input.value);});});}
 function restoreProfileRegion(profile){const sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),region=window.BokdeongiRegions?.getData()?.findByCode(profile.regionCode);if(!sido||!sigungu||!region)return;sido.value=region.sidoName;populateSignupSigungu();sigungu.value=region.regionCode;}
 function restoreProfileOnboarding(profile){
  const name=$('#profile-onboarding-name'),birthDate=$('#profile-onboarding-birth-date');
@@ -199,7 +202,8 @@ function restoreProfileOnboarding(profile){
  if(profile.householdSize!==null&&profile.householdSize!==undefined)$('#profile-household-size').value=String(profile.householdSize);
  setChecked('housing_type',profile.housingType);if(typeof profile.hasHouse==='boolean')setChecked('has_house',String(profile.hasHouse));
  setChecked('income_input_type',profile.incomeInputType);setCodes('household',profile.householdTypeCodes);
- setCodes('status',profile.statusCodes);setChecked('marital_status',profile.maritalStatus);
+ setStatusCodes(profile.statusCodes);setChecked('marital_status',profile.maritalStatus);
+ const medianIncome=$('#profile-median-income-pct');if(medianIncome&&profile.medianIncomePct!==null&&profile.medianIncomePct!==undefined)medianIncome.value=String(profile.medianIncomePct);
  if(profile.childrenCount!==null&&profile.childrenCount!==undefined){const count=Number(profile.childrenCount);$('#profile-children-count').value=count>3?'4+':String(count);if(count>3)$('#profile-children-exact').value=String(count);}
  if(profile.youngestChildBirthYear!==null&&profile.youngestChildBirthYear!==undefined)$('#profile-youngest-year').value=String(profile.youngestChildBirthYear);
  setChecked('welfare_status',profile.welfareStatus);
@@ -241,21 +245,24 @@ function clearSensitiveCodes(){sensitiveInputs().forEach(input=>{input.checked=f
 function syncSensitiveProfile(){const section=$('#sensitive-section'),noticeTarget=$('#sensitive-notice');if(!section||!noticeTarget)return;const allowed=sensitiveConsentGiven();if(!allowed)clearSensitiveCodes();section.classList.toggle('is-disabled',!allowed);section.setAttribute('aria-disabled',String(!allowed));sensitiveInputs().forEach(input=>{input.disabled=!allowed;});noticeTarget.hidden=allowed;if(allowed)captureSensitiveCodes();}
 function setupSensitiveProfile(){const section=$('#sensitive-section'),sensitiveConsent=document.querySelector('[data-signup-step="consent"] [data-consent-type="SENSITIVE"]');if(!section||!sensitiveConsent)return;section.addEventListener('change',event=>{const input=event.target;if(!input.matches('input[type="checkbox"]'))return;const inputs=sensitiveInputs(),none=inputs.find(item=>item.dataset.none!==undefined);if(input.dataset.none!==undefined&&input.checked)inputs.filter(item=>item.dataset.sensitiveCode).forEach(item=>{item.checked=false;});else if(input.checked&&none)none.checked=false;captureSensitiveCodes();});sensitiveConsent.addEventListener('change',syncSensitiveProfile);syncSensitiveProfile();}
 function setupConsentDialog(){const dialog=$('#consent-dialog'),title=$('#consent-dialog-title'),content=$('#consent-dialog-content');if(!dialog||!title||!content)return;let opener=null;document.addEventListener('click',event=>{const viewButton=event.target.closest('[data-consent-view]');if(viewButton){const type=viewButton.dataset.consentView,info=consentDocument(type);if(!info){notice('#consent-error','동의 문서를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');return;}opener=viewButton;title.textContent=info.title;window.BokdeongiConsentDocuments.renderInto(content,type);dialog.showModal();return;}if(event.target.closest('[data-dialog-close]'))dialog.close();});dialog.addEventListener('close',()=>opener?.focus());}
-function radio(n){return document.querySelector(`[name="${n}"]:checked`)?.value||'';} function codes(g){const a=[...document.querySelectorAll(`[data-exclusive-group="${g}"] input:checked`)];return !a.length?null:a.some(i=>i.dataset.none!==undefined)?[]:[...new Set(a.map(i=>i.value))];}
+function radio(n){return document.querySelector(`[name="${n}"]:checked`)?.value||'';} function codes(g){const a=[...document.querySelectorAll(`[data-exclusive-group="${g}"] input:checked`)];return !a.length?null:a.some(i=>i.dataset.none!==undefined)?[]:[...new Set(a.map(i=>i.value))];} function collectStatusCodes(){return [...new Set(STATUS_GROUPS.flatMap(group=>codes(group)||[]))];}
+function incomeDigits(value){return String(value||'').replace(/\D/g,'');}
+function formatIncomeAmount(input){const digitCount=incomeDigits(input.value.slice(0,input.selectionStart??input.value.length)).length,digits=incomeDigits(input.value),formatted=digits.replace(/\B(?=(\d{3})+(?!\d))/g,',');input.value=formatted;let cursor=0,seen=0;while(cursor<formatted.length&&seen<digitCount){if(/\d/.test(formatted[cursor]))seen+=1;cursor+=1;}input.setSelectionRange?.(cursor,cursor);}
 function profile(){
- const onboarding=profileOnboarding.active,birthDate=onboarding?$('#profile-onboarding-birth-date').value:signupState.account?.birthDate||'',name=onboarding?$('#profile-onboarding-name').value.trim():signupState.account?.name||'',gender=radio('gender'),sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),householdSize=Number($('#profile-household-size').value),housingType=radio('housing_type'),hasHouse=radio('has_house'),incomeInputType=radio('income_input_type'),maritalStatus=radio('marital_status'),childrenChoice=$('#profile-children-count').value,householdTypeCodes=codes('household'),statusCodes=codes('status'),welfareStatus=radio('welfare_status');
+ const onboarding=profileOnboarding.active,birthDate=onboarding?$('#profile-onboarding-birth-date').value:signupState.account?.birthDate||'',name=onboarding?$('#profile-onboarding-name').value.trim():signupState.account?.name||'',gender=radio('gender'),sido=$('#profile-sido'),sigungu=$('#profile-sigungu'),householdSize=Number($('#profile-household-size').value),housingType=radio('housing_type'),hasHouse=radio('has_house'),incomeInputType=radio('income_input_type'),maritalStatus=radio('marital_status')||'ETC',childrenChoice=$('#profile-children-count').value,householdTypeCodes=codes('household'),statusCodes=collectStatusCodes(),welfareStatus=radio('welfare_status')||'UNKNOWN';
  const needsStep1=workflow.profileStep<1,needsStep2=workflow.profileStep<2,needsStep3=workflow.profileStep<3;
- if((needsStep1&&(!isCalendarDate(birthDate)||birthDate<MIN_BIRTH_DATE||birthDate>today()||!gender||!sido.value||!sigungu.value||(onboarding&&!name)||name.length>50))||(needsStep2&&(!householdSize||!housingType||!hasHouse||!incomeInputType||householdTypeCodes===null))||(needsStep3&&(!maritalStatus||!childrenChoice||statusCodes===null||!welfareStatus))){notice('#profile-form-error','필수 프로필 항목을 확인해 주세요.');return null;}
- const usesIncomeAmount=['ANNUAL','MONTHLY'].includes(incomeInputType),incomeAmountValue=$('#profile-income-amount').value;
- if(needsStep2&&usesIncomeAmount&&(incomeAmountValue===''||!Number.isFinite(Number(incomeAmountValue))||Number(incomeAmountValue)<0)){notice('#profile-form-error','0원 이상의 소득 금액을 입력해 주세요.');return null;}
- const childrenCount=childrenChoice==='4+'?Number($('#profile-children-exact').value):Number(childrenChoice);
+ if((needsStep1&&(!isCalendarDate(birthDate)||birthDate<MIN_BIRTH_DATE||birthDate>today()||!gender||!sido.value||!sigungu.value||(onboarding&&!name)||name.length>50))||(needsStep2&&(!householdSize||!housingType||!hasHouse||!incomeInputType||householdTypeCodes===null))){notice('#profile-form-error','필수 프로필 항목을 확인해 주세요.');return null;}
+ const usesIncomeAmount=['ANNUAL','MONTHLY'].includes(incomeInputType),incomeAmountValue=incomeDigits($('#profile-income-amount')?.value),medianIncomePctValue=$('#profile-median-income-pct')?.value||'';
+ if(needsStep2&&usesIncomeAmount&&(incomeAmountValue===''||!Number.isSafeInteger(Number(incomeAmountValue))||Number(incomeAmountValue)<=0)){notice('#profile-form-error','소득 금액은 0원보다 큰 정수로 입력해 주세요.');return null;}
+ if(needsStep2&&incomeInputType==='BRACKET'&&(medianIncomePctValue===''||!Number.isFinite(Number(medianIncomePctValue))||Number(medianIncomePctValue)<0||Number(medianIncomePctValue)>9999.9)){notice('#profile-form-error','중위소득 비율을 0~9999.9 사이로 입력해 주세요.');return null;}
+ const childrenCount=childrenChoice===''?0:childrenChoice==='4+'?Number($('#profile-children-exact').value):Number(childrenChoice);
  if(needsStep3&&(!Number.isInteger(childrenCount)||childrenCount<0||childrenCount>32767||(childrenChoice==='4+'&&childrenCount<4))){notice('#profile-form-error','자녀 수를 확인해 주세요.');return null;}
  const youngestValue=$('#profile-youngest-year').value,youngestChildBirthYear=youngestValue===''?null:Number(youngestValue),currentYear=new Date().getFullYear(),memberBirthYear=Number(birthDate.slice(0,4));
  if(needsStep3&&childrenCount>0&&(youngestChildBirthYear===null||!Number.isInteger(youngestChildBirthYear)||youngestChildBirthYear<1900||youngestChildBirthYear>currentYear||youngestChildBirthYear<memberBirthYear)){notice('#profile-form-error','막내 자녀 출생연도를 확인해 주세요.');return null;}
  notice('#profile-form-error','');
  return [
   {birthDate,gender,regionCode:sigungu.value,sidoName:sido.value,sigunguName:sigungu.options[sigungu.selectedIndex].text,name:name||null},
-  {householdSize,incomeInputType,incomeAmount:usesIncomeAmount?Number(incomeAmountValue):null,medianIncomePct:null,housingType,noHouse:hasHouse==='false',householdTypeCodes},
+  {householdSize,incomeInputType,incomeAmount:usesIncomeAmount?Number(incomeAmountValue):null,medianIncomePct:incomeInputType==='BRACKET'?Number(medianIncomePctValue):null,housingType,noHouse:hasHouse==='false',householdTypeCodes},
   {statusCodes,maritalStatus,childrenCount,youngestChildBirthYear:childrenCount===0?null:youngestChildBirthYear,welfareStatus}
  ];
 }
@@ -315,9 +322,45 @@ async function saveProfileSteps(requests){
   if(!response.ok){if(response.status===401)workflow.authenticated=false;throw new SignupWorkflowError('profile',responseMessage(payload,`프로필 ${step}단계 저장에 실패했습니다.`),response.status,{...payload,step});}
   const responseStep=Number(payload?.profileStep);
   if(!Number.isFinite(responseStep)||responseStep<step)throw new SignupWorkflowError('profile',`프로필 ${step}단계 저장 응답을 확인하지 못했습니다.`,response.status,{step});
+  if(step===2)showIncomeCalculation(payload);
   workflow.profileStep=step;
   lockSavedProfileStep(step);
  }
+}
+
+function showIncomeCalculation(profile){
+ const target=$('#profile-income-calculation');
+ if(!target)return;
+ const pct=profile?.medianIncomePct,year=profile?.incomeBaseYear;
+ if(pct===null||pct===undefined){target.hidden=true;target.textContent='';return;}
+ target.textContent=`서버 계산 결과: 기준 중위소득 ${pct}%${year?` (${year}년 기준)`:''}`;
+ target.hidden=false;
+}
+
+async function saveSensitiveProfile(){
+ const auth=window.BokdeongiAuth;
+ if(!auth||auth.getAuthenticationState()!=='authenticated')throw new SignupWorkflowError('profile-step4','로그인 상태를 확인하지 못했습니다. 다시 로그인해 주세요.');
+ const sensitiveAgreed=sensitiveConsentGiven();
+ const sensitiveCodes=sensitiveAgreed&&Array.isArray(signupState.sensitiveCodes)?[...new Set(signupState.sensitiveCodes)]:null;
+ if(sensitiveCodes&&sensitiveCodes.some(code=>!SENSITIVE_PROFILE_CODES.has(code))){throw new SignupWorkflowError('profile-step4','허용되지 않은 민감정보 항목이 포함되어 저장할 수 없습니다.');}
+
+ let consentResponse;
+ try{consentResponse=await auth.authenticatedFetch('/api/auth/consents');}
+ catch{if(auth.getAuthenticationState()!=='authenticated')workflow.authenticated=false;throw new SignupWorkflowError('profile-step4','민감정보 동의 상태를 확인하지 못했습니다.');}
+ const consentPayload=await readJson(consentResponse);
+ if(!consentResponse.ok){if(consentResponse.status===401)workflow.authenticated=false;throw new SignupWorkflowError('profile-step4',responseMessage(consentPayload,'민감정보 동의 상태를 확인하지 못했습니다.'),consentResponse.status,consentPayload);}
+ const consent=Array.isArray(consentPayload?.consents)?consentPayload.consents.find(item=>item&&item.consentType==='SENSITIVE'):null;
+ if(!consent||typeof consent.agreed!=='boolean'||consent.agreed!==sensitiveAgreed||typeof consent.docVersion!=='string'||!consent.docVersion||!Number.isSafeInteger(consent.consentId)||consent.consentId<=0){throw new SignupWorkflowError('profile-step4','서버의 민감정보 동의 상태를 확인하지 못했습니다. 가입을 다시 시작해 주세요.');}
+
+ let response;
+ try{
+  const csrf=await auth.getCsrfToken();
+  response=await auth.authenticatedFetch('/api/me/profile/step4',{method:'PUT',headers:{'Content-Type':'application/json',[csrf.headerName]:csrf.token},body:JSON.stringify({sensitiveAgreed,consentDocVersion:consent.docVersion,consentId:consent.consentId,sensitiveCodes})});
+ }catch{if(auth.getAuthenticationState()!=='authenticated')workflow.authenticated=false;throw new SignupWorkflowError('profile-step4','민감정보 저장 요청을 완료하지 못했습니다.');}
+ const payload=await readJson(response);
+ if(!response.ok){if(response.status===401)workflow.authenticated=false;throw new SignupWorkflowError('profile-step4',responseMessage(payload,'민감정보를 저장하지 못했습니다.'),response.status,payload);}
+ if(!payload||Number(payload.profileStep)<4)throw new SignupWorkflowError('profile-step4','민감정보 저장 응답을 확인하지 못했습니다.',response.status,payload);
+ workflow.sensitiveProfileSaved=true;
 }
 
 function hasCompletedProfile(payload){const completedAt=payload?.profileCompletedAt;return payload?.profileCompleted===true&&Number(payload.profileStep)>=3&&typeof completedAt==='string'&&completedAt.trim().length>0;}
@@ -348,7 +391,7 @@ async function completeProfile(){
  workflow.profileCompleted=true;
 }
 
-function finishSignup(){if(!workflow.profileCompleted)throw new SignupWorkflowError('profile-complete','서버에서 프로필 완료 상태를 확인하지 못했습니다.');workflow.completed=true;clearSignupPasswords();clearSensitiveCodes();if(profileOnboarding.active){window.location.replace('index.html');return;}const pendingSensitive=Array.isArray(signupState.sensitiveCodes)&&signupState.sensitiveCodes.length>0,noticeTarget=$('#signup-sensitive-pending-notice');if(noticeTarget)noticeTarget.hidden=!pendingSensitive;if(!showStep('complete'))throw new SignupWorkflowError('completion','계정과 프로필은 저장되었지만 완료 화면을 표시하지 못했습니다.');}
+function finishSignup(){if(!workflow.profileCompleted)throw new SignupWorkflowError('profile-complete','서버에서 프로필 완료 상태를 확인하지 못했습니다.');workflow.completed=true;clearSignupPasswords();clearSensitiveCodes();if(profileOnboarding.active){window.location.replace('index.html');return;}const noticeTarget=$('#signup-sensitive-pending-notice');if(noticeTarget)noticeTarget.hidden=true;if(!showStep('complete'))throw new SignupWorkflowError('completion','계정과 프로필은 저장되었지만 완료 화면을 표시하지 못했습니다.');}
 
 function handleWorkflowError(error){
  const failure=error instanceof SignupWorkflowError?error:new SignupWorkflowError('unknown','회원가입 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
@@ -358,6 +401,7 @@ function handleWorkflowError(error){
  if(failure.stage==='signup-unknown'){clearSignupPasswords();notice('#profile-form-error',failure.message);showRecoveryLink('login.html','계정 생성 여부를 로그인으로 확인하기');return;}
  if(workflow.accountCreated&&!workflow.authenticated){clearSignupPasswords();notice('#profile-form-error',failure.message.startsWith('계정은 생성')?failure.message:`계정은 생성되었습니다. ${failure.message}`);showRecoveryLink('login.html','생성된 계정으로 로그인하기');return;}
  if(failure.stage==='profile'){const step=failure.payload?.step||workflow.profileStep+1;notice('#profile-form-error',`계정 생성과 로그인은 완료되었습니다. 프로필 ${step}단계부터 다시 시도해 주세요. ${failure.message}`);showRecoveryLink('my-page.html','마이페이지에서 프로필 보완하기');return;}
+ if(failure.stage==='profile-step4'){notice('#profile-form-error',`계정과 프로필 1~3단계 저장은 완료되었습니다. 민감정보 저장에 실패해 프로필 완료 처리를 진행하지 않았습니다. ${failure.message}`);return;}
  if(failure.stage==='profile-complete'){notice('#profile-form-error',`계정 생성과 프로필 1~3단계 저장은 완료되었습니다. ${failure.message}`);showRecoveryLink('my-page.html','마이페이지에서 완료 상태 확인하기');return;}
  notice('#profile-form-error',failure.message);
  if(workflow.profileStep===3)showRecoveryLink('my-page.html','마이페이지로 이동하기');
@@ -371,17 +415,17 @@ async function runSignupWorkflow(){
  const requests=profile();if(!requests)return;
  captureSensitiveCodes();
  setWorkflowSubmitting(true,'계정 생성 중…');
- try{await createAccount();setWorkflowSubmitting(true,'자동 로그인 중…');await loginCreatedAccount();if(workflow.profileStep<requests.length){setWorkflowSubmitting(true,`프로필 ${workflow.profileStep+1}단계 저장 중…`);await saveProfileSteps(requests);}setWorkflowSubmitting(true,'프로필 완료 처리 중…');await completeProfile();finishSignup();}
+ try{await createAccount();setWorkflowSubmitting(true,'자동 로그인 중…');await loginCreatedAccount();if(workflow.profileStep<requests.length){setWorkflowSubmitting(true,`프로필 ${workflow.profileStep+1}단계 저장 중…`);await saveProfileSteps(requests);}if(!workflow.sensitiveProfileSaved){setWorkflowSubmitting(true,'민감정보 저장 중…');await saveSensitiveProfile();}setWorkflowSubmitting(true,'프로필 완료 처리 중…');await completeProfile();finishSignup();}
  catch(error){handleWorkflowError(error);}
  finally{setWorkflowSubmitting(false);}
 }
 
 function setupProfileForm(){
- const form=$('#signup-profile-form'),incomeFields=$('#income-amount-fields'),incomeAmount=$('#profile-income-amount'),children=$('#profile-children-count'),exact=$('#exact-children-field'),youngest=$('#youngest-child-field');
- const updateIncome=()=>{const needsAmount=['ANNUAL','MONTHLY'].includes(radio('income_input_type'));incomeFields.hidden=!needsAmount;incomeAmount.required=needsAmount;if(!needsAmount)incomeAmount.value='';};
+ const form=$('#signup-profile-form'),incomeFields=$('#income-amount-fields'),incomeBracketFields=$('#income-bracket-fields'),incomeAmount=$('#profile-income-amount'),incomeMedianPct=$('#profile-median-income-pct'),children=$('#profile-children-count'),exact=$('#exact-children-field'),youngest=$('#youngest-child-field');
+ const updateIncome=()=>{const type=radio('income_input_type'),needsAmount=['ANNUAL','MONTHLY'].includes(type),needsBracket=type==='BRACKET';incomeFields.hidden=!needsAmount;incomeBracketFields.hidden=!needsBracket;incomeAmount.required=needsAmount;incomeAmount.disabled=!needsAmount;incomeMedianPct.required=needsBracket;incomeMedianPct.disabled=!needsBracket;if(!needsAmount)incomeAmount.value='';if(!needsBracket)incomeMedianPct.value='';};
  const updateChildren=()=>{const value=children.value,hasChildren=Boolean(value&&value!=='0');exact.hidden=value!=='4+';youngest.hidden=!hasChildren;if(value!=='4+')$('#profile-children-exact').value='';if(!hasChildren)$('#profile-youngest-year').value='';};
- document.querySelectorAll('[name="income_input_type"]').forEach(input=>input.addEventListener('change',updateIncome));children.addEventListener('change',updateChildren);
- document.querySelectorAll('[data-exclusive-group="household"], [data-exclusive-group="status"]').forEach(group=>group.addEventListener('change',event=>{const input=event.target;if(!input.matches('input[type="checkbox"]'))return;const none=group.querySelector('[data-none]');if(input.dataset.none!==undefined&&input.checked)group.querySelectorAll('input:not([data-none])').forEach(item=>{item.checked=false;});else if(input.checked&&none)none.checked=false;}));
+ document.querySelectorAll('[name="income_input_type"]').forEach(input=>input.addEventListener('change',updateIncome));incomeAmount?.addEventListener('input',()=>formatIncomeAmount(incomeAmount));children.addEventListener('change',updateChildren);
+ document.querySelectorAll('[data-exclusive-group="household"], [data-exclusive-group="education-status"], [data-exclusive-group="employment-status"], [data-exclusive-group="occupation-industry"]').forEach(group=>group.addEventListener('change',event=>{const input=event.target;if(!input.matches('input[type="checkbox"]'))return;const none=group.querySelector('[data-none]');if(input.dataset.none!==undefined&&input.checked)group.querySelectorAll('input:not([data-none])').forEach(item=>{item.checked=false;});else if(input.checked){if(none)none.checked=false;if(STATUS_GROUPS.includes(group.dataset.exclusiveGroup))group.querySelectorAll('input:not([data-none])').forEach(item=>{if(item!==input)item.checked=false;});}}));
  form.addEventListener('input',()=>notice('#profile-form-error',''));
  form.addEventListener('submit',event=>{event.preventDefault();runSignupWorkflow();});
  $('#signup-login-recovery')?.addEventListener('click',()=>{workflow.allowRecoveryNavigation=true;clearSensitiveCodes();});

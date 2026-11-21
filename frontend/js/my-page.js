@@ -26,6 +26,8 @@ let withdrawalOpener = null;
 let profileLoadState = 'checking';
 let profileLoadErrorStatus = null;
 let profileCompleted = false;
+let profileResponse = null;
+let profileSaving = false;
 let profileInterests = ['주거·생활', '취업·교육'];
 let bookmarkPage = 1;
 const BOOKMARK_PAGE_SIZE = 4;
@@ -65,6 +67,11 @@ const SENSITIVE_OPTIONS = [
     ['JA0303', '출산·입양', '출산·입양 관련 지원 안내에 활용합니다.'], ['JA0328', '장애 관련', '장애 관련 지원 안내에 활용합니다.'],
     ['JA0329', '보훈 관련', '보훈 관련 지원 안내에 활용합니다.'], ['JA0330', '질병 관련', '질병 관련 지원 안내에 활용합니다.'],
     ['JA0401', '다문화 가구', '다문화 가구 지원 안내에 활용합니다.'], ['JA0402', '북한이탈주민', '북한이탈주민 지원 안내에 활용합니다.']
+];
+const STATUS_GROUPS = [
+    ['education-status', '학력·재학 상태', [['JA0317', '초등학생'], ['JA0318', '중학생'], ['JA0319', '고등학생'], ['JA0320', '대학생']]],
+    ['employment-status', '경제활동(고용 상태)', [['JA0326', '재직자'], ['JA0327', '구직자'], ['SELF_EMPLOYED', '자영업자']]],
+    ['occupation-industry', '직업·산업 분야', [['JA0313', '농업 종사자'], ['JA0314', '어업 종사자'], ['JA0315', '축산업 종사자'], ['JA0316', '임업 종사자']]]
 ];
 const CONSENT_TYPES = ['OPTIONAL_INFO', 'SENSITIVE'];
 let consentLoadState = 'checking';
@@ -119,12 +126,41 @@ function formatIncome(profile) {
             ? '중위소득 구간 입력'
             : '중위소득 ' + profile.medianIncomePct + '%';
     }
-    if (profile.incomeInputType === 'ANNUAL') return '연소득 입력됨';
-    if (profile.incomeInputType === 'MONTHLY') return '월소득 입력됨';
+    if (profile.incomeInputType === 'ANNUAL' || profile.incomeInputType === 'MONTHLY') {
+        const type = profile.incomeInputType === 'ANNUAL' ? '연소득' : '월소득';
+        const percentage = profile.medianIncomePct === null || profile.medianIncomePct === undefined
+            ? ''
+            : ' · 기준 중위소득 ' + profile.medianIncomePct + '%' + (profile.incomeBaseYear ? ' (' + profile.incomeBaseYear + '년)' : '');
+        return type + ' 입력됨' + percentage;
+    }
     return '미입력';
 }
 
+function incomeDigits(value) {
+    return String(value ?? '').replace(/\D/g, '');
+}
+
+function formatIncomeAmount(input) {
+    const caret = input.selectionStart ?? input.value.length;
+    const digitCount = incomeDigits(input.value.slice(0, caret)).length;
+    const formatted = incomeDigits(input.value).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    input.value = formatted;
+
+    let nextCaret = 0;
+    let seenDigits = 0;
+    while (nextCaret < formatted.length && seenDigits < digitCount) {
+        if (/\d/.test(formatted[nextCaret])) seenDigits += 1;
+        nextCaret += 1;
+    }
+    input.setSelectionRange?.(nextCaret, nextCaret);
+}
+
 function applyProfileResponse(profile) {
+    profileResponse = {
+        ...profile,
+        householdTypeCodes: Array.isArray(profile.householdTypeCodes) ? [...profile.householdTypeCodes] : null,
+        statusCodes: Array.isArray(profile.statusCodes) ? [...profile.statusCodes] : null
+    };
     setProfileValue('basics', '이름', displayValue(profile.name));
     setProfileValue('basics', '생년월일', formatBirthDate(profile.birthDate));
     setProfileValue('basics', '거주지역', formatRegion(profile));
@@ -146,6 +182,7 @@ function applyProfileResponse(profile) {
         incomeInputType: displayValue(profile.incomeInputType, ''),
         incomeAmount: '',
         incomeBaseYear: profile.incomeBaseYear === null || profile.incomeBaseYear === undefined ? '' : String(profile.incomeBaseYear),
+        medianIncomePct: profile.medianIncomePct === null || profile.medianIncomePct === undefined ? '' : String(profile.medianIncomePct),
         maritalStatus: displayValue(profile.maritalStatus, ''),
         childrenCount: profile.childrenCount === null || profile.childrenCount === undefined ? '' : profile.childrenCount >= 4 ? '4+' : String(profile.childrenCount),
         childrenExact: profile.childrenCount !== null && profile.childrenCount !== undefined && profile.childrenCount >= 4 ? String(profile.childrenCount) : '',
@@ -331,12 +368,14 @@ function renderProfileEditor() {
     const regionControlsDisabled = regionLoadState !== 'ready';
     const regionMessage = myPageRegionMessage();
     const currentYear = new Date().getFullYear();
-    const incomeVisible = ['ANNUAL', 'MONTHLY'].includes(profileEditorState.incomeInputType);
+    const incomeAmountVisible = ['ANNUAL', 'MONTHLY'].includes(profileEditorState.incomeInputType);
+    const incomeBracketVisible = profileEditorState.incomeInputType === 'BRACKET';
     const childVisible = profileEditorState.childrenCount && profileEditorState.childrenCount !== '0';
     const exactChildrenVisible = profileEditorState.childrenCount === '4+';
     const sensitiveCodes = sensitiveEditState.codes;
     const sensitiveEnabled = hasVerifiedSensitiveConsent();
     const sensitiveOptions = SENSITIVE_OPTIONS.map(([code, label, description]) => '<label><input type="checkbox" name="sensitiveCodes" value="' + code + '"' + (sensitiveCodes && sensitiveCodes.includes(code) ? ' checked' : '') + (sensitiveEnabled ? '' : ' disabled') + '><span><strong>' + label + '</strong><small>' + description + '</small></span></label>').join('') + '<label class="my-page__sensitive-none"><input type="checkbox" name="sensitiveCodes" value="NONE" data-none' + (Array.isArray(sensitiveCodes) && sensitiveCodes.length === 0 ? ' checked' : '') + (sensitiveEnabled ? '' : ' disabled') + '><span><strong>해당 없음</strong><small>관련 항목이 없음을 명시합니다.</small></span></label>';
+    const statusGroupFields = STATUS_GROUPS.map(([group, title, items]) => '<fieldset class="my-page__multi-choice" data-exclusive-group="' + group + '"><legend>' + title + '</legend><div>' + checks(group, [...items, ['NONE', '해당 없음', true]], profileEditorState.statusCodes) + '</div></fieldset>').join('');
     const sensitiveMessage = consentLoadState === 'checking'
         ? '민감정보 동의 상태를 서버에서 확인하고 있어요.'
         : consentLoadState === 'error'
@@ -345,7 +384,7 @@ function renderProfileEditor() {
                 ? '서버에서 동의 상태를 확인했어요. 저장된 민감 코드 목록은 보안상 다시 표시하지 않아요.'
                 : '동의하지 않은 상태예요. 정식 동의 문서가 연결된 뒤 동의 관리에서 동의하면 입력할 수 있어요.';
     const sensitiveContent = '<p class="my-page__sensitive-intro">민감정보는 관련 복지 혜택을 더 정확하게 안내하기 위해 사용됩니다. 입력은 선택 사항이며, 동의 여부와 입력 내용은 변경할 수 있습니다.</p><div class="my-page__sensitive-consent"><span><strong>민감정보 수집·이용 동의</strong> <small>(선택)</small></span><button class="my-page__sensitive-view" type="button" data-open-consent-management>동의 관리</button></div><p class="my-page__sensitive-notice" data-sensitive-reason>' + sensitiveMessage + '</p><div class="my-page__sensitive-options" data-exclusive-group="sensitiveCodes"' + (sensitiveEnabled ? '' : ' hidden') + '>' + sensitiveOptions + '</div><div class="my-page__profile-form-actions"' + (sensitiveEnabled ? '' : ' hidden') + '><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-sensitive-codes-save' + (sensitiveCodesSaving ? ' disabled' : '') + '>' + (sensitiveCodesSaving ? '저장 중…' : '민감정보 코드 저장') + '</button></div>';
-    return '<header class="my-page__content-header"><div><h2>프로필 수정</h2><p class="my-page__content-intro">변경 내용은 현재 화면에서만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.</p></div><span class="my-page__status">' + (profileCompleted ? '프로필 등록 완료' : '프로필 입력 중') + '</span></header>' +
+    return '<header class="my-page__content-header"><div><h2>프로필 수정</h2><p class="my-page__content-intro">변경한 정보는 서버에 저장되며, 저장 후 최신 프로필을 다시 불러옵니다.</p></div><span class="my-page__status">' + (profileCompleted ? '프로필 등록 완료' : '프로필 입력 중') + '</span></header>' +
         '<form class="my-page__profile-form" data-profile-form novalidate>' +
         '<section class="my-page__profile-form-section"><div class="my-page__section-heading"><h3>계정 고유 정보</h3><p>계정 정보는 이 화면에서 변경할 수 없어요.</p></div><div class="my-page__profile-form-grid">' +
         field('이름', 'name', profileValue('basics', '이름'), 'type="text" disabled') +
@@ -353,11 +392,11 @@ function renderProfileEditor() {
         '</div></section>' +
         accordion('basic', '기본 정보', '<div class="my-page__profile-form-grid">' + field('생년월일', 'birthDate', birthDate, 'type="date" required max="' + new Date().toISOString().slice(0, 10) + '"') + '<fieldset class="my-page__choice-field"><legend>성별 <em aria-hidden="true">*</em></legend><div>' + radio('gender', 'M', '남성', profileEditorState.gender) + radio('gender', 'F', '여성', profileEditorState.gender) + '</div></fieldset><label class="my-page__form-control"><span>시·도 <em aria-hidden="true">*</em></span><select name="sido" required' + (regionControlsDisabled ? ' disabled' : '') + '><option value="">시·도 선택</option>' + regionOptions + '</select></label><label class="my-page__form-control"><span>시·군·구 <em aria-hidden="true">*</em></span><select name="regionCode" required' + (regionControlsDisabled || !selectedSido || !sigunguRegions.length ? ' disabled' : '') + '><option value="">' + (selectedSido ? '시·군·구 선택' : '시·도를 먼저 선택해 주세요.') + '</option>' + sigunguOptions + '</select></label></div><p class="my-page__form-help" data-profile-region-message>' + escapeHtml(regionMessage) + '</p>' + (regionLoadState === 'error' ? '<button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-profile-region-retry>지역 목록 다시 불러오기</button>' : '') + '</div>') +
         accordion('household', '가구 및 주거 정보', '<div class="my-page__profile-form-grid"><label class="my-page__form-control"><span>가구원 수 <em aria-hidden="true">*</em></span><select name="householdSize" required><option value="">선택해 주세요.</option>' + ['1', '2', '3', '4', '5'].map((value) => '<option value="' + value + '"' + selected(profileEditorState.householdSize, value) + '>' + (value === '5' ? '5명 이상' : value + '명') + '</option>').join('') + '</select></label><fieldset class="my-page__choice-field"><legend>주거 형태 <em aria-hidden="true">*</em></legend><div>' + radio('housingType', 'OWN', '자가', profileEditorState.housingType) + radio('housingType', 'JEONSE', '전세', profileEditorState.housingType) + radio('housingType', 'MONTHLY', '월세', profileEditorState.housingType) + radio('housingType', 'ETC', '기타', profileEditorState.housingType) + '</div></fieldset><fieldset class="my-page__choice-field"><legend>주택 보유 여부 <em aria-hidden="true">*</em></legend><div>' + radio('hasHouse', 'true', '보유', profileEditorState.hasHouse) + radio('hasHouse', 'false', '미보유', profileEditorState.hasHouse) + '</div></fieldset></div>') +
-        accordion('income', '소득 정보', '<p class="my-page__form-help">입력한 금액은 현재 화면에서만 임시로 보관됩니다.</p><fieldset class="my-page__choice-field"><legend>입력 방식 <em aria-hidden="true">*</em></legend><div>' + radio('incomeInputType', 'ANNUAL', '연소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'MONTHLY', '월소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'UNKNOWN', '잘 모르겠어요', profileEditorState.incomeInputType) + '</div></fieldset><div class="my-page__profile-form-grid" data-income-fields' + (incomeVisible ? '' : ' hidden') + '>' + field('소득 금액', 'incomeAmount', profileEditorState.incomeAmount, 'type="number" min="0" inputmode="numeric"' + (incomeVisible ? ' required' : ' disabled')) + field('소득 기준 연도', 'incomeBaseYear', profileEditorState.incomeBaseYear, 'type="number" min="2000" max="' + currentYear + '" inputmode="numeric"' + (incomeVisible ? ' required' : ' disabled')) + '</div>') +
-        accordion('additional', '추가 정보', '<div class="my-page__profile-form-grid"><fieldset class="my-page__choice-field"><legend>혼인 여부 <em aria-hidden="true">*</em></legend><div>' + radio('maritalStatus', 'SINGLE', '미혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'MARRIED', '기혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'ETC', '기타', profileEditorState.maritalStatus) + '</div></fieldset><label class="my-page__form-control"><span>자녀 수 <em aria-hidden="true">*</em></span><select name="childrenCount" required><option value="">선택해 주세요.</option><option value="0"' + selected(profileEditorState.childrenCount, '0') + '>없음</option><option value="1"' + selected(profileEditorState.childrenCount, '1') + '>1명</option><option value="2"' + selected(profileEditorState.childrenCount, '2') + '>2명</option><option value="3"' + selected(profileEditorState.childrenCount, '3') + '>3명</option><option value="4+"' + selected(profileEditorState.childrenCount, '4+') + '>4명 이상</option></select></label><label class="my-page__form-control" data-exact-children-field' + (exactChildrenVisible ? '' : ' hidden') + '><span>정확한 자녀 수 <em aria-hidden="true">*</em></span><input name="childrenExact" type="number" min="4" inputmode="numeric" value="' + escapeHtml(profileEditorState.childrenExact) + '"' + (exactChildrenVisible ? ' required' : ' disabled') + '></label><label class="my-page__form-control" data-youngest-field' + (childVisible ? '' : ' hidden') + '><span>막내 자녀 출생연도 <em aria-hidden="true">*</em></span><input name="youngestYear" type="number" min="1900" max="' + currentYear + '" inputmode="numeric" value="' + escapeHtml(profileEditorState.youngestYear) + '"' + (childVisible ? ' required' : ' disabled') + '></label></div><fieldset class="my-page__multi-choice" data-exclusive-group="householdTypes"><legend>가구 유형 <em aria-hidden="true">*</em></legend><div>' + checks('householdTypes', [['JA0404', '1인 가구'], ['JA0403', '한부모 가구'], ['JA0403', '조손 가구'], ['JA0411', '다자녀 가구'], ['JA0413', '신규 전입 가구'], ['JA0414', '확대가족'], ['NONE', '해당 없음', true]], profileEditorState.householdTypes) + '</div></fieldset><fieldset class="my-page__multi-choice" data-exclusive-group="statusCodes"><legend>현재 활동 상태 <em aria-hidden="true">*</em></legend><div>' + checks('statusCodes', [['JA0317', '초등학생'], ['JA0318', '중학생'], ['JA0319', '고등학생'], ['JA0320', '대학생'], ['JA0326', '재직자'], ['JA0327', '구직자'], ['SELF_EMPLOYED', '자영업자'], ['JA0313', '농업 종사자'], ['JA0314', '어업 종사자'], ['JA0315', '축산업 종사자'], ['JA0316', '임업 종사자'], ['NONE', '해당 없음', true]], profileEditorState.statusCodes) + '</div></fieldset><fieldset class="my-page__choice-field"><legend>복지 수급 상태 <em aria-hidden="true">*</em></legend><div>' + radio('welfareStatus', 'BASIC', '기초생활수급자', profileEditorState.welfareStatus) + radio('welfareStatus', 'NEAR_POOR', '차상위계층', profileEditorState.welfareStatus) + radio('welfareStatus', 'NONE', '해당 없음', profileEditorState.welfareStatus) + radio('welfareStatus', 'UNKNOWN', '잘 모르겠어요', profileEditorState.welfareStatus) + '</div></fieldset>') +
+        accordion('income', '소득 정보', '<p class="my-page__form-help">금액 입력 시 서버가 기준 중위소득 비율과 기준 연도를 계산합니다. 중위소득 비율을 알고 있다면 직접 입력할 수 있어요.</p><fieldset class="my-page__choice-field"><legend>입력 방식 <em aria-hidden="true">*</em></legend><div>' + radio('incomeInputType', 'ANNUAL', '연소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'MONTHLY', '월소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'BRACKET', '중위소득 비율', profileEditorState.incomeInputType) + radio('incomeInputType', 'UNKNOWN', '잘 모르겠어요', profileEditorState.incomeInputType) + '</div></fieldset><div class="my-page__profile-form-grid" data-income-amount-fields' + (incomeAmountVisible ? '' : ' hidden') + '>' + field('소득 금액', 'incomeAmount', profileEditorState.incomeAmount, 'type="text" inputmode="numeric" autocomplete="off" placeholder="예: 2,500,000"' + (incomeAmountVisible ? ' required' : ' disabled')) + '<label class="my-page__form-control"><span>현재 계산 비율</span><input value="' + escapeHtml(profileEditorState.medianIncomePct ? profileEditorState.medianIncomePct + '%' : '저장 후 표시') + '" type="text" readonly></label><label class="my-page__form-control"><span>서버 기준 연도</span><input value="' + escapeHtml(profileEditorState.incomeBaseYear || '저장 후 표시') + '" type="text" readonly></label></div><div class="my-page__profile-form-grid" data-income-bracket-fields' + (incomeBracketVisible ? '' : ' hidden') + '>' + field('중위소득 비율', 'medianIncomePct', profileEditorState.medianIncomePct, 'type="number" min="0" max="9999.9" step="0.1" inputmode="decimal"' + (incomeBracketVisible ? ' required' : ' disabled')) + '</div>') +
+        accordion('additional', '추가 정보', '<div class="my-page__profile-form-grid"><fieldset class="my-page__choice-field"><legend>혼인 여부</legend><div>' + radio('maritalStatus', 'SINGLE', '미혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'MARRIED', '기혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'ETC', '기타', profileEditorState.maritalStatus) + '</div></fieldset><label class="my-page__form-control"><span>자녀 수</span><select name="childrenCount"><option value="">선택해 주세요.</option><option value="0"' + selected(profileEditorState.childrenCount, '0') + '>없음</option><option value="1"' + selected(profileEditorState.childrenCount, '1') + '>1명</option><option value="2"' + selected(profileEditorState.childrenCount, '2') + '>2명</option><option value="3"' + selected(profileEditorState.childrenCount, '3') + '>3명</option><option value="4+"' + selected(profileEditorState.childrenCount, '4+') + '>4명 이상</option></select></label><label class="my-page__form-control" data-exact-children-field' + (exactChildrenVisible ? '' : ' hidden') + '><span>정확한 자녀 수</span><input name="childrenExact" type="number" min="4" inputmode="numeric" value="' + escapeHtml(profileEditorState.childrenExact) + '"' + (exactChildrenVisible ? ' required' : ' disabled') + '></label><label class="my-page__form-control" data-youngest-field' + (childVisible ? '' : ' hidden') + '><span>막내 자녀 출생연도</span><input name="youngestYear" type="number" min="1900" max="' + currentYear + '" inputmode="numeric" value="' + escapeHtml(profileEditorState.youngestYear) + '"' + (childVisible ? ' required' : ' disabled') + '></label></div><fieldset class="my-page__multi-choice" data-exclusive-group="householdTypes"><legend>가구 유형 <em aria-hidden="true">*</em></legend><div>' + checks('householdTypes', [['JA0404', '1인 가구'], ['JA0403', '한부모 가구'], ['JA0403', '조손 가구'], ['JA0411', '다자녀 가구'], ['JA0413', '신규 전입 가구'], ['JA0414', '확대가족'], ['NONE', '해당 없음', true]], profileEditorState.householdTypes) + '</div></fieldset>' + statusGroupFields + '<fieldset class="my-page__choice-field"><legend>복지 수급 상태</legend><div>' + radio('welfareStatus', 'BASIC', '기초생활수급자', profileEditorState.welfareStatus) + radio('welfareStatus', 'NEAR_POOR', '차상위계층', profileEditorState.welfareStatus) + radio('welfareStatus', 'NONE', '해당 없음', profileEditorState.welfareStatus) + radio('welfareStatus', 'UNKNOWN', '잘 모르겠어요', profileEditorState.welfareStatus) + '</div></fieldset>') +
         accordion('interests', '관심 분야', '<fieldset class="my-page__interest-field"><legend>관심 분야</legend><div><label><input type="checkbox" name="interests" value="주거·생활"' + checked('주거·생활') + '> 주거·생활</label><label><input type="checkbox" name="interests" value="취업·교육"' + checked('취업·교육') + '> 취업·교육</label></div></fieldset>') +
         accordion('sensitive', '민감정보 관리 (선택)', sensitiveContent) +
-        '<p class="my-page__form-error" data-profile-form-error role="alert" tabindex="-1"></p><div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-profile-cancel>취소</button><button class="bk-btn bk-btn--primary bk-btn--md" type="submit">저장</button></div></form>';
+        '<p class="my-page__form-error" data-profile-form-error role="alert" tabindex="-1"></p><div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-profile-cancel' + (profileSaving ? ' disabled' : '') + '>취소</button><button class="bk-btn bk-btn--primary bk-btn--md" type="submit" data-profile-save' + (profileSaving ? ' disabled' : '') + '>' + (profileSaving ? '저장 중…' : '저장') + '</button></div></form>';
 }
 
 function renderProfile() {
@@ -895,11 +934,13 @@ async function saveSensitiveCodes(form) {
                 sensitiveCodes
             })
         });
+        const payload = await readProfilePayload(response);
 
-        if (response.status === 200) {
+        if (response.status === 200 && payload && typeof payload === 'object' && !Array.isArray(payload)) {
+            applyProfileResponse(payload);
             sensitiveEditState.codes = null;
             form.querySelectorAll('[name="sensitiveCodes"]').forEach((input) => { input.checked = false; });
-            showToast('민감정보 코드 저장 요청을 완료했어요. 재판정 결과 반영 시점은 별도로 확인해 주세요.');
+            showToast('민감정보를 서버에 저장했어요. 재판정 결과 반영 시점은 별도로 확인해 주세요.');
             return;
         }
 
@@ -940,35 +981,322 @@ async function saveSensitiveCodes(form) {
     }
 }
 
-function saveProfile(form) {
-    const values = Object.fromEntries(new FormData(form));
-    const error = form.querySelector('[data-profile-form-error]');
-    const valuesOf = (name) => Array.from(form.querySelectorAll('[name="' + name + '"]:checked'), (input) => input.value);
-    const exclusiveValues = (group) => { const selected = valuesOf(group); return selected.includes('NONE') ? [] : selected; };
-    const requiredFields = [['birthDate', '생년월일', 'basic'], ['gender', '성별', 'basic'], ['sido', '시·도', 'basic'], ['regionCode', '시·군·구', 'basic'], ['householdSize', '가구원 수', 'household'], ['housingType', '주거 형태', 'household'], ['hasHouse', '주택 보유 여부', 'household'], ['incomeInputType', '소득 입력 방식', 'income'], ['maritalStatus', '혼인 여부', 'additional'], ['childrenCount', '자녀 수', 'additional'], ['welfareStatus', '복지 수급 상태', 'additional']];
-    const missing = requiredFields.find(([name]) => !String(values[name] || '').trim()) ||
-        (exclusiveValues('householdTypes').length === 0 && !valuesOf('householdTypes').includes('NONE') ? ['householdTypes', '가구 유형 또는 해당 없음', 'additional'] : null) ||
-        (exclusiveValues('statusCodes').length === 0 && !valuesOf('statusCodes').includes('NONE') ? ['statusCodes', '현재 활동 상태 또는 해당 없음', 'additional'] : null) ||
-        (['ANNUAL', 'MONTHLY'].includes(values.incomeInputType) && (!String(values.incomeAmount || '').trim() || !String(values.incomeBaseYear || '').trim()) ? ['incomeAmount', '소득 금액과 기준 연도', 'income'] : null) ||
-        (values.childrenCount === '4+' && Number(values.childrenExact) < 4 ? ['childrenExact', '정확한 자녀 수', 'additional'] : null) ||
-        (values.childrenCount && values.childrenCount !== '0' && !String(values.youngestYear || '').trim() ? ['youngestYear', '막내 자녀 출생연도', 'additional'] : null);
-    const openAndFocus = (section, name) => { profileAccordion[section] = true; document.querySelectorAll('[data-profile-accordion-toggle]').forEach((button) => { const open = button.dataset.profileAccordionToggle === section || button.getAttribute('aria-expanded') === 'true'; button.setAttribute('aria-expanded', String(open)); const panel = $('#' + button.getAttribute('aria-controls')); if (panel) panel.hidden = !open; }); const input = form.querySelector('[name="' + name + '"]'); if (input) input.focus(); };
-    if (missing) { error.textContent = missing[1] + '을(를) 확인해 주세요.'; openAndFocus(missing[2], missing[0]); return; }
-    const birthDate = new Date(values.birthDate + 'T00:00:00');
-    if (Number.isNaN(birthDate.getTime()) || birthDate > new Date()) { error.textContent = '생년월일은 오늘 이전 날짜로 입력해 주세요.'; openAndFocus('basic', 'birthDate'); return; }
-    if (['ANNUAL', 'MONTHLY'].includes(values.incomeInputType) && (Number(values.incomeAmount) < 0 || Number(values.incomeBaseYear) > new Date().getFullYear())) { error.textContent = '소득 금액과 기준 연도를 확인해 주세요.'; openAndFocus('income', 'incomeAmount'); return; }
-    if (values.childrenCount !== '0' && (!Number.isInteger(Number(values.youngestYear)) || Number(values.youngestYear) < 1900 || Number(values.youngestYear) > new Date().getFullYear())) { error.textContent = '막내 자녀 출생연도를 확인해 주세요.'; openAndFocus('additional', 'youngestYear'); return; }
+function uniqueProfileCodes(values) {
+    return [...new Set(values)];
+}
 
-    profileEditorState = { gender: values.gender, sido: values.sido, regionCode: values.regionCode, householdSize: values.householdSize, housingType: values.housingType, hasHouse: values.hasHouse, incomeInputType: values.incomeInputType, incomeAmount: values.incomeAmount || '', incomeBaseYear: values.incomeBaseYear || String(new Date().getFullYear()), maritalStatus: values.maritalStatus, childrenCount: values.childrenCount, childrenExact: values.childrenExact || '', youngestYear: values.youngestYear || '', householdTypes: valuesOf('householdTypes').includes('NONE') ? [] : exclusiveValues('householdTypes'), statusCodes: valuesOf('statusCodes').includes('NONE') ? [] : exclusiveValues('statusCodes'), welfareStatus: values.welfareStatus };
-    setProfileValue('basics', '생년월일', values.birthDate.replaceAll('-', '.'));
-    setProfileValue('basics', '거주지역', values.sido);
-    setProfileValue('settings', '가구 형태', values.householdSize + '인 가구');
-    setProfileValue('settings', '주거 형태', { OWN: '자가', JEONSE: '전세', MONTHLY: '월세', ETC: '기타' }[values.housingType]);
-    setProfileValue('settings', '소득 정보', values.incomeInputType === 'UNKNOWN' ? '잘 모르겠어요' : values.incomeInputType === 'ANNUAL' ? '연소득 입력' : '월소득 입력');
-    profileInterests = Array.from(form.querySelectorAll('input[name="interests"]:checked'), (input) => input.value);
-    profileMode = 'view';
-    renderSection();
-    showToast('변경 내용은 현재 화면에만 임시로 반영되며, 새로고침하면 초기값으로 돌아갑니다.');
+function sameProfileCodes(left, right) {
+    const leftCodes = Array.isArray(left) ? uniqueProfileCodes(left) : null;
+    const rightCodes = Array.isArray(right) ? uniqueProfileCodes(right) : null;
+    return JSON.stringify(leftCodes) === JSON.stringify(rightCodes);
+}
+
+function selectedProfileValues(form, name) {
+    return Array.from(form.querySelectorAll('[name="' + name + '"]:checked'), (input) => input.value);
+}
+
+function profileFormValue(form, name) {
+    const field = form.elements[name];
+    return field && typeof field.value === 'string' ? field.value.trim() : '';
+}
+
+function profileErrorMessage(payload, fallback) {
+    if (payload && typeof payload.message === 'string' && payload.message.trim()) return payload.message.trim();
+    if (payload && typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail.trim();
+    const fieldError = payload && Array.isArray(payload.fieldErrors)
+        ? payload.fieldErrors.find((item) => item && typeof item.reason === 'string' && item.reason.trim())
+        : null;
+    return fieldError ? fieldError.reason.trim() : fallback;
+}
+
+function focusProfileError(form, section, name, message) {
+    const error = form.querySelector('[data-profile-form-error]');
+    if (error) {
+        error.textContent = message;
+        error.focus();
+    }
+    profileAccordion[section] = true;
+    document.querySelectorAll('[data-profile-accordion-toggle]').forEach((button) => {
+        const open = button.dataset.profileAccordionToggle === section || button.getAttribute('aria-expanded') === 'true';
+        button.setAttribute('aria-expanded', String(open));
+        const panel = $('#' + button.getAttribute('aria-controls'));
+        if (panel) panel.hidden = !open;
+    });
+    const input = form.querySelector('[name="' + name + '"]');
+    if (input) input.focus();
+}
+
+function setProfileSaving(form, saving) {
+    form.querySelectorAll('input, select, button').forEach((element) => { element.disabled = saving; });
+    const submit = form.querySelector('[data-profile-save]');
+    if (submit) submit.textContent = saving ? '저장 중…' : '저장';
+}
+
+function buildProfileDraft(form) {
+    const householdSelections = selectedProfileValues(form, 'householdTypes');
+    const groupedStatusSelections = STATUS_GROUPS.map(([group]) => selectedProfileValues(form, group));
+    const childrenChoice = profileFormValue(form, 'childrenCount');
+    const childrenCount = childrenChoice === ''
+        ? 0
+        : childrenChoice === '4+'
+            ? Number(profileFormValue(form, 'childrenExact'))
+            : Number(childrenChoice);
+    const regionCode = profileFormValue(form, 'regionCode');
+    const region = getMyPageRegions()?.findByCode(regionCode);
+
+    return {
+        birthDate: profileFormValue(form, 'birthDate'),
+        gender: profileFormValue(form, 'gender'),
+        regionCode,
+        sidoName: region?.sidoName || profileFormValue(form, 'sido'),
+        sigunguName: region?.sigunguName || (form.elements.regionCode?.selectedOptions?.[0]?.textContent || '').trim(),
+        householdSize: Number(profileFormValue(form, 'householdSize')),
+        incomeInputType: profileFormValue(form, 'incomeInputType'),
+        incomeAmountText: incomeDigits(profileFormValue(form, 'incomeAmount')),
+        medianIncomePctText: profileFormValue(form, 'medianIncomePct'),
+        housingType: profileFormValue(form, 'housingType'),
+        hasHouse: profileFormValue(form, 'hasHouse'),
+        householdTypeCodes: householdSelections.includes('NONE') ? [] : uniqueProfileCodes(householdSelections),
+        maritalStatus: profileFormValue(form, 'maritalStatus') || 'ETC',
+        childrenCount,
+        childrenChoice,
+        youngestChildBirthYear: profileFormValue(form, 'youngestYear') === '' ? null : Number(profileFormValue(form, 'youngestYear')),
+        statusCodes: uniqueProfileCodes(groupedStatusSelections.flatMap((group) => group.includes('NONE') ? [] : group)),
+        welfareStatus: profileFormValue(form, 'welfareStatus') || 'UNKNOWN'
+    };
+}
+
+function changedProfileSteps(draft) {
+    const current = profileResponse;
+    if (!current) return { step1: true, step2: true, step3: true };
+
+    const step1 = draft.birthDate !== String(current.birthDate || '')
+        || draft.gender !== String(current.gender || '')
+        || draft.regionCode !== String(current.regionCode || '');
+    const step2 = draft.householdSize !== Number(current.householdSize)
+        || draft.incomeInputType !== String(current.incomeInputType || '')
+        || draft.housingType !== String(current.housingType || '')
+        || (draft.hasHouse === 'true') !== current.hasHouse
+        || !sameProfileCodes(draft.householdTypeCodes, current.householdTypeCodes)
+        || draft.incomeAmountText !== ''
+        || draft.medianIncomePctText !== String(current.medianIncomePct ?? '');
+    const step3 = draft.maritalStatus !== String(current.maritalStatus || '')
+        || draft.childrenCount !== Number(current.childrenCount)
+        || draft.youngestChildBirthYear !== (current.youngestChildBirthYear ?? null)
+        || draft.welfareStatus !== String(current.welfareStatus || '')
+        || !sameProfileCodes(draft.statusCodes, current.statusCodes);
+    return { step1, step2, step3 };
+}
+
+function validateProfileDraft(form, draft, changes) {
+    if (changes.step1) {
+        const birthDate = new Date(draft.birthDate + 'T00:00:00');
+        if (!draft.birthDate || Number.isNaN(birthDate.getTime()) || birthDate > new Date()) {
+            focusProfileError(form, 'basic', 'birthDate', '생년월일은 오늘 이전 날짜로 입력해 주세요.');
+            return false;
+        }
+        if (!['M', 'F'].includes(draft.gender)) {
+            focusProfileError(form, 'basic', 'gender', '성별을 선택해 주세요.');
+            return false;
+        }
+        if (!draft.regionCode || !draft.sidoName || !draft.sigunguName) {
+            focusProfileError(form, 'basic', 'regionCode', '서버에 등록된 시·군·구를 선택해 주세요.');
+            return false;
+        }
+    }
+
+    if (changes.step2) {
+        if (!Number.isInteger(draft.householdSize) || draft.householdSize < 1) {
+            focusProfileError(form, 'household', 'householdSize', '가구원 수는 1명 이상으로 선택해 주세요.');
+            return false;
+        }
+        if (!['OWN', 'JEONSE', 'MONTHLY', 'ETC'].includes(draft.housingType) || !['true', 'false'].includes(draft.hasHouse)) {
+            focusProfileError(form, 'household', 'housingType', '주거 형태와 주택 보유 여부를 확인해 주세요.');
+            return false;
+        }
+        if (!['ANNUAL', 'MONTHLY', 'BRACKET', 'UNKNOWN'].includes(draft.incomeInputType)) {
+            focusProfileError(form, 'income', 'incomeInputType', '소득 입력 방식을 선택해 주세요.');
+            return false;
+        }
+        if (['ANNUAL', 'MONTHLY'].includes(draft.incomeInputType)) {
+            const incomeAmount = Number(draft.incomeAmountText);
+            if (!draft.incomeAmountText || !Number.isSafeInteger(incomeAmount) || incomeAmount <= 0) {
+                focusProfileError(form, 'income', 'incomeAmount', '소득 금액은 0원보다 큰 값으로 다시 입력해 주세요.');
+                return false;
+            }
+        }
+        if (draft.incomeInputType === 'BRACKET') {
+            const medianIncomePct = Number(draft.medianIncomePctText);
+            if (!draft.medianIncomePctText || !Number.isFinite(medianIncomePct) || medianIncomePct < 0 || medianIncomePct > 9999.9) {
+                focusProfileError(form, 'income', 'medianIncomePct', '중위소득 비율을 0~9999.9 사이로 입력해 주세요.');
+                return false;
+            }
+        }
+    }
+
+    if (changes.step3) {
+        const memberBirthYear = Number(draft.birthDate.slice(0, 4));
+        if (!Number.isInteger(draft.childrenCount) || draft.childrenCount < 0) {
+            focusProfileError(form, 'additional', 'childrenCount', '자녀 수를 확인해 주세요.');
+            return false;
+        }
+        if (draft.childrenCount === 0 && draft.youngestChildBirthYear !== null) {
+            focusProfileError(form, 'additional', 'youngestYear', '자녀가 없으면 막내 자녀 출생연도를 입력할 수 없어요.');
+            return false;
+        }
+        if (draft.childrenCount > 0 && (!Number.isInteger(draft.youngestChildBirthYear)
+            || draft.youngestChildBirthYear < 1900
+            || draft.youngestChildBirthYear > new Date().getFullYear()
+            || (Number.isInteger(memberBirthYear) && draft.youngestChildBirthYear < memberBirthYear))) {
+            focusProfileError(form, 'additional', 'youngestYear', '막내 자녀 출생연도를 확인해 주세요.');
+            return false;
+        }
+    }
+    return true;
+}
+
+function profileStepRequests(draft, changes) {
+    const requests = [];
+    if (changes.step1) {
+        requests.push({
+            step: 1,
+            body: {
+                birthDate: draft.birthDate,
+                gender: draft.gender,
+                regionCode: draft.regionCode,
+                sidoName: draft.sidoName,
+                sigunguName: draft.sigunguName,
+                name: profileResponse?.name || null
+            }
+        });
+    }
+    if (changes.step2) {
+        const amountType = ['ANNUAL', 'MONTHLY'].includes(draft.incomeInputType);
+        requests.push({
+            step: 2,
+            body: {
+                householdSize: draft.householdSize,
+                incomeInputType: draft.incomeInputType,
+                incomeAmount: amountType ? Number(draft.incomeAmountText) : null,
+                medianIncomePct: draft.incomeInputType === 'BRACKET' ? Number(draft.medianIncomePctText) : null,
+                housingType: draft.housingType,
+                noHouse: draft.hasHouse === 'false',
+                householdTypeCodes: uniqueProfileCodes(draft.householdTypeCodes)
+            }
+        });
+    }
+    if (changes.step3) {
+        requests.push({
+            step: 3,
+            body: {
+                statusCodes: uniqueProfileCodes(draft.statusCodes),
+                maritalStatus: draft.maritalStatus,
+                childrenCount: draft.childrenCount,
+                youngestChildBirthYear: draft.childrenCount === 0 ? null : draft.youngestChildBirthYear,
+                welfareStatus: draft.welfareStatus
+            }
+        });
+    }
+    return requests;
+}
+
+async function readProfilePayload(response) {
+    try {
+        return await response.json();
+    } catch {
+        return null;
+    }
+}
+
+async function putProfileStep(auth, request, retriedAfterCsrfFailure = false) {
+    const csrf = await auth.getCsrfToken();
+    const response = await auth.authenticatedFetch('/api/me/profile/step' + request.step, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+        body: JSON.stringify(request.body)
+    });
+    const payload = await readProfilePayload(response);
+
+    // CSRF 토큰이 회전된 경우에만 같은 요청을 한 번 더 보낸다. 403은 컨트롤러에 도달하지 않으므로
+    // 저장 중복이 발생하지 않으며, 두 번째 403 이후에는 재시도하지 않는다.
+    if (response.status === 403 && !retriedAfterCsrfFailure) {
+        return putProfileStep(auth, request, true);
+    }
+    return { response, payload };
+}
+
+async function saveProfile(form) {
+    if (profileSaving || !profileResponse) return;
+    const draft = buildProfileDraft(form);
+    const changes = changedProfileSteps(draft);
+    if (!changes.step1 && !changes.step2 && !changes.step3) {
+        profileMode = 'view';
+        renderSection();
+        showToast('변경된 프로필 정보가 없어요.');
+        return;
+    }
+    if (!validateProfileDraft(form, draft, changes)) return;
+
+    const auth = window.BokdeongiAuth;
+    if (!auth || auth.getAuthenticationState() !== 'authenticated') {
+        focusProfileError(form, 'basic', 'birthDate', '로그인 상태를 확인한 뒤 다시 시도해 주세요.');
+        return;
+    }
+
+    profileSaving = true;
+    setProfileSaving(form, true);
+    const error = form.querySelector('[data-profile-form-error]');
+    if (error) error.textContent = '';
+    const savedSteps = [];
+    try {
+        for (const request of profileStepRequests(draft, changes)) {
+            const { response, payload } = await putProfileStep(auth, request);
+            if (!response.ok || !payload || typeof payload !== 'object' || Array.isArray(payload)) {
+                const failure = new Error(profileErrorMessage(payload, '프로필 ' + request.step + '단계를 저장하지 못했어요.'));
+                failure.status = response.status;
+                throw failure;
+            }
+            // 앞 단계가 저장된 뒤 다음 단계가 실패해도, 재시도 시 이미 성공한 단계를 다시 저장하지 않는다.
+            profileResponse = {
+                ...payload,
+                householdTypeCodes: Array.isArray(payload.householdTypeCodes) ? [...payload.householdTypeCodes] : null,
+                statusCodes: Array.isArray(payload.statusCodes) ? [...payload.statusCodes] : null
+            };
+            savedSteps.push(request.step);
+        }
+
+        const refreshed = await auth.authenticatedFetch('/api/me/profile');
+        const profile = await readProfilePayload(refreshed);
+        if (!refreshed.ok || !profile || typeof profile !== 'object' || Array.isArray(profile)) {
+            const failure = new Error(profileErrorMessage(profile, '저장 결과를 다시 불러오지 못했어요. 새로고침 후 확인해 주세요.'));
+            failure.status = refreshed.status;
+            throw failure;
+        }
+
+        applyProfileResponse(profile);
+        profileLoadState = 'loaded';
+        profileLoadErrorStatus = null;
+        profileMode = 'view';
+        renderSection();
+        showToast('프로필을 서버에 저장했어요.');
+    } catch (failure) {
+        const status = failure && Number.isInteger(failure.status) ? failure.status : null;
+        let message = failure?.message || '네트워크 오류로 프로필을 저장하지 못했어요. 입력한 내용을 확인한 뒤 다시 시도해 주세요.';
+        if (status === 401) message = '로그인 상태가 만료되었어요. 입력한 내용을 확인한 뒤 다시 로그인해 주세요.';
+        else if (status === 403) message = '보안 확인에 실패했어요. 잠시 후 다시 시도해 주세요.';
+        else if (status === 404) message = '프로필 정보를 찾을 수 없어요. 로그인 상태를 확인해 주세요.';
+        else if (status !== null && status >= 500) message = '서버 오류로 저장 결과를 확인하지 못했어요. 입력한 내용은 유지되어 있어요.';
+        if (savedSteps.length) {
+            message = '프로필 ' + savedSteps.join(', ') + '단계는 저장되었지만 이후 처리에 실패했어요. ' + message;
+        }
+        if (error) {
+            error.textContent = message;
+            error.focus();
+        }
+    } finally {
+        profileSaving = false;
+        if (document.body.contains(form)) setProfileSaving(form, false);
+    }
 }
 
 function setupInteractions() {
@@ -1104,11 +1432,15 @@ function setupInteractions() {
         if (legalDocument) showToast(legalDocument.dataset.legalDocument + ' 문서는 확정본 연결 후 확인할 수 있어요.');
     });
     document.addEventListener('input', (event) => {
-        const form = event.target.closest('[data-password-change-form]');
-        if (!form || !event.target.name) return;
-        if (['currentPassword', 'newPassword', 'newPasswordConfirm'].includes(event.target.name)) {
-            setPasswordChangeFieldError(form, event.target.name, '');
-            setPasswordChangeStatus(form, '');
+        const profileForm = event.target.closest('[data-profile-form]');
+        if (profileForm && event.target.name === 'incomeAmount') {
+            formatIncomeAmount(event.target);
+        }
+
+        const passwordForm = event.target.closest('[data-password-change-form]');
+        if (passwordForm && event.target.name && ['currentPassword', 'newPassword', 'newPasswordConfirm'].includes(event.target.name)) {
+            setPasswordChangeFieldError(passwordForm, event.target.name, '');
+            setPasswordChangeStatus(passwordForm, '');
         }
     });
     document.addEventListener('change', (event) => {
@@ -1128,10 +1460,26 @@ function setupInteractions() {
             sigungu.disabled = !options.length;
         }
         if (event.target.name === 'incomeInputType') {
-            const visible = ['ANNUAL', 'MONTHLY'].includes(event.target.value);
-            const fields = form.querySelector('[data-income-fields]');
-            fields.hidden = !visible;
-            fields.querySelectorAll('input').forEach((input) => { input.disabled = !visible; input.required = visible; if (!visible) input.value = ''; });
+            const amountVisible = ['ANNUAL', 'MONTHLY'].includes(event.target.value);
+            const bracketVisible = event.target.value === 'BRACKET';
+            const amountFields = form.querySelector('[data-income-amount-fields]');
+            const bracketFields = form.querySelector('[data-income-bracket-fields]');
+            if (amountFields) {
+                amountFields.hidden = !amountVisible;
+                amountFields.querySelectorAll('input:not([readonly])').forEach((input) => {
+                    input.disabled = !amountVisible;
+                    input.required = amountVisible;
+                    if (!amountVisible) input.value = '';
+                });
+            }
+            if (bracketFields) {
+                bracketFields.hidden = !bracketVisible;
+                bracketFields.querySelectorAll('input').forEach((input) => {
+                    input.disabled = !bracketVisible;
+                    input.required = bracketVisible;
+                    if (!bracketVisible) input.value = '';
+                });
+            }
         }
         if (event.target.name === 'childrenCount') {
             const visible = event.target.value && event.target.value !== '0';
@@ -1148,7 +1496,12 @@ function setupInteractions() {
             const none = group.querySelector('[data-none]');
             const others = group.querySelectorAll('input:not([data-none])');
             if (event.target.dataset.none !== undefined && event.target.checked) others.forEach((input) => { input.checked = false; });
-            if (event.target.dataset.none === undefined && event.target.checked) none.checked = false;
+            if (event.target.dataset.none === undefined && event.target.checked) {
+                if (none) none.checked = false;
+                if (STATUS_GROUPS.some(([name]) => name === group.dataset.exclusiveGroup)) {
+                    others.forEach((input) => { if (input !== event.target) input.checked = false; });
+                }
+            }
         }
     });
     document.addEventListener('submit', (event) => {
