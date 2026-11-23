@@ -126,7 +126,11 @@ public class EligibilityStore {
         return out;
     }
 
-    /** 새 줄은 INSERT, 있던 줄은 UPDATE (seen_at은 건드리지 않는다). */
+    /**
+     * 새 줄은 INSERT, 있던 줄은 UPDATE (seen_at은 건드리지 않는다).
+     * 새 줄을 그사이 다른 판정(신청 도우미 자격 확인·동기화 후 재판정)이 먼저 넣었으면 유일 키 충돌로 전체가 실패하지 않게
+     * 그 줄은 건너뛴다(INSERT IGNORE). 거의 같은 시점에 같은 회원·혜택을 판정한 결과다.
+     */
     public void saveResults(long userId, List<ResultRow> rows) {
         List<Object[]> inserts = new ArrayList<>();
         List<Object[]> updates = new ArrayList<>();
@@ -141,7 +145,7 @@ public class EligibilityStore {
         }
         if (!inserts.isEmpty()) {
             jdbc.batchUpdate("""
-                    INSERT INTO eligibility_results (user_id, benefit_id, result, previous_result, near_miss,
+                    INSERT IGNORE INTO eligibility_results (user_id, benefit_id, result, previous_result, near_miss,
                         near_miss_reason, missing_fields, trace, profile_version, first_eligible_at, evaluated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", inserts);
         }
