@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
 
-@RestControllerAdvice(assignableTypes = BenefitSearchController.class)
+@RestControllerAdvice(assignableTypes = {BenefitSearchController.class, BenefitListController.class})
 public class BenefitSearchExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)

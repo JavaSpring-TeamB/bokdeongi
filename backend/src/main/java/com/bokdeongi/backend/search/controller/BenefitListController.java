@@ -7,6 +7,7 @@ import com.bokdeongi.backend.search.service.BenefitListService;
 import com.bokdeongi.backend.search.service.BenefitSearchEligibilityService;
 import com.bokdeongi.backend.search.service.BenefitSearchPeriodService;
 import com.bokdeongi.backend.search.service.BenefitSearchSuggestionService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -40,6 +41,10 @@ public class BenefitListController {
         this.periodService = periodService;
     }
 
+    @Operation(summary = "혜택 목록·필터 (BEN-11)", description = "status = OPEN(신청 가능) / UPCOMING(신청 예정) / "
+            + "CLOSED(신청 마감), 여러 개는 쉼표나 반복(status=OPEN&status=UPCOMING). 비우면 OPEN·UPCOMING. "
+            + "field = 분야 해시태그, target = 대상 해시태그 (GET /api/hashtags의 category 분야·대상 이름). "
+            + "같은 칸 안은 '또는', 칸끼리는 '그리고'")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping
     public ResponseEntity<BenefitSearchResponse> findBenefits(
@@ -48,10 +53,14 @@ public class BenefitListController {
             @RequestParam(defaultValue = "relevance") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) List<String> status,
+            @RequestParam(required = false) List<String> field,
+            @RequestParam(required = false) List<String> target,
             Authentication authentication
     ) {
         BenefitListRequest request = new BenefitListRequest(
-                q, hashtag, sort, page, size
+                q, hashtag, sort, page, size,
+                status == null ? null : new java.util.LinkedHashSet<>(status), field, target, null
         );
 
         Page<Benefit> result = benefitListService.findBenefits(request);

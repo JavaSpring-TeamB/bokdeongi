@@ -105,11 +105,30 @@ public interface BenefitSearchRepository extends JpaRepository<Benefit, Long> {
     );
 
     // 통합 혜택 목록 API
+    // 신청 상태: 가능 = ACTIVE 중 아직 시작 전·기간 지남이 아닌 것(상시·기관별·공고 확인·신청 불필요 포함),
+    //           예정 = 시작일이 오늘 뒤이거나 매년 반복인데 올해 기간이 지난 것(다음 회차), 마감 = EXPIRED (D-85)
+    // 분야·대상: 해시태그(GET /api/hashtags의 category 분야·대상) 중 하나라도 있으면
     @Query(
             value = """
                 SELECT b.*
                 FROM benefits b
-                WHERE b.status = 'ACTIVE'
+                WHERE b.status IN ('ACTIVE', 'EXPIRED')
+                  AND (
+                      (:#{#request.statusOpen()} = TRUE AND b.status = 'ACTIVE'
+                          AND NOT (b.date_status = 'PARSED'
+                              AND (COALESCE(b.apply_start > :#{#request.today()}, FALSE)
+                                   OR COALESCE(b.apply_end < :#{#request.today()}, FALSE))))
+                      OR (:#{#request.statusUpcoming()} = TRUE AND b.status = 'ACTIVE'
+                          AND b.date_status = 'PARSED'
+                          AND (COALESCE(b.apply_start > :#{#request.today()}, FALSE)
+                               OR (COALESCE(b.recurring_yearly, FALSE) = TRUE
+                                   AND COALESCE(b.apply_end < :#{#request.today()}, FALSE))))
+                      OR (:#{#request.statusClosed()} = TRUE
+                          AND (b.status = 'EXPIRED'
+                               OR (b.status = 'ACTIVE' AND b.date_status = 'PARSED'
+                                   AND COALESCE(b.apply_end < :#{#request.today()}, FALSE)
+                                   AND COALESCE(b.recurring_yearly, FALSE) = FALSE)))
+                  )
                   AND (b.target_scope IS NULL OR b.target_scope <> 'CORP')
                   AND (
                       :#{#request.q()} IS NULL
@@ -164,6 +183,16 @@ public interface BenefitSearchRepository extends JpaRepository<Benefit, Long> {
                           WHERE LOWER(ht.tag_name) =
                                 LOWER(:#{#request.hashtag()})
                       )
+                  )
+                  AND (
+                      :#{#request.fieldsJson()} IS NULL
+                      OR JSON_OVERLAPS(COALESCE(b.hashtags, JSON_ARRAY()),
+                                       CAST(:#{#request.fieldsJson()} AS JSON))
+                  )
+                  AND (
+                      :#{#request.targetsJson()} IS NULL
+                      OR JSON_OVERLAPS(COALESCE(b.hashtags, JSON_ARRAY()),
+                                       CAST(:#{#request.targetsJson()} AS JSON))
                   )
                 ORDER BY
                     CASE
@@ -202,7 +231,23 @@ public interface BenefitSearchRepository extends JpaRepository<Benefit, Long> {
             countQuery = """
                 SELECT COUNT(*)
                 FROM benefits b
-                WHERE b.status = 'ACTIVE'
+                WHERE b.status IN ('ACTIVE', 'EXPIRED')
+                  AND (
+                      (:#{#request.statusOpen()} = TRUE AND b.status = 'ACTIVE'
+                          AND NOT (b.date_status = 'PARSED'
+                              AND (COALESCE(b.apply_start > :#{#request.today()}, FALSE)
+                                   OR COALESCE(b.apply_end < :#{#request.today()}, FALSE))))
+                      OR (:#{#request.statusUpcoming()} = TRUE AND b.status = 'ACTIVE'
+                          AND b.date_status = 'PARSED'
+                          AND (COALESCE(b.apply_start > :#{#request.today()}, FALSE)
+                               OR (COALESCE(b.recurring_yearly, FALSE) = TRUE
+                                   AND COALESCE(b.apply_end < :#{#request.today()}, FALSE))))
+                      OR (:#{#request.statusClosed()} = TRUE
+                          AND (b.status = 'EXPIRED'
+                               OR (b.status = 'ACTIVE' AND b.date_status = 'PARSED'
+                                   AND COALESCE(b.apply_end < :#{#request.today()}, FALSE)
+                                   AND COALESCE(b.recurring_yearly, FALSE) = FALSE)))
+                  )
                   AND (b.target_scope IS NULL OR b.target_scope <> 'CORP')
                   AND (
                       :#{#request.q()} IS NULL
@@ -257,6 +302,16 @@ public interface BenefitSearchRepository extends JpaRepository<Benefit, Long> {
                           WHERE LOWER(ht.tag_name) =
                                 LOWER(:#{#request.hashtag()})
                       )
+                  )
+                  AND (
+                      :#{#request.fieldsJson()} IS NULL
+                      OR JSON_OVERLAPS(COALESCE(b.hashtags, JSON_ARRAY()),
+                                       CAST(:#{#request.fieldsJson()} AS JSON))
+                  )
+                  AND (
+                      :#{#request.targetsJson()} IS NULL
+                      OR JSON_OVERLAPS(COALESCE(b.hashtags, JSON_ARRAY()),
+                                       CAST(:#{#request.targetsJson()} AS JSON))
                   )
                 """,
             nativeQuery = true
