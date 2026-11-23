@@ -64,6 +64,25 @@ class BenefitMapperTest {
     }
 
     @Test
+    void 범위_밖_나이는_비우고_경고만_남긴다() {
+        ServiceRecord r = youthRent();
+        r.conditions().put("JA0110", "0");
+        r.conditions().put("JA0111", "99999");   // smallint를 넘는 값: 그대로 넣으면 동기화 전체가 실패한다
+        BenefitRow row = mapper(Set.of()).map(r);
+        assertNull(row.ageMax());
+        assertEquals(Integer.valueOf(0), row.ageMin());
+        assertTrue(row.codeRules().stream().noneMatch(x -> x.field().equals("AGE")));
+        assertTrue(row.warnings().stream().anyMatch(w -> w.contains("나이 상한 범위 밖")));
+
+        r.conditions().put("JA0110", "999");
+        r.conditions().put("JA0111", "120");
+        BenefitRow odd = mapper(Set.of()).map(r);
+        assertNull(odd.ageMin());
+        assertEquals(Integer.valueOf(120), odd.ageMax());
+        assertTrue(odd.codeRules().stream().noneMatch(x -> x.field().equals("AGE")));   // 모두 탈락시키지 않는다
+    }
+
+    @Test
     void 지역과_신청기간과_상태() {
         BenefitRow row = mapper(Set.of()).map(youthRent());
         assertEquals("11620", row.regionCode());
