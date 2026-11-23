@@ -1,6 +1,7 @@
 package com.bokdeongi.backend.benefit.ask;
 
 import com.bokdeongi.backend.benefit.entity.Benefit;
+import com.bokdeongi.backend.common.privacy.PersonalInfoMasker;
 import com.bokdeongi.backend.benefit.repository.BenefitRepository;
 import com.bokdeongi.backend.benefit.service.VisitChecklistBuilder;
 import java.util.ArrayList;
@@ -27,9 +28,6 @@ public class AskService {
 
     static final int MAX_QUESTION = 200;
 
-    private static final Pattern RRN = Pattern.compile("\\d{6}\\s*-?\\s*[1-8]\\d{6}");
-    private static final Pattern PHONE = Pattern.compile("01[016789][-\\s]?\\d{3,4}[-\\s]?\\d{4}");
-    private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+");
     /** 자격을 묻는 질문 */
     private static final Pattern ELIGIBILITY_Q = Pattern.compile(
             "받을\\s*수\\s*있|신청할\\s*수\\s*있|신청\\s*가능|대상(?:인가|이에요|이야|이니|일까|이 ?되|에 ?해당)|해당(?:되|돼|하)|자격");
@@ -83,9 +81,7 @@ public class AskService {
 
     /** 질문 속 개인정보를 가린다 */
     static String mask(String q) {
-        String s = RRN.matcher(q).replaceAll("[가림]");
-        s = PHONE.matcher(s).replaceAll("[가림]");
-        return EMAIL.matcher(s).replaceAll("[가림]");
+        return PersonalInfoMasker.mask(q);
     }
 
     /** "문의처(경제과 033-560-2324)에 확인해 보세요." */
