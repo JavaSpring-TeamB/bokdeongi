@@ -44,7 +44,8 @@ public class BenefitListController {
     @Operation(summary = "혜택 목록·필터 (BEN-11)", description = "status = OPEN(신청 가능) / UPCOMING(신청 예정) / "
             + "CLOSED(신청 마감), 여러 개는 쉼표나 반복(status=OPEN&status=UPCOMING). 비우면 OPEN·UPCOMING. "
             + "field = 분야 해시태그, target = 대상 해시태그 (GET /api/hashtags의 category 분야·대상 이름). "
-            + "같은 칸 안은 '또는', 칸끼리는 '그리고'")
+            + "같은 칸 안은 '또는', 칸끼리는 '그리고'. sort = relevance(관련도, 기본) / deadline(마감 임박) / "
+            + "amount(지원 금액) / easy(신청 쉬운 순). 값이 없는 혜택은 맨 뒤")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping
     public ResponseEntity<BenefitSearchResponse> findBenefits(

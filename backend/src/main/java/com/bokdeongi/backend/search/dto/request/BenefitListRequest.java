@@ -30,6 +30,8 @@ public record BenefitListRequest(
 ) {
 
     public static final Set<String> STATUSES = Set.of("OPEN", "UPCOMING", "CLOSED");
+    /** 정렬 (BEN-02): 관련도 / 마감 임박 / 지원 금액 / 신청 쉬운 순 */
+    public static final Set<String> SORTS = Set.of("relevance", "deadline", "amount", "easy");
     static final int MAX_TAGS = 20;
     static final int MAX_TAG_LENGTH = 30;
 
@@ -76,9 +78,9 @@ public record BenefitListRequest(
             );
         }
 
-        if (!sort.equals("relevance")) {
+        if (!SORTS.contains(sort)) {
             throw new IllegalArgumentException(
-                    "지원하지 않는 정렬 방식입니다."
+                    "지원하지 않는 정렬 방식입니다. relevance / deadline / amount / easy 중 하나를 써 주세요."
             );
         }
 

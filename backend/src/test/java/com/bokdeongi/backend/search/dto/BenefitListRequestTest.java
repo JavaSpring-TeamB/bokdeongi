@@ -59,4 +59,14 @@ class BenefitListRequestTest {
         }
         assertThrows(IllegalArgumentException.class, () -> req(null, null, many));
     }
+
+    @Test
+    void 정렬은_네_가지만_받고_대소문자와_빈값을_정리() {
+        assertEquals("relevance", new BenefitListRequest(null, null, null, 0, 10).sort());
+        assertEquals("relevance", new BenefitListRequest(null, null, " ", 0, 10).sort());
+        assertEquals("deadline", new BenefitListRequest(null, null, "DEADLINE", 0, 10).sort());
+        assertEquals("amount", new BenefitListRequest(null, null, " amount ", 0, 10).sort());
+        assertEquals("easy", new BenefitListRequest(null, null, "Easy", 0, 10).sort());
+        assertThrows(IllegalArgumentException.class, () -> new BenefitListRequest(null, null, "latest", 0, 10));
+    }
 }

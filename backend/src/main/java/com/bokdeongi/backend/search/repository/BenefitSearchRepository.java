@@ -108,6 +108,8 @@ public interface BenefitSearchRepository extends JpaRepository<Benefit, Long> {
     // 신청 상태: 가능 = ACTIVE 중 아직 시작 전·기간 지남이 아닌 것(상시·기관별·공고 확인·신청 불필요 포함),
     //           예정 = 시작일이 오늘 뒤이거나 매년 반복인데 올해 기간이 지난 것(다음 회차), 마감 = EXPIRED (D-85)
     // 분야·대상: 해시태그(GET /api/hashtags의 category 분야·대상) 중 하나라도 있으면
+    // 정렬(BEN-02): deadline = 마감 임박(지난 것·마감일 없음은 뒤), amount = 연간(없으면 최대) 금액 큰 순(미확인은 뒤),
+    //              easy = 온라인 신청 먼저 → 내가 낼 서류 적은 순. 같은 값이면 관련도 → id 순
     @Query(
             value = """
                 SELECT b.*
@@ -195,6 +197,18 @@ public interface BenefitSearchRepository extends JpaRepository<Benefit, Long> {
                                        CAST(:#{#request.targetsJson()} AS JSON))
                   )
                 ORDER BY
+                    CASE WHEN :#{#request.sort()} = 'deadline'
+                         THEN (b.status = 'EXPIRED' OR COALESCE(b.apply_end < :#{#request.today()}, FALSE)) END,
+                    CASE WHEN :#{#request.sort()} = 'deadline' THEN (b.apply_end IS NULL) END,
+                    CASE WHEN :#{#request.sort()} = 'deadline' THEN b.apply_end END ASC,
+                    CASE WHEN :#{#request.sort()} = 'amount'
+                         THEN (COALESCE(b.annual_amount, b.max_amount) IS NULL) END,
+                    CASE WHEN :#{#request.sort()} = 'amount'
+                         THEN COALESCE(b.annual_amount, b.max_amount) END DESC,
+                    CASE WHEN :#{#request.sort()} = 'easy' THEN (b.online_apply IS NULL) END,
+                    CASE WHEN :#{#request.sort()} = 'easy' THEN b.online_apply END DESC,
+                    CASE WHEN :#{#request.sort()} = 'easy' THEN (b.self_doc_count IS NULL) END,
+                    CASE WHEN :#{#request.sort()} = 'easy' THEN b.self_doc_count END ASC,
                     CASE
                         WHEN :#{#request.q()} IS NULL THEN 0
                         WHEN LOWER(b.title) =
