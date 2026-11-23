@@ -6,6 +6,7 @@ import com.bokdeongi.backend.benefit.recommend.RecommendResponse.Check;
 import com.bokdeongi.backend.benefit.recommend.RecommendResponse.Item;
 import com.bokdeongi.backend.benefit.recommend.RecommendResponse.NearMissInfo;
 import com.bokdeongi.backend.benefit.recommend.RecommendResponse.Period;
+import com.bokdeongi.backend.eligibility.ConditionText;
 import com.bokdeongi.backend.eligibility.label.LabelRuleCatalog;
 import com.bokdeongi.backend.eligibility.store.JsonText;
 import java.text.NumberFormat;
@@ -232,8 +233,9 @@ public final class RecommendView {
         for (Map<String, Object> t : trace) {
             if ("FAIL".equals(t.get("outcome"))) {
                 String field = String.valueOf(t.get("field"));
-                return new NearMissInfo(nearMissReason, field, label(field), str(t.get("expected")),
-                        str(t.get("actual")), str(t.get("sourceQuote")));
+                return new NearMissInfo(nearMissReason, field, label(field),
+                        ConditionText.expected(field, str(t.get("expected"))),
+                        ConditionText.actual(field, str(t.get("actual"))), str(t.get("sourceQuote")));
             }
         }
         return new NearMissInfo(nearMissReason, null, null, null, null, null);

@@ -135,7 +135,8 @@ class RecommendViewTest {
                 RecommendTab.NEAR_MISS, RecommendSort.RECOMMENDED, 0, TODAY);
         assertEquals("2027년 3월 2일부터 나이 조건을 충족해요", item.nearMiss().reason());
         assertEquals("나이", item.nearMiss().label());
-        assertEquals("18", item.nearMiss().actual());
+        assertEquals("만 19~34세", item.nearMiss().expected());
+        assertEquals("만 18세", item.nearMiss().actual());
         assertEquals("만 19~34세", item.nearMiss().sourceQuote());
     }
 
