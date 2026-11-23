@@ -39,6 +39,28 @@ public class ApplicationQuery {
                 applicationId, userId);
     }
 
+    // 캘린더용 조회: 신청 건과 관심 등록 혜택 모두 포함
+    public Optional<ApplicationRow> findForCalendar(
+            long applicationId,
+            long userId
+    ) {
+        return jdbc.query("""
+                SELECT id, user_id, benefit_id,
+                       app_status, step,
+                       app_answers, doc_checks,
+                       started_api_modified_at
+                FROM user_benefits
+                WHERE id = ?
+                  AND user_id = ?
+                """,
+                rs -> rs.next()
+                        ? Optional.of(mapRow(rs))
+                        : Optional.empty(),
+                applicationId,
+                userId
+        );
+    }
+
     // 사용자와 혜택 ID로 기존 신청 건 조회
     public Optional<ApplicationRow> findByBenefit(
             long userId,
