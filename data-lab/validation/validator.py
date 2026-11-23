@@ -341,6 +341,11 @@ def _numbers_check(item: Item, quote: str, base_year: int | None = None) -> tupl
                 ("미만" in quote and number + 1 in found) or ("초과" in quote and number - 1 in found)):
             notes.append(f"숫자 {number}은(는) 미만·초과를 정수 경계로 바꾼 값")
             continue
+        # 제외 대상 뒤집기: "만 75세 이상자 제외" → 74 이하, "18세 이하 제외" → 19 이상
+        if number == number.to_integral_value() and "제외" in quote and (
+                ("이상" in quote and number + 1 in found) or ("이하" in quote and number - 1 in found)):
+            notes.append(f"숫자 {number}은(는) 제외 대상의 이상·이하를 정수 경계로 바꾼 값")
+            continue
         notes.append(f"숫자 {number}이(가) 근거에 없음")
         return False, notes
     mentions = extract_dates(quote, base_year)

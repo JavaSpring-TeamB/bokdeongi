@@ -463,6 +463,13 @@ public final class ExtractionValidator {
                 notes.add("숫자 " + number.toPlainString() + "은(는) 미만·초과를 정수 경계로 바꾼 값");
                 continue;
             }
+            // 제외 대상 뒤집기: "만 75세 이상자 제외" → 74 이하, "18세 이하 제외" → 19 이상
+            if (integral && quote.contains("제외")
+                    && ((quote.contains("이상") && found.contains(canon(number.add(BigDecimal.ONE))))
+                    || (quote.contains("이하") && found.contains(canon(number.subtract(BigDecimal.ONE)))))) {
+                notes.add("숫자 " + number.toPlainString() + "은(는) 제외 대상의 이상·이하를 정수 경계로 바꾼 값");
+                continue;
+            }
             notes.add("숫자 " + number.toPlainString() + "이(가) 근거에 없음");
             return false;
         }

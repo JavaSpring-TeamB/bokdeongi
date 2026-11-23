@@ -1196,6 +1196,99 @@
       }
     },
     {
+      "name": "제외 대상의 이상은 정수 경계로 뒤집어도 통과 (만 75세 이상자 제외 → 74 이하)",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 75세 이상자는 제외",
+        "numbers": [
+          "74"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "LTE",
+          "values": [
+            "74"
+          ]
+        }
+      },
+      "sources": [
+        "○ 만 75세 이상자는 제외"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "제외 대상의 이하도 뒤집어 통과 (18세 이하 제외 → 19 이상)",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "18세 이하 청소년은 제외",
+        "numbers": [
+          "19"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "GTE",
+          "values": [
+            "19"
+          ]
+        }
+      },
+      "sources": [
+        "○ 18세 이하 청소년은 제외"
+      ],
+      "expected": {
+        "dropped": false,
+        "score": "0.70",
+        "checks": {
+          "quote": true,
+          "numbers": true,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
+      "name": "제외가 없으면 이상을 뒤집지 않는다",
+      "purpose": "RULE",
+      "item": {
+        "field": "AGE",
+        "source_quote": "만 75세 이상",
+        "numbers": [
+          "74"
+        ],
+        "rule": {
+          "field": "AGE",
+          "operator": "LTE",
+          "values": [
+            "74"
+          ]
+        }
+      },
+      "sources": [
+        "○ 만 75세 이상"
+      ],
+      "expected": {
+        "dropped": true,
+        "score": "0.00",
+        "checks": {
+          "quote": true,
+          "numbers": false,
+          "code": null,
+          "repeat": null
+        }
+      }
+    },
+    {
       "name": "초과는 위로 1 (자녀 2명 초과 → 3)",
       "purpose": "RULE",
       "item": {

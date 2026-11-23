@@ -136,7 +136,7 @@ public final class ConditionValidator {
                 continue;
             }
             Spec spec = checked.spec();
-            Item repeat = takeRepeat(repeats, repeatLines, spec);
+            Item repeat = takeRepeat(repeats, repeatLines, spec, quote);
             Item item = new Item(spec.field(), quote, ConditionFields.numbers(spec), List.of(), spec, null, null);
             Validation v = ExtractionValidator.validate(item, Purpose.RULE, sources, codeSpec(spec, src.codeRules()),
                     repeat, src.baseYear());
@@ -164,16 +164,37 @@ public final class ConditionValidator {
         return new ServiceRules(rules, new ArrayList<>(unparsed), false, review);
     }
 
-    /** 같은 조건(필드·연산자·값)이 두 번째 결과에 있으면 꺼내 준다. 없으면 빈 출력 (반복 불일치). */
-    private static Item takeRepeat(List<Spec> repeats, List<ConditionBatch.Condition> repeatLines, Spec spec) {
-        for (int i = 0; i < repeats.size(); i++) {
+    /**
+     * 같은 조건(필드·연산자·값)이 두 번째 결과에 있으면 꺼내 준다. 없으면 빈 출력 (반복 불일치).
+     * 질문(ANSWER)은 실행마다 key 이름이 달라질 수 있어서(excluded_student / student_excluded) key가 달라도
+     * 답(Y/N)이 같고 근거 문구가 같거나 한쪽이 다른 쪽을 포함하면 같은 조건으로 본다. 이때 첫 결과의 key를 쓴다.
+     */
+    private static Item takeRepeat(List<Spec> repeats, List<ConditionBatch.Condition> repeatLines, Spec spec,
+            String quote) {
+        int at = -1;
+        for (int i = 0; i < repeats.size() && at < 0; i++) {
             if (repeats.get(i).key().equals(spec.key())) {
-                Spec found = repeats.remove(i);
-                repeatLines.remove(i);
-                return new Item(found.field(), null, List.of(), List.of(), found, null, null);
+                at = i;
             }
         }
-        return Item.empty(spec.field());
+        if (at < 0 && spec.field().startsWith(ConditionFields.ANSWER_PREFIX)) {
+            String q = ExtractionValidator.normalize(quote);
+            for (int i = 0; i < repeats.size() && at < 0; i++) {
+                Spec r = repeats.get(i);
+                String rq = ExtractionValidator.normalize(repeatLines.get(i).sourceQuote());
+                if (r.field().startsWith(ConditionFields.ANSWER_PREFIX) && r.values().equals(spec.values())
+                        && !q.isEmpty() && !rq.isEmpty() && (q.contains(rq) || rq.contains(q))) {
+                    at = i;
+                }
+            }
+        }
+        if (at < 0) {
+            return Item.empty(spec.field());
+        }
+        repeats.remove(at);
+        repeatLines.remove(at);
+        // 반복 비교(Item.key)는 첫 결과의 조건과 같아야 일치로 센다
+        return new Item(spec.field(), null, List.of(), List.of(), spec, null, null);
     }
 
     /**
