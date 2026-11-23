@@ -119,7 +119,9 @@ public class SecurityConfig {
                                 "/api/regions",
                                 "/api/auth/email-availability",
                                 "/api/benefits/search",
-                                "/api/benefits"
+                                "/api/benefits",
+                                "/api/benefits/{benefitId}",
+                                "/api/benefits/{benefitId}/easy"
                         ).permitAll()
 
                         // 로그인 없이 접근 가능한 POST API
