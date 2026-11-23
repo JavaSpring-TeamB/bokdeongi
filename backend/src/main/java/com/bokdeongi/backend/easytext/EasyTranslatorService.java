@@ -48,7 +48,7 @@ public class EasyTranslatorService {
             throw EasyTextException.invalidInput("글은 " + MAX_TEXT + "자 이내로 붙여 넣어 주세요.");
         }
         if (chatModel.getIfAvailable() == null) {
-            throw EasyTextException.unavailable(); // 키가 없으면 횟수를 쓰지 않는다
+            throw EasyTextException.disabled(); // 키가 없으면 횟수를 쓰지 않는다
         }
         if (!limiter.tryUse(clientKey)) {
             throw EasyTextException.tooMany();
@@ -60,6 +60,8 @@ public class EasyTranslatorService {
         try {
             raw = generator.generate(EasyTextPrompt.system(), EasyTextPrompt.user(masked));
         } catch (RuntimeException e) {
+            // 붙여 넣은 글은 남기지 않는다. 예외 종류·메시지만
+            log.warn("쉬운 말 번역 LLM 호출 실패: {}", e.toString());
             throw EasyTextException.unavailable();
         }
 

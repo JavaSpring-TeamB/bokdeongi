@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class EasyTextService {
+
+    private static final Logger log = LoggerFactory.getLogger(EasyTextService.class);
 
     public static final String DONE = "DONE";
     public static final String FAILED = "FAILED";
@@ -67,11 +71,13 @@ public class EasyTextService {
                     benefit.getTargetText(), benefit.getCriteriaText(), benefit.getContentText(),
                     benefit.getApplyMethodText(), benefit.getApplyPeriodText(), benefit.getContact()));
         } catch (RuntimeException e) {
+            log.warn("쉬운 말(EASY-01) LLM 호출 실패 benefitId={}: {}", benefit.getId(), e.toString());
             return EasyResponse.failed();
         }
         EasyChecker.Result r = EasyChecker.check(json, sources(benefit));
         LocalDateTime now = LocalDateTime.now(clock);
         if (!r.ok()) {
+            log.info("쉬운 말(EASY-01, {}) 검사 탈락 benefitId={}: {}", EasyPrompt.VERSION, benefit.getId(), r.reason());
             benefit.applyEasy(FAILED, null, null, null, null, null, now);
             benefitRepository.save(benefit);
             return EasyResponse.failed();
