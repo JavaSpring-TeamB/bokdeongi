@@ -97,8 +97,8 @@ public final class BenefitMapper {
         warnings.addAll(converted.warnings());
         List<String> yCodes = ja.entrySet().stream().filter(e -> "Y".equalsIgnoreCase(e.getValue()))
                 .map(Map.Entry::getKey).toList();
-        Integer ageMin = integer(ja.get("JA0110"));
-        Integer ageMax = integer(ja.get("JA0111"));
+        Integer ageMin = age(ja.get("JA0110"), "하한", warnings);
+        Integer ageMax = age(ja.get("JA0111"), "상한", warnings);
         StringBuilder raw = new StringBuilder();
         JsonText.writeObject(raw, ja);
 
@@ -247,6 +247,23 @@ public final class BenefitMapper {
             return null;
         }
         return value.intValue();
+    }
+
+    /**
+     * 지원조건 나이(JA0110·JA0111). 0~120 밖의 값(999 같은 '제한 없음' 표기, 잘못 들어간 큰 수)은 비운다.
+     * 비우면 나이 제한 없음과 같고, 그대로 넣으면 age_min·age_max(smallint) 범위를 넘어 동기화 전체가 실패한다.
+     */
+    static Integer age(String value, String which, List<String> warnings) {
+        Integer n = integer(value);
+        if (n == null) {
+            return null;
+        }
+        if (n < 0 || n > SupportConditionConverter.AGE_UNLIMITED_MAX) {
+            warnings.add("나이 " + which + " 범위 밖(0~" + SupportConditionConverter.AGE_UNLIMITED_MAX + "): " + value
+                    + " → 비움");
+            return null;
+        }
+        return n;
     }
 
     static Integer integer(String value) {

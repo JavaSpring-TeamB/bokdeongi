@@ -84,6 +84,9 @@ class SupportConditionConverterTest {
         assertTrue(reversed.rules().isEmpty());
         assertEquals(1, reversed.warnings().size());
         assertEquals(1, SupportConditionConverter.convert(with(allOpen(), "JA0110", "만19"), "개인").warnings().size());
+        Result tooOld = SupportConditionConverter.convert(with(allOpen(), "JA0110", "999", "JA0111", "120"), "개인");
+        assertTrue(tooOld.rules().isEmpty());
+        assertEquals(1, tooOld.warnings().size());
     }
 
     @Test

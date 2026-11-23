@@ -67,7 +67,7 @@ public final class SupportConditionConverter {
     static final String JA04_NONE = "JA0410";
     static final String AGE_MIN = "JA0110";
     static final String AGE_MAX = "JA0111";
-    static final int AGE_UNLIMITED_MAX = 120;
+    public static final int AGE_UNLIMITED_MAX = 120;
 
     /** 화면에 근거로 보여 줄 코드 이름 (supportConditions 명세). */
     static final Map<String, String> NAMES = new LinkedHashMap<>();
@@ -169,6 +169,11 @@ public final class SupportConditionConverter {
         } catch (NumberFormatException e) {
             warnings.add("나이 값이 숫자가 아님: " + conditions.get(AGE_MIN) + "~" + conditions.get(AGE_MAX));
             return Optional.empty();
+        }
+        if (low != null && low > AGE_UNLIMITED_MAX) {
+            // 하한이 120을 넘으면 값이 잘못 들어간 것. 규칙으로 만들면 모두 해당 없음이 되므로 나이 규칙을 두지 않는다
+            warnings.add("나이 하한이 범위 밖: " + low);
+            low = null;
         }
         boolean noLow = low == null || low <= 0;
         boolean noHigh = high == null || high >= AGE_UNLIMITED_MAX;
