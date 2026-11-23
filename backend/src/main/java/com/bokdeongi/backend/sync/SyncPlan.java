@@ -43,4 +43,18 @@ public record SyncPlan(
         return inserts.stream().mapToInt(r -> r.warnings().size()).sum()
                 + updates.stream().mapToInt(u -> u.row().warnings().size()).sum();
     }
+
+    /** 가공 경고를 종류(':' 앞)별로 센다. 많은 순, 같으면 이름 순 */
+    public java.util.LinkedHashMap<String, Integer> warningsByType() {
+        java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
+        java.util.stream.Stream.concat(inserts.stream(), updates.stream().map(Update::row))
+                .flatMap(r -> r.warnings().stream())
+                .forEach(w -> counts.merge(w.contains(":") ? w.substring(0, w.indexOf(':')).strip() : w, 1, Integer::sum));
+        java.util.LinkedHashMap<String, Integer> out = new java.util.LinkedHashMap<>();
+        counts.entrySet().stream()
+                .sorted(java.util.Map.Entry.<String, Integer>comparingByValue().reversed()
+                        .thenComparing(java.util.Map.Entry.comparingByKey()))
+                .forEach(e -> out.put(e.getKey(), e.getValue()));
+        return out;
+    }
 }
