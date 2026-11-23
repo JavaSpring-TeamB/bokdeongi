@@ -3,11 +3,6 @@ const myPageData = {
         basics: [['♙', '이름', '김복덩'], ['▣', '생년월일', '2004.11.04'], ['⌖', '거주지역', '부산광역시'], ['✉', '이메일', 'bokdeongi@email.com']],
         settings: [['♧', '가구 형태', '1인 가구'], ['⌂', '주거 형태', '월세'], ['▤', '소득 정보', '중위소득 150% 이하']]
     },
-    bookmarks: [
-        { id: 'monthly-rent', icon: '⌂', title: '청년 월세 지원', category: '주거·생활', status: '해당', deadline: 'D-12', description: '청년의 주거비 부담을 낮추기 위해 월세를 지원하는 제도예요.' },
-        { id: 'exam-fee', icon: '▱', title: '국가기술자격 응시료 지원', category: '취업·교육', status: '조건부', deadline: 'D-30', description: '청년의 국가기술자격 시험 응시료 일부를 지원해요.' },
-        { id: 'culture-card', icon: '▣', title: '문화누리카드 지원', category: '문화·여가', status: '해당', deadline: '상시', description: '문화·예술·여행·체육 활동을 위한 문화누리카드를 지원해요.' }
-    ],
     keywords: ['청년', '지원금', '주거지원', '복지'],
     faqs: [
         ['복지 혜택은 어떤 기준으로 추천되나요?', '입력된 프로필 정보와 각 혜택의 공고 조건을 비교해 안내합니다. 실제 신청 가능 여부와 심사는 해당 기관의 최신 기준을 확인해 주세요.'],
@@ -31,6 +26,18 @@ let profileSaving = false;
 let profileInterests = ['주거·생활', '취업·교육'];
 let bookmarkPage = 1;
 const BOOKMARK_PAGE_SIZE = 4;
+const FAVORITE_SORT = 'DEADLINE';
+const favoriteListState = {
+    screen: 'IDLE',
+    response: null,
+    errorKind: null,
+    errorMessage: '',
+    requestPromise: null
+};
+let favoriteListRequestId = 0;
+let favoriteListController = null;
+let favoriteRemovalId = null;
+let favoriteRemovalRequestId = 0;
 let regionLoadState = 'idle';
 
 function getMyPageRegions() {
@@ -406,17 +413,245 @@ function renderProfile() {
     return profileMode === 'edit' ? renderProfileEditor() : renderProfileView();
 }
 
+class FavoriteListRequestError extends Error {
+    constructor(kind, message) {
+        super(message);
+        this.kind = kind;
+    }
+}
+
+function favoriteBenefitId(value) {
+    const id = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN;
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function isFavoriteItem(item) {
+    return item && typeof item === 'object' && favoriteBenefitId(item.benefitId) !== null;
+}
+
+function isFavoriteListResponse(payload) {
+    return payload && typeof payload === 'object' && !Array.isArray(payload)
+        && Array.isArray(payload.items) && payload.items.every(isFavoriteItem)
+        && Array.isArray(payload.ended) && payload.ended.every(isFavoriteItem)
+        && (payload.count === undefined || (Number.isSafeInteger(payload.count) && payload.count >= 0));
+}
+
+function isFavoriteToggleResponse(payload, benefitId) {
+    return payload && typeof payload === 'object' && typeof payload.bookmarked === 'boolean'
+        && favoriteBenefitId(payload.benefitId) === benefitId;
+}
+
+function optionalFavoriteText(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function favoriteStatusText(status) {
+    const labels = { ELIGIBLE: '해당', CONDITIONAL: '조건부', INELIGIBLE: '해당 없음' };
+    const value = optionalFavoriteText(status);
+    return labels[value] || value;
+}
+
+function favoriteKeywordSection() {
+    return '<section class="my-page__section my-page__keyword-section"><h3>관심 키워드</h3><p class="my-page__keyword-description">관심 있는 키워드를 등록하고 관리할 수 있어요.</p><div class="my-page__keyword-list" data-keyword-list></div><form class="my-page__keyword-form" data-keyword-form><label class="sr-only" for="keyword-input">관심 키워드</label><input id="keyword-input" name="keyword" type="text" maxlength="20" placeholder="관심 키워드를 입력해 주세요. (예: 청년, 지원금, 주거지원)"><button class="bk-btn bk-btn--primary bk-btn--md" type="submit">추가</button></form></section>';
+}
+
+function favoriteCard(item) {
+    const benefitId = favoriteBenefitId(item.benefitId);
+    if (benefitId === null) return '';
+    const status = favoriteStatusText(item.status);
+    const category = optionalFavoriteText(item.category);
+    const deadline = optionalFavoriteText(item.period?.text);
+    const title = optionalFavoriteText(item.title);
+    const orgName = optionalFavoriteText(item.orgName);
+    const hashtags = Array.isArray(item.hashtags) ? item.hashtags.map(optionalFavoriteText).filter(Boolean) : [];
+    const statusClass = status === '조건부' ? ' my-page__benefit-status--conditional' : '';
+    const metadata = [
+        status ? '<span class="my-page__benefit-status' + statusClass + '">' + escapeHtml(status) + '</span>' : '',
+        category ? '<span class="my-page__benefit-category">' + escapeHtml(category) + '</span>' : '',
+        deadline ? '<span class="my-page__benefit-deadline">마감 ' + escapeHtml(deadline) + '</span>' : ''
+    ].join('');
+    const details = [
+        orgName ? '<p>기관: ' + escapeHtml(orgName) + '</p>' : '',
+        hashtags.length ? '<p>' + hashtags.map((tag) => '#' + escapeHtml(tag)).join(' ') + '</p>' : ''
+    ].join('');
+    const removing = favoriteRemovalId === benefitId;
+    return '<article class="my-page__benefit-card"><div class="my-page__benefit-content">'
+        + (metadata ? '<div class="my-page__benefit-meta">' + metadata + '</div>' : '')
+        + (title ? '<h3>' + escapeHtml(title) + '</h3>' : '')
+        + details
+        + '</div><div class="my-page__benefit-actions"><a class="bk-btn bk-btn--outline bk-btn--sm" href="benefit-detail.html?id=' + encodeURIComponent(benefitId) + '">상세 보기</a><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-remove-bookmark="' + benefitId + '"' + (removing ? ' disabled' : '') + '>' + (removing ? '해제 중…' : '관심 해제') + '</button></div></article>';
+}
+
 function renderBookmarks() {
-    bookmarkPage = window.BokdeongiPagination.clampPage(myPageData.bookmarks.length, bookmarkPage, BOOKMARK_PAGE_SIZE);
+    const header = '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2></header>';
+    if (favoriteListState.screen === 'IDLE' || favoriteListState.screen === 'LOADING') {
+        return header + '<div class="my-page__empty" role="status">관심 혜택을 불러오고 있어요.</div>' + favoriteKeywordSection();
+    }
+    if (favoriteListState.screen === 'UNAUTHENTICATED') {
+        return header + '<div class="my-page__empty">관심 혜택은 로그인 후 확인할 수 있어요. <a href="login.html">로그인하기</a></div>' + favoriteKeywordSection();
+    }
+    if (favoriteListState.screen === 'ERROR') {
+        const message = favoriteListState.errorKind === 'NETWORK'
+            ? '네트워크 연결을 확인한 뒤 다시 시도해 주세요.'
+            : favoriteListState.errorKind === 'INVALID'
+                ? '관심 혜택 응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.'
+                : '관심 혜택을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+        return header + '<div class="my-page__empty" role="alert">' + message + '<div><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-retry-favorites>다시 시도</button></div></div>' + favoriteKeywordSection();
+    }
+
+    const response = favoriteListState.response;
+    const items = response?.items || [];
+    const ended = response?.ended || [];
+    const count = Number.isSafeInteger(response?.count) ? response.count : items.length + ended.length;
+    bookmarkPage = window.BokdeongiPagination.clampPage(items.length, bookmarkPage, BOOKMARK_PAGE_SIZE);
     const start = (bookmarkPage - 1) * BOOKMARK_PAGE_SIZE;
-    const cards = myPageData.bookmarks.slice(start, start + BOOKMARK_PAGE_SIZE).map((benefit) => {
-        const statusClass = benefit.status === '조건부' ? ' my-page__benefit-status--conditional' : '';
-        return '<article class="my-page__benefit-card"><div class="my-page__benefit-content"><div class="my-page__benefit-meta"><span class="my-page__benefit-status' + statusClass + '">' + escapeHtml(benefit.status) + '</span><span class="my-page__benefit-category">' + escapeHtml(benefit.category) + '</span><span class="my-page__benefit-deadline">마감 ' + escapeHtml(benefit.deadline) + '</span></div><h3>' + escapeHtml(benefit.title) + '</h3><p>' + escapeHtml(benefit.description) + '</p></div><div class="my-page__benefit-actions"><a class="bk-btn bk-btn--outline bk-btn--sm" href="benefit-detail.html">상세 보기</a><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-remove-bookmark="' + escapeHtml(benefit.id) + '">관심 해제</button></div></article>';
-    }).join('');
-    const list = cards || '<div class="my-page__empty">저장한 관심 혜택이 없어요. 복지 혜택 찾기에서 관심 있는 혜택을 저장해 보세요.</div>';
-    const pagination = window.BokdeongiPagination.markup({ totalCount: myPageData.bookmarks.length, currentPage: bookmarkPage, pageSize: BOOKMARK_PAGE_SIZE, label: '저장한 관심 혜택' });
-    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2></header><div class="my-page__benefit-list">' + list + '</div>' + pagination +
-        '<section class="my-page__section my-page__keyword-section"><h3>관심 키워드</h3><p class="my-page__keyword-description">관심 있는 키워드를 등록하고 관리할 수 있어요.</p><div class="my-page__keyword-list" data-keyword-list></div><form class="my-page__keyword-form" data-keyword-form><label class="sr-only" for="keyword-input">관심 키워드</label><input id="keyword-input" name="keyword" type="text" maxlength="20" placeholder="관심 키워드를 입력해 주세요. (예: 청년, 지원금, 주거지원)"><button class="bk-btn bk-btn--primary bk-btn--md" type="submit">추가</button></form></section>';
+    const activeCards = items.slice(start, start + BOOKMARK_PAGE_SIZE).map(favoriteCard).join('');
+    const activeList = activeCards || (ended.length ? '<div class="my-page__empty">신청 가능한 관심 혜택이 없어요.</div>' : '<div class="my-page__empty">저장한 관심 혜택이 없어요. 복지 혜택 찾기에서 관심 있는 혜택을 저장해 보세요.</div>');
+    const pagination = window.BokdeongiPagination.markup({ totalCount: items.length, currentPage: bookmarkPage, pageSize: BOOKMARK_PAGE_SIZE, label: '저장한 관심 혜택' });
+    const endedCards = ended.map(favoriteCard).join('');
+    const endedSection = endedCards ? '<section class="my-page__section"><h3>종료된 혜택</h3><div class="my-page__benefit-list">' + endedCards + '</div></section>' : '';
+    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2><span class="my-page__status">총 ' + count + '건</span></header><div class="my-page__benefit-list">' + activeList + '</div>' + pagination + endedSection + favoriteKeywordSection();
+}
+
+function renderFavoritesIfVisible() {
+    if (currentSection === 'bookmarks') renderSection();
+}
+
+async function loadFavorites() {
+    const requestId = ++favoriteListRequestId;
+    if (favoriteListController) favoriteListController.abort();
+    const controller = new AbortController();
+    favoriteListController = controller;
+    favoriteListState.screen = 'LOADING';
+    favoriteListState.errorKind = null;
+    favoriteListState.errorMessage = '';
+    renderFavoritesIfVisible();
+
+    const request = (async () => {
+        try {
+            const auth = window.BokdeongiAuth;
+            if (!auth || typeof auth.authenticatedFetch !== 'function' || typeof auth.refreshAuthentication !== 'function') {
+                throw new FavoriteListRequestError('CONFIG', '관심 혜택 서비스를 설정하지 못했습니다.');
+            }
+            const authenticationState = await auth.refreshAuthentication();
+            if (requestId !== favoriteListRequestId) return;
+            if (authenticationState !== 'authenticated') {
+                favoriteListState.screen = 'UNAUTHENTICATED';
+                favoriteListState.response = null;
+                renderFavoritesIfVisible();
+                return;
+            }
+
+            const response = await auth.authenticatedFetch('/api/me/favorites?sort=' + FAVORITE_SORT, { signal: controller.signal });
+            if (requestId !== favoriteListRequestId) return;
+            if (response.status === 401) {
+                favoriteListState.screen = 'UNAUTHENTICATED';
+                favoriteListState.response = null;
+                renderFavoritesIfVisible();
+                return;
+            }
+            if (!response.ok) throw new FavoriteListRequestError('API', '관심 혜택을 불러오지 못했습니다.');
+            let payload;
+            try {
+                payload = await response.json();
+            } catch {
+                throw new FavoriteListRequestError('INVALID', '관심 혜택 응답 형식이 올바르지 않습니다.');
+            }
+            if (!isFavoriteListResponse(payload)) {
+                throw new FavoriteListRequestError('INVALID', '관심 혜택 응답 형식이 올바르지 않습니다.');
+            }
+            if (requestId !== favoriteListRequestId) return;
+            favoriteListState.response = payload;
+            favoriteListState.screen = 'RESULT';
+            bookmarkPage = 1;
+            renderFavoritesIfVisible();
+        } catch (error) {
+            if ((error && error.name === 'AbortError') || requestId !== favoriteListRequestId) return;
+            const unauthenticated = error && error.type === 'unauthenticated';
+            favoriteListState.screen = unauthenticated ? 'UNAUTHENTICATED' : 'ERROR';
+            favoriteListState.response = unauthenticated ? null : favoriteListState.response;
+            favoriteListState.errorKind = unauthenticated ? null : (error instanceof FavoriteListRequestError ? error.kind : 'NETWORK');
+            favoriteListState.errorMessage = error instanceof FavoriteListRequestError ? error.message : '';
+            renderFavoritesIfVisible();
+            console.error('관심 혜택을 조회하지 못했습니다.', error);
+        } finally {
+            if (requestId === favoriteListRequestId) {
+                favoriteListController = null;
+                favoriteListState.requestPromise = null;
+            }
+        }
+    })();
+    favoriteListState.requestPromise = request;
+    return request;
+}
+
+async function removeFavorite(benefitId) {
+    if (favoriteRemovalId !== null || favoriteListState.screen !== 'RESULT') return;
+    const id = favoriteBenefitId(benefitId);
+    if (id === null) return;
+
+    const requestId = ++favoriteRemovalRequestId;
+    favoriteRemovalId = id;
+    renderFavoritesIfVisible();
+    try {
+        const auth = window.BokdeongiAuth;
+        if (!auth || typeof auth.authenticatedFetch !== 'function' || typeof auth.getCsrfToken !== 'function' || typeof auth.refreshAuthentication !== 'function') {
+            throw new FavoriteListRequestError('CONFIG', '관심 혜택 저장 서비스를 설정하지 못했습니다.');
+        }
+        const authenticationState = await auth.refreshAuthentication();
+        if (requestId !== favoriteRemovalRequestId) return;
+        if (authenticationState !== 'authenticated') {
+            favoriteListState.screen = 'UNAUTHENTICATED';
+            favoriteListState.response = null;
+            renderFavoritesIfVisible();
+            showToast('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            return;
+        }
+
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch('/api/benefits/' + encodeURIComponent(id) + '/favorite', {
+            method: 'DELETE',
+            headers: { [csrf.headerName]: csrf.token }
+        });
+        if (requestId !== favoriteRemovalRequestId) return;
+        if (response.status === 401) {
+            favoriteListState.screen = 'UNAUTHENTICATED';
+            favoriteListState.response = null;
+            renderFavoritesIfVisible();
+            showToast('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            return;
+        }
+        if (!response.ok) throw new FavoriteListRequestError(response.status === 404 ? 'NOT_FOUND' : 'API', '관심 혜택 저장을 해제하지 못했습니다.');
+        let payload;
+        try {
+            payload = await response.json();
+        } catch {
+            throw new FavoriteListRequestError('INVALID', '관심 혜택 응답 형식이 올바르지 않습니다.');
+        }
+        if (!isFavoriteToggleResponse(payload, id) || payload.bookmarked !== false) {
+            throw new FavoriteListRequestError('INVALID', '관심 혜택 저장 해제 결과를 확인하지 못했습니다.');
+        }
+        showToast('관심 혜택 저장을 해제했어요.');
+        await loadFavorites();
+    } catch (error) {
+        if (requestId !== favoriteRemovalRequestId) return;
+        const unauthenticated = error && error.type === 'unauthenticated';
+        if (unauthenticated) {
+            favoriteListState.screen = 'UNAUTHENTICATED';
+            favoriteListState.response = null;
+            renderFavoritesIfVisible();
+        }
+        const message = error instanceof FavoriteListRequestError && error.kind === 'NOT_FOUND'
+            ? '존재하지 않는 혜택입니다.'
+            : unauthenticated ? '로그인이 만료되었습니다. 다시 로그인해주세요.' : '관심 혜택 저장을 해제하지 못했습니다. 다시 시도해주세요.';
+        showToast(message);
+        console.error('관심 혜택 저장을 해제하지 못했습니다.', error);
+    } finally {
+        if (requestId === favoriteRemovalRequestId) {
+            favoriteRemovalId = null;
+            renderFavoritesIfVisible();
+        }
+    }
 }
 
 function renderGuide() {
@@ -1382,9 +1617,16 @@ function setupInteractions() {
             return;
         }
         const sectionButton = event.target.closest('[data-section]');
-        if (sectionButton) { currentSection = sectionButton.dataset.section; profileMode = 'view'; renderSection(); return; }
+        if (sectionButton) {
+            currentSection = sectionButton.dataset.section;
+            profileMode = 'view';
+            renderSection();
+            if (currentSection === 'bookmarks') void loadFavorites();
+            return;
+        }
+        if (event.target.closest('[data-retry-favorites]')) { void loadFavorites(); return; }
         const removeBookmark = event.target.closest('[data-remove-bookmark]');
-        if (removeBookmark) { myPageData.bookmarks = myPageData.bookmarks.filter((benefit) => benefit.id !== removeBookmark.dataset.removeBookmark); renderSection(); showToast('관심 혜택 목록에서 제거했어요. 이 변경은 현재 브라우저에서만 유지됩니다.'); return; }
+        if (removeBookmark) { void removeFavorite(removeBookmark.dataset.removeBookmark); return; }
         const removeKeyword = event.target.closest('[data-remove-keyword]');
         if (removeKeyword) { myPageData.keywords = myPageData.keywords.filter((keyword) => keyword !== removeKeyword.dataset.removeKeyword); renderKeywords(); showToast('관심 키워드를 삭제했어요.'); return; }
         const faq = event.target.closest('[data-faq]');
