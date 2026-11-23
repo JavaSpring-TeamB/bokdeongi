@@ -55,9 +55,12 @@ class LabelRuleCatalogTest {
     }
 
     @Test
-    void 앱에_든_라벨_파일_30개_서비스를_엔진이_모두_읽는다() {
+    void 앱에_든_라벨_파일_정답셋과_시연_공고를_엔진이_모두_읽는다() {
         LabelRuleCatalog c = LabelRuleCatalog.standard();
-        assertEquals(30, c.services().size());
+        // 정답셋 30건 + 검수한 LLM 추출 공고(data-lab/conditions/reviewed_rules.csv, 시연 12건부터)
+        assertTrue(c.services().size() >= 42, "라벨 공고 수: " + c.services().size());
+        assertTrue(c.services().containsKey("161300000099"), "정답셋 공고");
+        assertTrue(c.services().containsKey("999000000022"), "시연 공고(검수 라벨)");
         EligibilityJudge judge = new EligibilityJudge();
         List<String> unsupported = new ArrayList<>();
         for (LabeledService s : c.services().values()) {
