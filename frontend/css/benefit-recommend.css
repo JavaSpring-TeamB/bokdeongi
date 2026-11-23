@@ -16,6 +16,10 @@
     --recommend-theme-light: var(--recommend-danger-light);
 }
 
+.benefit-recommend-page[data-status="eligible"] .recommend-banner { background-image: url("../img/benefit_banner_logo.png"); }
+.benefit-recommend-page[data-status="conditional"] .recommend-banner { background-image: url("../img/benefit_banner_logo2.png"); }
+.benefit-recommend-page[data-status="near-miss"] .recommend-banner { background-image: url("../img/benefit_banner_logo3.png"); }
+
 .recommend-page {
     padding: var(--space-lg) 0 var(--space-xxl);
 }
@@ -41,21 +45,16 @@
 
 .recommend-banner {
     display: flex;
-    min-height: 144px;
+    min-height: 164px;
     align-items: center;
     gap: var(--space-md);
     padding: 28px 32px;
     border-radius: var(--radius-lg);
-    background: var(--recommend-theme-light);
-    transition: background-color .18s ease;
-}
-
-.recommend-banner__bar {
-    width: 4px;
-    height: 52px;
-    flex: 0 0 auto;
-    border-radius: 999px;
-    background: var(--recommend-theme);
+    background-color: var(--recommend-theme-light);
+    background-image: none;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
     transition: background-color .18s ease;
 }
 

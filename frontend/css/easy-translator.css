@@ -22,7 +22,11 @@
     min-height: 144px;
     padding: 28px 32px;
     border-radius: var(--radius-lg);
-    background: var(--color-primary-light);
+    background-color: var(--color-primary-light);
+    background-image: url("../img/easy-translator_banner.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
 }
 
 .easy-translator-banner h1 {

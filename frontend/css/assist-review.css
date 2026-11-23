@@ -3,6 +3,8 @@
     margin: var(--space-lg) auto var(--space-xl);
 }
 
+.assist-review-page .assist-banner { background-color: var(--color-primary-light); background-image: url("../img/assist03_banner.png"); background-position: center; background-repeat: no-repeat; background-size: cover; }
+
 .assist-review-page .assist-steps--icon .assist-step.is-complete {
     color: var(--color-primary);
 }
