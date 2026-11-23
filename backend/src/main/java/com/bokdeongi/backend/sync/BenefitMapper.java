@@ -11,6 +11,7 @@ import com.bokdeongi.backend.eligibility.store.JsonText;
 import com.bokdeongi.backend.extraction.ExtractionValidator;
 import com.bokdeongi.backend.extraction.PeriodStatus;
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -113,12 +114,22 @@ public final class BenefitMapper {
         LocalDate applyStart = null;
         LocalDate applyEnd = null;
         String precision = null;
+        String dateStatus = period.status().name();
         if (period.status() == ApplyPeriodExtractor.Status.PARSED) {
             precision = period.precision() == null ? null : period.precision().name();
-            ApplyPeriodExtractor.Period picked = ApplyPeriodExtractor.pickPeriod(period, today).orElse(null);
-            if (picked != null) {
-                applyStart = startDate(picked.start());
-                applyEnd = endDate(picked.end());
+            try {
+                ApplyPeriodExtractor.Period picked = ApplyPeriodExtractor.pickPeriod(period, today).orElse(null);
+                if (picked != null) {
+                    applyStart = startDate(picked.start());
+                    applyEnd = endDate(picked.end());
+                }
+            } catch (DateTimeException e) {
+                // 원문 오타로 달력에 없는 날짜("6월 31일")면 공고를 통째로 격리하지 않고 '공고 확인'으로 둔다
+                warnings.add("신청 기간 날짜가 달력에 없음: " + periodText);
+                applyStart = null;
+                applyEnd = null;
+                precision = null;
+                dateStatus = ApplyPeriodExtractor.Status.CHECK_NOTICE.name();
             }
         }
         boolean expired = PeriodStatus.classify(periodType == null ? "" : periodType, periodText, target, year, today)
@@ -168,7 +179,7 @@ public final class BenefitMapper {
                 modifiedAt, expired ? "EXPIRED" : "ACTIVE",
                 ageMin, ageMax, JsonText.writeStrings(yCodes), raw.toString(), converted.targetScope().name(),
                 region.code(),
-                applyStart, applyEnd, period.status().name(), precision, emptyToNull(period.quote()),
+                applyStart, applyEnd, dateStatus, precision, emptyToNull(period.quote()),
                 period.recurringYearly(),
                 maxAmount, amount.period() == null ? null : amount.period().name(),
                 intAmount(amount.annualAmount(), warnings, "annual_amount"), confidence,

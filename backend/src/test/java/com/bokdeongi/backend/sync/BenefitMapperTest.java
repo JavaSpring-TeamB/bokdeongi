@@ -83,6 +83,16 @@ class BenefitMapperTest {
     }
 
     @Test
+    void 달력에_없는_날짜는_격리하지_않고_공고_확인으로() {
+        ServiceRecord r = youthRent();
+        r.detail().put("신청기한", "2026.6.1.~2026.6.31.");   // 316000000156 실제 사례: 6월 31일
+        BenefitRow row = mapper(Set.of()).map(r);
+        assertEquals("CHECK_NOTICE", row.dateStatus());
+        assertNull(row.applyEnd());
+        assertTrue(row.warnings().stream().anyMatch(w -> w.contains("달력에 없음")));
+    }
+
+    @Test
     void 지역과_신청기간과_상태() {
         BenefitRow row = mapper(Set.of()).map(youthRent());
         assertEquals("11620", row.regionCode());

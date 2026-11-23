@@ -138,4 +138,22 @@ class SyncPlannerTest {
         assertEquals(1, plan.inserts().size());
         assertEquals(1, plan.fetched());
     }
+
+    @Test
+    void 동기화_요약은_경고를_종류별로_센다() {
+        // 시군구 기관인데 기관코드 표에 없으면 '지역 미확인' 경고
+        Map<String, Object> l1 = SyncFixtures.list("A", "혜택 A", "시군구", "없는군청", "9999999", T1);
+        Map<String, Object> l2 = SyncFixtures.list("B", "혜택 B", "시군구", "없는군청", "9999999", T1);
+        Map<String, Object> d1 = SyncFixtures.detail("A", "혜택 A", T1);
+        Map<String, Object> d2 = SyncFixtures.detail("B", "혜택 B", T1);
+        d1.put("소관기관명", "없는군청");
+        d2.put("소관기관명", "없는군청");
+        SyncPlanner.Merged merged = SyncPlanner.merge(List.of(l1, l2), List.of(d1, d2),
+                List.of(SyncFixtures.conditions("A"), SyncFixtures.conditions("B")));
+        SyncPlan plan = SyncPlanner.plan(merged, List.of(), MAPPER::map);
+        assertEquals(Integer.valueOf(2), plan.warningsByType().get("지역 미확인"));
+        String summary = BenefitSyncService.summary(plan);
+        assertTrue(summary.startsWith("가공 경고 " + plan.warningCount() + "건 ("), summary);
+        assertTrue(summary.contains("지역 미확인 2"), summary);
+    }
 }

@@ -128,6 +128,9 @@ public class BenefitSyncService {
         log.info("동기화 {}: 호출 {}회, 목록 {}건, 새 {}건, 갱신 {}건, 상태 변경 {}건, 종료 {}건, 격리 {}건", status, budget.used(),
                 plan.fetched(), plan.inserts().size(), plan.updates().size(), plan.statusChanges().size(),
                 plan.endedIds().size(), plan.quarantined().size());
+        // 경고 내용은 sync_logs에 종류별 수만 남기고, 공고별 내용은 서버 로그로 (지역 미확인 기관 확인용)
+        java.util.stream.Stream.concat(plan.inserts().stream(), plan.updates().stream().map(SyncPlan.Update::row))
+                .forEach(r -> r.warnings().forEach(w -> log.info("가공 경고 {}: {}", r.serviceId(), w)));
 
         int rejudged = plan.affectsEligibility() || labelsApplied > 0 ? rejudgeAll() : 0;
         return new Report(status, budget.used(), plan.fetched(), plan.inserts().size(), plan.updates().size(),
@@ -203,7 +206,10 @@ public class BenefitSyncService {
         }
         int warnings = plan.warningCount();
         if (warnings > 0) {
-            parts.add("가공 경고 " + warnings + "건 (지역 미확인·금액 범위 초과 등)");
+            List<String> types = new ArrayList<>();
+            plan.warningsByType().forEach((type, n) -> types.add(type + " " + n));
+            parts.add("가공 경고 " + warnings + "건 (" + String.join(", ", types.stream().limit(6).toList())
+                    + (types.size() > 6 ? " 외" : "") + ")");
         }
         return String.join(" | ", parts);
     }
