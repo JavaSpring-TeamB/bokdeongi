@@ -7,6 +7,8 @@ import com.bokdeongi.backend.benefit.service.VisitChecklistBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class AskService {
+
+    private static final Logger log = LoggerFactory.getLogger(AskService.class);
 
     static final int MAX_QUESTION = 200;
 
@@ -52,7 +56,7 @@ public class AskService {
         }
         Benefit b = benefitRepository.findById(benefitId).orElseThrow(AskException::notFound);
         if (!generator.available()) {
-            throw AskException.unavailable(); // 키가 없으면 횟수를 쓰지 않는다
+            throw AskException.disabled(); // 키가 없으면 횟수를 쓰지 않는다
         }
         if (!limiter.tryUse(userId)) {
             throw AskException.tooMany();
@@ -64,6 +68,8 @@ public class AskService {
                     b.getCriteriaText(), b.getContentText(), b.getApplyMethodText(), b.getApplyPeriodText(),
                     b.getRequiredDocsText(), mask(q)));
         } catch (RuntimeException e) {
+            // 질문 글은 남기지 않는다 (D-92). 예외 종류·메시지만
+            log.warn("공고문 질문 LLM 호출 실패 benefitId={}: {}", benefitId, e.toString());
             throw AskException.unavailable();
         }
 
