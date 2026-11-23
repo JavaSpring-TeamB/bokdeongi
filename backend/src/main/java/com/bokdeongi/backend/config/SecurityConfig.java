@@ -129,7 +129,8 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/auth/signup",
                                 "/api/auth/login",
-                                "/api/auth/refresh"
+                                "/api/auth/refresh",
+                                "/api/easy-text"
                         ).permitAll()
 
                         // 그 외 API는 인증 필요
