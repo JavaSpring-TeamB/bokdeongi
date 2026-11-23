@@ -1,8 +1,8 @@
-const FILTER_CONFIGS = {
-    status: ['전체', '신청 가능', '신청 예정', '신청 마감'],
-    category: ['전체', '주거', '고용·취업', '교육', '금융', '보육·가족', '건강·의료', '문화·생활'],
-    target: ['전체', '청년', '대학생', '구직자', '신혼부부', '임산부', '어르신', '저소득층']
-};
+const STATUS_FILTERS = [
+    { value: 'OPEN', label: '신청 가능' },
+    { value: 'UPCOMING', label: '신청 예정' },
+    { value: 'CLOSED', label: '신청 마감' }
+];
 
 const PAGE_SIZE = 6;
 const state = {
@@ -12,7 +12,10 @@ const state = {
     screen: 'INITIAL',
     currentPage: 1,
     errorKind: null,
-    errorMessage: ''
+    errorMessage: '',
+    statuses: [],
+    fields: [],
+    targets: []
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -149,33 +152,25 @@ function displayableHashtags(tags) {
 
 function renderHashtagSuggestions() {
     const container = $('#hashtag-suggestions');
-    if (!container) return;
-
     if (hashtagState.screen === 'IDLE' || hashtagState.screen === 'LOADING') {
-        container.innerHTML = '<span>추천 해시태그:</span><span class="small-copy">불러오는 중…</span>';
-        return;
-    }
-    if (hashtagState.screen === 'UNAUTHENTICATED') {
-        container.innerHTML = '<span>추천 해시태그:</span><span class="small-copy">로그인하면 실제 추천 해시태그를 볼 수 있어요.</span><a href="login.html">로그인하기</a>';
-        return;
-    }
-    if (hashtagState.screen === 'ERROR') {
+        if (container) container.innerHTML = '<span>추천 해시태그:</span><span class="small-copy">불러오는 중…</span>';
+    } else if (hashtagState.screen === 'UNAUTHENTICATED') {
+        if (container) container.innerHTML = '<span>추천 해시태그:</span><span class="small-copy">로그인하면 실제 추천 해시태그를 볼 수 있어요.</span><a href="login.html">로그인하기</a>';
+    } else if (hashtagState.screen === 'ERROR') {
         const message = hashtagState.errorKind === 'NETWORK'
             ? '네트워크 연결을 확인한 뒤 다시 시도해주세요.'
             : (hashtagState.errorMessage || '추천 해시태그를 불러오지 못했어요.');
-        container.innerHTML = '<span>추천 해시태그:</span><span class="small-copy">' + escapeHtml(message) + '</span><button type="button" data-retry-hashtags>다시 시도</button>';
-        return;
+        if (container) container.innerHTML = '<span>추천 해시태그:</span><span class="small-copy">' + escapeHtml(message) + '</span><button type="button" data-retry-hashtags>다시 시도</button>';
+    } else {
+        const tags = displayableHashtags(hashtagState.response?.tags || []);
+        if (container) container.innerHTML = tags.length
+            ? '<span>추천 해시태그:</span>' + tags.map((tag) => {
+                const description = hasText(tag.description) ? ' title="' + escapeHtml(tag.description.trim()) + '"' : '';
+                return '<button type="button" data-hashtag="' + escapeHtml(tag.name) + '"' + description + '>#' + escapeHtml(tag.name) + '</button>';
+            }).join('')
+            : '<span>추천 해시태그:</span><span class="small-copy">표시할 해시태그가 없어요.</span>';
     }
-
-    const tags = displayableHashtags(hashtagState.response?.tags || []);
-    if (!tags.length) {
-        container.innerHTML = '<span>추천 해시태그:</span><span class="small-copy">표시할 해시태그가 없어요.</span>';
-        return;
-    }
-    container.innerHTML = '<span>추천 해시태그:</span>' + tags.map((tag) => {
-        const description = hasText(tag.description) ? ' title="' + escapeHtml(tag.description.trim()) + '"' : '';
-        return '<button type="button" data-hashtag="' + escapeHtml(tag.name) + '"' + description + '>#' + escapeHtml(tag.name) + '</button>';
-    }).join('');
+    renderFilters();
 }
 
 async function loadHashtags(force = false) {
@@ -306,19 +301,36 @@ function toast(message) {
     toast.id = setTimeout(() => { element.hidden = true; }, 3000);
 }
 
-function groupTitle(group) {
-    return group === 'status' ? '신청 상태' : group === 'category' ? '분야' : '대상';
+function filterOption(group, value, label, count, checked) {
+    const countMarkup = Number.isSafeInteger(count) ? ' <small>(' + count + ')</small>' : '';
+    return '<label class="filter-option"><input type="checkbox" data-filter-group="' + group + '" value="' + escapeHtml(value) + '"' + (checked ? ' checked' : '') + '><span>' + escapeHtml(label) + countMarkup + '</span></label>';
+}
+
+function tagFilterGroup(group, title, category, selected) {
+    if (hashtagState.screen === 'LOADING' || hashtagState.screen === 'IDLE') {
+        return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">필터를 불러오는 중이에요.</p></section>';
+    }
+    if (hashtagState.screen === 'UNAUTHENTICATED') {
+        return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">로그인하면 실제 ' + title + ' 필터를 사용할 수 있어요. <a href="login.html">로그인하기</a></p></section>';
+    }
+    if (hashtagState.screen === 'ERROR') {
+        return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">필터를 불러오지 못했어요. <button type="button" data-retry-filter-tags>다시 시도</button></p></section>';
+    }
+    const tags = displayableHashtags((hashtagState.response?.tags || []).filter((tag) => tag.category === category));
+    if (!tags.length) return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">표시할 ' + title + ' 필터가 없어요.</p></section>';
+    return '<section class="filter-group"><h3>' + title + '</h3><div class="filter-options">'
+        + tags.map((tag) => filterOption(group, tag.name, tag.name, tag.count, selected.includes(tag.name))).join('') + '</div></section>';
 }
 
 function renderFilters() {
-    const groups = Object.entries(FILTER_CONFIGS).map(([group, items]) => {
-        const options = items.map((item) => (
-            '<label class="filter-option"><input type="checkbox" name="' + group + '" value="' + item + '" disabled><span>' + item + '</span></label>'
-        )).join('');
-        return '<section class="filter-group"><h3>' + groupTitle(group) + '</h3><div class="filter-options">' + options + '</div></section>';
-    }).join('');
-
-    $('#filter-groups').innerHTML = '<p class="filter-panel__notice" role="note">신청 상태·분야·대상 필터는 현재 검색 API에서 지원하지 않습니다.</p>' + groups;
+    const allSelected = STATUS_FILTERS.every((filter) => state.statuses.includes(filter.value));
+    const statusOptions = filterOption('status', 'ALL', '전체 (마감 포함)', null, allSelected)
+        + STATUS_FILTERS.map((filter) => filterOption('status', filter.value, filter.label, null, state.statuses.includes(filter.value))).join('');
+    const container = $('#filter-groups');
+    if (!container) return;
+    container.innerHTML = '<section class="filter-group"><h3>신청 상태</h3><div class="filter-options">' + statusOptions + '</div></section>'
+        + tagFilterGroup('field', '분야', '분야', state.fields)
+        + tagFilterGroup('target', '대상', '대상', state.targets);
 }
 
 function suggestedKeywords(hashtags = []) {
@@ -422,7 +434,7 @@ function render() {
         : empty();
 }
 
-function buildRequestPath(query, hashtag, page) {
+function buildRequestPath(query, hashtag, page, filters = state) {
     const parameters = new URLSearchParams({
         sort: 'relevance',
         page: String(page - 1),
@@ -430,6 +442,9 @@ function buildRequestPath(query, hashtag, page) {
     });
     if (query) parameters.set('q', query);
     if (hashtag) parameters.set('hashtag', hashtag);
+    (filters.statuses || []).forEach((status) => parameters.append('status', status));
+    (filters.fields || []).forEach((field) => parameters.append('field', field));
+    (filters.targets || []).forEach((target) => parameters.append('target', target));
     return '/api/benefits?' + parameters.toString();
 }
 
@@ -640,14 +655,20 @@ async function requestBenefits(page) {
     }
 }
 
-function syncSearchUrl() {
+function syncSearchUrl({ push = false } = {}) {
     if (!window.history || typeof window.history.replaceState !== 'function') return;
     const parameters = new URLSearchParams();
     if (state.query) parameters.set('q', state.query);
     if (state.hashtag) parameters.set('hashtag', state.hashtag);
+    state.statuses.forEach((status) => parameters.append('status', status));
+    state.fields.forEach((field) => parameters.append('field', field));
+    state.targets.forEach((target) => parameters.append('target', target));
     const path = hasText(window.location.pathname) ? window.location.pathname : 'benefit-list.html';
     const query = parameters.toString();
-    window.history.replaceState(null, '', path + (query ? '?' + query : ''));
+    const updateHistory = push && typeof window.history.pushState === 'function'
+        ? window.history.pushState
+        : window.history.replaceState;
+    updateHistory.call(window.history, null, '', path + (query ? '?' + query : ''));
 }
 
 function runSearch() {
@@ -665,7 +686,7 @@ function runSearch() {
     $('#search-message').textContent = '';
     state.query = query;
     state.hashtag = '';
-    syncSearchUrl();
+    syncSearchUrl({ push: true });
     requestBenefits(1);
 }
 
@@ -677,7 +698,7 @@ function searchByHashtag(hashtag) {
     $('#search-message').textContent = '';
     state.query = '';
     state.hashtag = normalizedHashtag;
-    syncSearchUrl();
+    syncSearchUrl({ push: true });
     requestBenefits(1);
 }
 
@@ -688,6 +709,9 @@ function reset() {
     resetFavoriteStates();
     state.query = '';
     state.hashtag = '';
+    state.statuses = [];
+    state.fields = [];
+    state.targets = [];
     state.response = null;
     state.currentPage = 1;
     state.screen = 'INITIAL';
@@ -696,21 +720,38 @@ function reset() {
     render();
 }
 
-function applyKeywordFromUrl() {
+function updateFilterSelection(group, value, checked) {
+    if (group === 'status') {
+        if (value === 'ALL') state.statuses = checked ? STATUS_FILTERS.map((filter) => filter.value) : [];
+        else {
+            state.statuses = STATUS_FILTERS.filter((filter) => {
+                const current = filter.value === value ? checked : state.statuses.includes(filter.value);
+                return current;
+            }).map((filter) => filter.value);
+        }
+        return;
+    }
+    const key = group === 'field' ? 'fields' : 'targets';
+    const selected = new Set(state[key]);
+    if (checked) selected.add(value); else selected.delete(value);
+    state[key] = [...selected];
+}
+
+function applyKeywordFromUrl(request = true) {
     const parameters = new URLSearchParams(window.location.search);
     const keyword = normalizeQuery(parameters.get('keyword') ?? parameters.get('q'));
     const hashtag = normalizeQuery(parameters.get('hashtag')).replace(/^#/, '');
-    if (keyword) {
-        $('#benefit-search-input').value = keyword;
-        runSearch();
-    } else if (hashtag) {
-        searchByHashtag(hashtag);
-    }
+    state.query = keyword;
+    state.hashtag = keyword ? '' : hashtag;
+    state.statuses = [...new Set(parameters.getAll('status').map((value) => value.trim().toUpperCase()).filter((value) => STATUS_FILTERS.some((filter) => filter.value === value)))];
+    state.fields = [...new Set(parameters.getAll('field').map(normalizeQuery).filter(Boolean))].slice(0, 20);
+    state.targets = [...new Set(parameters.getAll('target').map(normalizeQuery).filter(Boolean))].slice(0, 20);
+    $('#benefit-search-input').value = keyword || hashtag;
+    renderFilters();
+    if (request && (keyword || hashtag || state.statuses.length || state.fields.length || state.targets.length)) requestBenefits(1);
 }
 
 function disableUnsupportedControls() {
-    $('#filter-reset').disabled = true;
-    $('#filter-reset').title = '현재 검색 API에서 필터를 지원하지 않습니다.';
     const sort = $('#sort-order');
     [...sort.options].forEach((option) => {
         option.disabled = option.value !== 'relevance';
@@ -736,6 +777,15 @@ function setup() {
         requestBenefits(page);
     });
     document.addEventListener('click', (event) => {
+        if (event.target.closest('#filter-reset')) {
+            state.statuses = [];
+            state.fields = [];
+            state.targets = [];
+            syncSearchUrl({ push: true });
+            renderFilters();
+            requestBenefits(1);
+            return;
+        }
         const keywordTarget = event.target.closest('[data-keyword]');
         if (keywordTarget) {
             $('#benefit-search-input').value = keywordTarget.dataset.keyword;
@@ -755,6 +805,10 @@ function setup() {
             loadHashtags(true);
             return;
         }
+        if (event.target.closest('[data-retry-filter-tags]')) {
+            loadHashtags(true);
+            return;
+        }
         const favoriteButton = event.target.closest('[data-favorite-benefit-id]');
         if (favoriteButton) {
             const benefitId = Number(favoriteButton.dataset.favoriteBenefitId);
@@ -766,6 +820,15 @@ function setup() {
             toast('이 페이지는 현재 준비 중입니다.');
         }
     });
+    document.addEventListener('change', (event) => {
+        const input = event.target.closest('[data-filter-group]');
+        if (!input) return;
+        updateFilterSelection(input.dataset.filterGroup, input.value, input.checked);
+        syncSearchUrl({ push: true });
+        renderFilters();
+        requestBenefits(1);
+    });
+    window.addEventListener?.('popstate', () => applyKeywordFromUrl(true));
     applyKeywordFromUrl();
 }
 

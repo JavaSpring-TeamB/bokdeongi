@@ -127,6 +127,13 @@
     border-color: var(--color-primary);
 }
 
+.translator-privacy-guidance {
+    margin: 0 0 var(--space-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    font-weight: 600;
+}
+
 .translator-character-count {
     position: absolute;
     right: 10px;
@@ -230,6 +237,27 @@
     font-size: var(--font-size-description);
     font-weight: 700;
     line-height: 1.55;
+}
+
+.translator-masked-notice,
+.translator-result-meta,
+.translator-result-notice {
+    margin: 0 0 var(--space-sm);
+    padding: 10px var(--space-md);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+}
+
+.translator-masked-notice {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.translator-result-meta {
+    margin: var(--space-md) 0 var(--space-sm);
 }
 
 .translation-section-list {
