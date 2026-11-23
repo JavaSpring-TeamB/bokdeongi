@@ -1,4 +1,4 @@
-/* 홈 화면의 Mock Data는 API 명세 확정 후 데이터 조회 함수로 교체합니다. */
+/* HOME-02·03 연동 전 캘린더 미리보기 데이터 */
 const initialDate = new Date();
 
 function isDevelopmentHost() {
@@ -11,6 +11,7 @@ function isDevelopmentPreviewEnabled() {
 
 const AUTH_STATES = new Set(['checking', 'authenticated', 'unauthenticated', 'error']);
 const authState = { status: 'checking' };
+const homeSummaryState = { status: 'idle', data: null, requestId: 0 };
 const developmentPreview = { enabled: isDevelopmentPreviewEnabled(), mockLogin: false, dashboardState: 'ready' };
 const oauthParameters = new URLSearchParams(window.location.search);
 const oauthResult = {
@@ -39,37 +40,12 @@ function createMockSchedules(baseDate) {
   ];
 }
 
-function formatMockTimestamp(date) {
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} 06:00`;
-}
-
-const mockPreviewData = {
-  supportSummary: { expectedAmount: 420000, maximumAmount: 1200000, note: '중복 수혜가 불가능한 혜택은 가장 높은 1건만 반영한 예시입니다.' },
-  benefitSummary: {
-    categories: [{ label: '전체 12건' }, { label: '해당 6건' }, { label: '조건부 4건' }, { label: '해당 없음 2건' }],
-    newBenefits: 2,
-    description: '이번 주 새로 나에게 맞는 혜택이 2건 추가되었어요.'
-  },
-  weeklySummary: {
-    period: '11.09 ~ 11.15',
-    items: [
-      { label: '신규 혜택', count: 2, tone: 'new', href: 'benefit-recommend.html' },
-      { label: '마감 임박', count: 3, tone: 'deadline', href: 'benefit-list.html' },
-      { label: '결과 발표 예정', count: 1, tone: 'result', href: 'application-status.html' },
-      { label: '공고 변경', count: 1, tone: 'default', href: 'benefit-list.html' }
-    ]
-  },
-  applications: [
-    { name: '청년 월세 지원', stage: '서류 검토 중', progress: 60, status: '진행 중', icon: 'house' },
-    { name: '청년 주거 지원', stage: '서류 준비 중', progress: 30, status: '준비 중', icon: 'house' },
-    { name: '청년 생활 지원', stage: '신청 완료', progress: 100, status: '완료', icon: 'wallet' }
-  ],
+const calendarPreviewData = {
   schedules: createMockSchedules(initialDate),
   dateNotices: [
     { status: '상시 신청', description: '상시 신청 혜택은 특정 날짜 없이 별도로 안내합니다.' },
     { status: '공고 확인 필요', description: '정확한 날짜가 없는 혜택은 공고문을 확인한 뒤 표시합니다.' }
-  ],
-  updatedAt: formatMockTimestamp(initialDate)
+  ]
 };
 
 const calendarState = { displayedDate: new Date(initialDate.getFullYear(), initialDate.getMonth(), 1), selectedDate: getDateKeyWithOffset(initialDate, 0) };
@@ -93,9 +69,77 @@ function getStateMarkup(section, state) {
   return `<div class="dashboard-state dashboard-state--${state}" role="status"><p>${stateMessages[section][state]}</p>${retry}</div>`;
 }
 
-function renderSupportSummary(data, isLoggedIn, state) {
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function isNullableFiniteNumber(value) {
+  return value === null || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function isNullableInteger(value) {
+  return value === null || Number.isInteger(value);
+}
+
+function isNullableString(value) {
+  return value === null || typeof value === 'string';
+}
+
+function isBenefitItem(item) {
+  return item && Number.isInteger(item.benefitId) && typeof item.title === 'string';
+}
+
+function isHomeSummaryResponse(payload) {
+  if (!payload || typeof payload !== 'object'
+    || typeof payload.profileCompleted !== 'boolean'
+    || typeof payload.eligibilityUpdating !== 'boolean'
+    || !Array.isArray(payload.closingSoon)
+    || !Array.isArray(payload.recommendations)
+    || !Array.isArray(payload.nearMissBenefits)
+    || !payload.amountSummary
+    || !payload.applicationSummary
+    || !Array.isArray(payload.applicationSummary.items)
+    || !isNullableInteger(payload.profileStep)) return false;
+
+  const amount = payload.amountSummary;
+  const applications = payload.applicationSummary;
+  return isNullableFiniteNumber(amount.estimatedAmount)
+    && isNullableFiniteNumber(amount.maxAmount)
+    && isNullableFiniteNumber(amount.annualizedAmount)
+    && Number.isInteger(amount.unknownAmountCount)
+    && typeof amount.duplicateExclusionApplied === 'boolean'
+    && Number.isInteger(applications.inProgressCount)
+    && Number.isInteger(applications.completedCount)
+    && payload.closingSoon.every((item) => isBenefitItem(item)
+      && typeof item.applyEnd === 'string'
+      && Number.isInteger(item.dDay)
+      && typeof item.eligibilityStatus === 'string')
+    && payload.recommendations.every((item) => isBenefitItem(item)
+      && typeof item.eligibilityStatus === 'string'
+      && isNullableString(item.reason))
+    && payload.nearMissBenefits.every((item) => isBenefitItem(item)
+      && typeof item.eligibilityStatus === 'string'
+      && isNullableString(item.reason))
+    && applications.items.every((item) => isBenefitItem(item)
+      && typeof item.appStatus === 'string'
+      && isNullableInteger(item.step)
+      && isNullableInteger(item.progressPercent));
+}
+
+function profileStepLabel(profileStep) {
+  return Number.isInteger(profileStep) && profileStep > 0
+    ? `프로필 ${profileStep}단계까지 입력했어요.`
+    : '프로필 정보를 입력해 주세요.';
+}
+
+function renderSupportSummary(data) {
   const target = document.querySelector('#support-summary');
-  if (!target || !data) return;
+  if (!target) return;
   if (authState.status === 'checking') {
     target.innerHTML = getAuthCheckingMarkup();
     return;
@@ -108,13 +152,100 @@ function renderSupportSummary(data, isLoggedIn, state) {
     target.innerHTML = getLoginRequiredMarkup('로그인하면 나에게 맞는 지원금을 확인할 수 있어요.', '로그인하고 지원금 확인하기');
     return;
   }
-  target.innerHTML = getDataUnavailableMarkup();
+  if (homeSummaryState.status === 'loading' || homeSummaryState.status === 'idle') {
+    target.innerHTML = getStateMarkup('support', 'loading');
+    return;
+  }
+  if (homeSummaryState.status === 'error' || !data) {
+    target.innerHTML = getStateMarkup('support', 'error');
+    return;
+  }
+  if (!data.profileCompleted) {
+    target.innerHTML = `<div class="dashboard-state dashboard-state--empty" role="status"><p>${profileStepLabel(data.profileStep)} 프로필을 완료하면 지원금을 확인할 수 있어요.</p><a class="btn btn-secondary" href="signup-profile.html">프로필 입력하기</a></div>`;
+    return;
+  }
+
+  const amount = data.amountSummary;
+  const estimated = amount.estimatedAmount === null ? '산정 준비 중' : formatCurrency(amount.estimatedAmount);
+  const maximum = amount.maxAmount === null ? '산정 준비 중' : formatCurrency(amount.maxAmount);
+  const notes = [];
+  if (amount.annualizedAmount === null) notes.push('연간 환산 참고 금액은 아직 확인할 수 없어요.');
+  else notes.push(`연간 환산 참고 금액 ${formatCurrency(amount.annualizedAmount)}`);
+  if (amount.unknownAmountCount > 0) notes.push(`금액 정보 미확인 혜택 ${amount.unknownAmountCount}건`);
+  if (amount.duplicateExclusionApplied) notes.push('중복 수급 제외 규칙을 반영했어요.');
+  else notes.push('중복 수급 가능 여부는 혜택별로 확인해 주세요.');
+  target.innerHTML = `<div class="support-item"><p class="support-item__label">예상 수령액</p><p class="support-item__amount">${estimated}</p></div><div class="support-item"><p class="support-item__label">최대 수령액</p><p class="support-item__amount">${maximum}</p></div><p class="support-item__note">${escapeHtml(notes.join(' · '))}</p>`;
 }
 
-function renderBenefitSummary(data, state) {
+function benefitLink(item, description) {
+  if (!item || !Number.isInteger(item.benefitId) || typeof item.title !== 'string') return '';
+  return `<a class="benefit-summary__link" href="benefit-detail.html?id=${encodeURIComponent(String(item.benefitId))}">${escapeHtml(item.title)}${description ? `<span>${escapeHtml(description)}</span>` : ''}</a>`;
+}
+
+function eligibilityCountValue(summary, field) {
+  const value = summary && summary[field];
+  return Number.isInteger(value) && value >= 0 ? `${value}건` : '—';
+}
+
+function eligibilityStatisticsMarkup(summary) {
+  const statistics = [
+    ['전체', 'totalCount'],
+    ['해당', 'eligibleCount'],
+    ['조건부', 'conditionalCount'],
+    ['해당 없음', 'ineligibleCount']
+  ];
+  return `<div class="benefit-tabs" aria-label="맞춤 혜택 통계">${statistics.map(([label, field], index) => `<span class="benefit-tab${index === 0 ? ' is-current' : ''}"><span class="benefit-tab__label">${label}</span><strong class="benefit-tab__value">${eligibilityCountValue(summary, field)}</strong></span>`).join('')}</div>`;
+}
+
+function renderBenefitSummary(data) {
   const target = document.querySelector('#benefit-summary');
-  if (!target || !data) return;
-  target.innerHTML = getDataUnavailableMarkup();
+  if (!target) return;
+  if (authState.status === 'checking') {
+    target.innerHTML = getAuthCheckingMarkup();
+    return;
+  }
+  if (authState.status === 'error') {
+    target.innerHTML = getAuthErrorMarkup();
+    return;
+  }
+  if (authState.status === 'unauthenticated') {
+    target.innerHTML = getLoginRequiredMarkup('로그인하면 맞춤 혜택을 확인할 수 있어요.', '로그인하고 혜택 확인하기');
+    return;
+  }
+  if (homeSummaryState.status === 'loading' || homeSummaryState.status === 'idle') {
+    target.innerHTML = getStateMarkup('benefits', 'loading');
+    return;
+  }
+  if (homeSummaryState.status === 'error' || !data) {
+    target.innerHTML = getStateMarkup('benefits', 'error');
+    return;
+  }
+
+  const statistics = eligibilityStatisticsMarkup(data.eligibilitySummary);
+  if (!data.profileCompleted) {
+    target.innerHTML = `${statistics}<p class="benefit-description">${profileStepLabel(data.profileStep)} 프로필을 완료하면 맞춤 혜택을 알려드려요.</p>`;
+    return;
+  }
+  if (data.eligibilityUpdating) {
+    target.innerHTML = `${statistics}<p class="benefit-description">자격 판정 결과를 갱신하고 있어요. 최신 결과가 준비되면 맞춤 혜택을 보여드릴게요.</p>`;
+    return;
+  }
+
+  const recommendations = data.recommendations.slice(0, 5);
+  const nearMiss = data.nearMissBenefits.slice(0, 5);
+  const closingSoon = data.closingSoon.slice(0, 5);
+  const sections = [];
+  if (recommendations.length) {
+    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">맞춤 추천</p>${recommendations.map((item) => benefitLink(item, item.reason)).join('')}</section>`);
+  } else if (nearMiss.length) {
+    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">조금만 더 확인하면 신청할 수 있어요.</p>${nearMiss.map((item) => benefitLink(item, item.reason)).join('')}</section>`);
+  }
+  if (closingSoon.length) {
+    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">마감 임박 혜택</p>${closingSoon.map((item) => benefitLink(item, item.applyEnd ? `${item.applyEnd} · D-${item.dDay}` : '')).join('')}</section>`);
+  }
+  target.innerHTML = sections.length
+    ? `${statistics}${sections.join('')}`
+    : `${statistics}<p class="benefit-description">현재 표시할 맞춤 혜택이 없어요.</p>`;
 }
 
 function renderWeeklySummary(data, state) {
@@ -133,7 +264,17 @@ function getApplicationIcon(iconName) {
   return icons[iconName] || icons.wallet;
 }
 
-function renderApplications(applications, isLoggedIn, state) {
+function applicationStatusLabel(status) {
+  return {
+    IN_PROGRESS: '진행 중',
+    SUBMITTED: '신청 완료',
+    SELECTED: '선정',
+    REJECTED: '미선정',
+    CANCELED: '취소'
+  }[status] || '상태 확인 필요';
+}
+
+function renderApplications(data) {
   const target = document.querySelector('#application-list');
   if (!target) return;
   if (authState.status === 'checking') {
@@ -148,10 +289,33 @@ function renderApplications(applications, isLoggedIn, state) {
     target.innerHTML = getLoginRequiredMarkup('로그인하면 신청 진행 상황과 마감일을 확인할 수 있어요.', '로그인하고 신청 현황 확인하기');
     return;
   }
-  target.innerHTML = getDataUnavailableMarkup();
+  if (homeSummaryState.status === 'loading' || homeSummaryState.status === 'idle') {
+    target.innerHTML = getStateMarkup('applications', 'loading');
+    return;
+  }
+  if (homeSummaryState.status === 'error' || !data) {
+    target.innerHTML = getStateMarkup('applications', 'error');
+    return;
+  }
+  const summary = data.applicationSummary;
+  const items = Array.isArray(summary.items) ? summary.items.slice(0, 5) : [];
+  const counts = `<p class="application-summary-count">진행 중 ${summary.inProgressCount}건 · 완료 ${summary.completedCount}건</p>`;
+  if (!items.length) {
+    target.innerHTML = `${counts}${getStateMarkup('applications', 'empty')}<a class="btn btn-secondary application-all-link" href="application-status.html">신청 현황 전체 보기</a>`;
+    return;
+  }
+  const markup = items.map((item) => {
+    const title = typeof item.title === 'string' ? escapeHtml(item.title) : '혜택 정보 확인 필요';
+    const href = Number.isInteger(item.benefitId) ? `benefit-detail.html?id=${encodeURIComponent(String(item.benefitId))}` : 'application-status.html';
+    const hasProgress = Number.isInteger(item.progressPercent) && item.progressPercent >= 0 && item.progressPercent <= 100;
+    const progress = hasProgress ? `<div class="application-item__progress"><span class="progress-track"><span style="width: ${item.progressPercent}%"></span></span><small>${item.progressPercent}%</small></div>` : '';
+    const step = Number.isInteger(item.step) ? `${item.step}단계 진행 중` : '현재 단계 확인 중';
+    return `<a class="application-item" href="${href}">${getApplicationIcon('wallet')}<span><strong class="application-item__name">${title}</strong><span class="application-item__stage">${step}</span></span><span class="application-item__status">${applicationStatusLabel(item.appStatus)}</span>${progress}</a>`;
+  }).join('');
+  target.innerHTML = `${counts}${markup}<a class="btn btn-secondary application-all-link" href="application-status.html">신청 현황 전체 보기</a>`;
 }
 
-function getSchedulesForDate(dateKey) { return mockPreviewData.schedules.filter((schedule) => schedule.date === dateKey); }
+function getSchedulesForDate(dateKey) { return calendarPreviewData.schedules.filter((schedule) => schedule.date === dateKey); }
 
 function renderSelectedSchedules() {
   const title = document.querySelector('#selected-date-title');
@@ -171,7 +335,7 @@ function renderSelectedSchedules() {
 function renderDateNotices(state) {
   const target = document.querySelector('#calendar-date-notices');
   if (!target) return;
-  target.innerHTML = state === 'ready' ? mockPreviewData.dateNotices.map((notice) => `<p><strong>${notice.status}</strong><span>${notice.description}</span></p>`).join('') : '';
+  target.innerHTML = state === 'ready' ? calendarPreviewData.dateNotices.map((notice) => `<p><strong>${notice.status}</strong><span>${notice.description}</span></p>`).join('') : '';
 }
 
 function getEventTone(dateKey) {
@@ -312,14 +476,40 @@ async function handleProfileOnboardingRedirect() {
 }
 
 function renderHome() {
-  const state = getSectionState();
-  renderSupportSummary(mockPreviewData.supportSummary, false, state);
-  renderBenefitSummary(mockPreviewData.benefitSummary, state);
-  renderWeeklySummary(mockPreviewData.weeklySummary, state);
-  renderApplications(mockPreviewData.applications, false, state);
-  renderCalendar(state);
+  const data = homeSummaryState.data;
+  renderSupportSummary(data);
+  renderBenefitSummary(data);
+  renderWeeklySummary(null, getSectionState());
+  renderApplications(data);
+  renderCalendar(getSectionState());
   const timestamp = document.querySelector('#data-updated-at');
-  if (timestamp) timestamp.textContent = '실제 데이터 연동 전';
+  if (timestamp) timestamp.textContent = '제공 예정';
+}
+
+async function loadHomeSummary({ force = false } = {}) {
+  if (!window.BokdeongiAuth || authState.status !== 'authenticated') return;
+  if (homeSummaryState.status === 'loading' || (!force && homeSummaryState.status === 'ready')) return;
+
+  const requestId = ++homeSummaryState.requestId;
+  homeSummaryState.status = 'loading';
+  renderHome();
+
+  try {
+    const response = await window.BokdeongiAuth.authenticatedFetch('/api/home/summary');
+    if (requestId !== homeSummaryState.requestId) return;
+    if (!response.ok) throw new Error(`HOME-01 request failed: ${response.status}`);
+
+    const payload = await response.json().catch(() => null);
+    if (!isHomeSummaryResponse(payload)) throw new Error('Invalid HOME-01 response');
+
+    homeSummaryState.data = payload;
+    homeSummaryState.status = 'ready';
+  } catch {
+    if (requestId !== homeSummaryState.requestId) return;
+    homeSummaryState.data = null;
+    homeSummaryState.status = 'error';
+  }
+  renderHome();
 }
 
 function renderDevelopmentPreview() {
@@ -347,10 +537,19 @@ function updateDevelopmentPreview() {
 
 function setAuthenticationStatus(status) {
   if (!AUTH_STATES.has(status)) return;
+  const previousStatus = authState.status;
   authState.status = status;
+  if (status !== 'authenticated') {
+    homeSummaryState.requestId += 1;
+    homeSummaryState.status = 'idle';
+    homeSummaryState.data = null;
+  }
   renderHome();
   handleKakaoSignupRedirect();
   void handleProfileOnboardingRedirect();
+  if (status === 'authenticated' && previousStatus !== 'authenticated') {
+    void loadHomeSummary();
+  }
 }
 
 window.addEventListener('bokdeongi:auth-state-change', (event) => {
@@ -380,7 +579,7 @@ function bindEvents() {
     const category = event.target.closest('[data-benefit-category]');
     if (category) { document.querySelectorAll('.benefit-tab').forEach((tab) => tab.classList.toggle('is-current', tab === category)); return; }
     const retry = event.target.closest('[data-retry-section]');
-    if (retry) { showToast('현재는 개발용 상태 미리보기입니다. API 연동 후 이 영역을 다시 조회할 수 있어요.'); return; }
+    if (retry) { void loadHomeSummary({ force: true }); return; }
     const previewLogin = event.target.closest('[data-preview-login]');
     if (previewLogin && developmentPreview.enabled) { developmentPreview.mockLogin = previewLogin.dataset.previewLogin === 'true'; updateDevelopmentPreview(); return; }
   });
