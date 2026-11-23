@@ -71,6 +71,38 @@ public class ApplicationProgressCalculator {
                 ? 0
                 : (int) Math.round(completed * 100.0 / total);
 
+
+        // 실제 제출 서류의 준비 및 검토 완료 여부 확인
+        boolean allDocumentsCompleted = !validKeys.isEmpty();
+
+        for (String key : validKeys) {
+            JsonNode document = documents == null
+                    ? null
+                    : documents.path(key);
+
+            if (!isTrue(document, "prepared")
+                    || !isTrue(document, "reviewed")) {
+                allDocumentsCompleted = false;
+                break;
+            }
+        }
+
+        boolean eligibilityConfirmed =
+                isTrue(appAnswers, "eligibilityConfirmed");
+
+        boolean hasPreparedDocument = false;
+
+        for (String key : validKeys) {
+            JsonNode document = documents == null
+                    ? null
+                    : documents.path(key);
+
+            if (isTrue(document, "prepared")) {
+                hasPreparedDocument = true;
+                break;
+            }
+        }
+
         String stage;
 
         if ("SELECTED".equals(appStatus)
@@ -78,11 +110,14 @@ public class ApplicationProgressCalculator {
             stage = "결과";
         } else if (submitted) {
             stage = "신청 완료";
-        } else if (step != null && step >= 4) {
+        } else if ("CANCELED".equals(appStatus)) {
+            stage = "취소";
+        } else if (eligibilityConfirmed
+                && allDocumentsCompleted) {
             stage = "서류 준비 완료";
-        } else if (step != null && step == 3) {
+        } else if (step != null && step >= 3 && hasPreparedDocument) {
             stage = "서류 검토 중";
-        } else {
+        }else {
             stage = "준비 중";
         }
 

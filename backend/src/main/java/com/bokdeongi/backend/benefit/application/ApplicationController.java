@@ -19,6 +19,17 @@ public class ApplicationController {
         this.service = service;
     }
 
+    // 로그인한 사용자의 신청 현황 목록 조회
+    @GetMapping
+    @Operation(summary = "내 신청 현황 목록 조회")
+    public ApplicationListResponse getList(
+            Authentication authentication
+    ) {
+        long userId = RecommendController.userId(authentication);
+
+        return service.getList(userId);
+    }
+
     // 신청 시작 또는 기존 신청 이어하기
     @PostMapping
     @ResponseStatus(HttpStatus.OK)
@@ -55,5 +66,18 @@ public class ApplicationController {
         long userId = RecommendController.userId(authentication);
 
         return service.saveProgress(userId, id, request);
+    }
+
+    // 사용자가 직접 신청 완료 및 선정·미선정 결과 기록
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "신청 완료 및 결과 상태 변경")
+    public ApplicationResponse updateStatus(
+            Authentication authentication,
+            @PathVariable long id,
+            @Valid @RequestBody ApplicationStatusUpdateRequest request
+    ) {
+        long userId = RecommendController.userId(authentication);
+
+        return service.updateStatus(userId, id, request);
     }
 }
