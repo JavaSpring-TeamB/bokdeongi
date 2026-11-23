@@ -85,15 +85,18 @@
             <section class="benefit-results" aria-live="polite" aria-atomic="true">
                 <div class="result-controls">
                     <p id="result-summary">검색어 또는 조건을 선택해 혜택을 찾아보세요.</p>
-                    <label class="sort-select" for="sort-order">
-                        <span class="sr-only">정렬 기준</span>
-                        <select id="sort-order">
-                            <option value="relevance">관련도순</option>
-                            <option value="deadline">마감 임박순</option>
-                            <option value="amount">지원 금액순</option>
-                            <option value="easy">신청 쉬운 순</option>
-                        </select>
-                    </label>
+                    <div class="sort-control">
+                        <label class="sort-select" for="sort-order">
+                            <span class="sr-only">정렬 기준</span>
+                            <select id="sort-order">
+                                <option value="relevance">관련도순</option>
+                                <option value="deadline">마감 임박순</option>
+                                <option value="amount">지원 금액순</option>
+                                <option value="easy">신청 쉬운 순</option>
+                            </select>
+                        </label>
+                        <p class="sort-support-note">현재 관련도순만 제공됩니다.</p>
+                    </div>
                 </div>
                 <div id="result-area"></div>
             </section>
