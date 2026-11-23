@@ -7,6 +7,7 @@ import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
 import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
 import com.bokdeongi.backend.eligibility.service.ProfileChangedEvent;
+import com.bokdeongi.backend.benefit.application.DocumentRecordRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,16 +45,19 @@ class AuthServiceTest {
     private UserConsentRepository userConsentRepository;
     private ApplicationEventPublisher eventPublisher;
     private AuthService authService;
+    private DocumentRecordRepository documentRecordRepository;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         userConsentRepository = mock(UserConsentRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
+        documentRecordRepository = mock(DocumentRecordRepository.class);
 
         authService = new AuthService(
                 userRepository,
                 userConsentRepository,
+                documentRecordRepository,
                 mock(PasswordEncoder.class),
                 mock(JwtTokenProvider.class),
                 mock(LoginAttemptService.class),
@@ -83,6 +87,12 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(
                 authService,
                 "privacyConsentVersion",
+                "v1.0"
+        );
+
+        ReflectionTestUtils.setField(
+                authService,
+                "docRecordConsentVersion",
                 "v1.0"
         );
     }
@@ -430,5 +440,158 @@ class AuthServiceTest {
         // 회원 저장 실패 시 약관 이력은 저장하지 않음
         verify(userConsentRepository, never())
                 .save(any(UserConsent.class));
+    }
+
+
+    @Test
+    void shouldDeleteDocumentRecordsWhenConsentWithdrawn() {
+        Long userId = 1L;
+
+        User user = mock(User.class);
+
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.empty());
+
+        ConsentUpdateRequest request =
+                new ConsentUpdateRequest(
+                        "DOC_RECORD",
+                        "v1.0",
+                        false
+                );
+
+        authService.updateConsent(userId, request);
+
+        verify(documentRecordRepository)
+                .deleteRecords(userId);
+
+        verify(userConsentRepository)
+                .save(argThat(consent ->
+                        "DOC_RECORD".equals(consent.getConsentType())
+                                && Boolean.FALSE.equals(consent.getAgreed())
+                ));
+    }
+
+    @Test
+    void shouldNotDeleteDocumentRecordsWhenConsentGranted() {
+        Long userId = 1L;
+
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(mock(User.class)));
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.empty());
+
+        authService.updateConsent(
+                userId,
+                new ConsentUpdateRequest(
+                        "DOC_RECORD", "v1.0", true
+                )
+        );
+
+        verify(documentRecordRepository, never())
+                .deleteRecords(any());
+    }
+
+    @Test
+    void shouldNotDeleteDocumentRecordsForOtherConsent() {
+        Long userId = 1L;
+
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(mock(User.class)));
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "OPTIONAL_INFO"
+                ))
+                .thenReturn(Optional.empty());
+
+        authService.updateConsent(
+                userId,
+                new ConsentUpdateRequest(
+                        "OPTIONAL_INFO", "v1.0", false
+                )
+        );
+
+        verify(documentRecordRepository, never())
+                .deleteRecords(any());
+    }
+
+
+    @Test
+    void shouldDeleteDocumentRecordsWhenConsentAlreadyWithdrawn() {
+        Long userId = 1L;
+
+        User user = mock(User.class);
+
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
+
+        UserConsent previousConsent = mock(UserConsent.class);
+
+        when(previousConsent.getAgreed()).thenReturn(false);
+        when(previousConsent.getDocVersion()).thenReturn("v1.0");
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(previousConsent));
+
+        ConsentUpdateRequest request =
+                new ConsentUpdateRequest(
+                        "DOC_RECORD",
+                        "v1.0",
+                        false
+                );
+
+        authService.updateConsent(userId, request);
+
+        verify(documentRecordRepository)
+                .deleteRecords(userId);
+    }
+
+
+    @Test
+    void shouldThrowExceptionWhenDocumentRecordDeletionFails() {
+        Long userId = 1L;
+
+        User user = mock(User.class);
+
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.empty());
+
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException(
+                "서류 기록 삭제 실패"
+        )).when(documentRecordRepository).deleteRecords(userId);
+
+        ConsentUpdateRequest request =
+                new ConsentUpdateRequest(
+                        "DOC_RECORD",
+                        "v1.0",
+                        false
+                );
+
+        assertThrows(
+                org.springframework.dao.DataAccessResourceFailureException.class,
+                () -> authService.updateConsent(userId, request)
+        );
+
+        verify(documentRecordRepository).deleteRecords(userId);
+        verify(userConsentRepository, never()).save(any(UserConsent.class));
     }
 }
