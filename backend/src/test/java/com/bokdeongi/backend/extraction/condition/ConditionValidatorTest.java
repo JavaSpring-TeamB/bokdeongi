@@ -141,4 +141,39 @@ class ConditionValidatorTest {
         assertEquals("장애의 정도가 심한 장애인인가요?", r.review().get(0).question());
         assertEquals("quote=O numbers=- code=- repeat=O", r.review().get(0).checks());
     }
+
+    @Test
+    void 질문_key_이름만_다르면_같은_조건으로_본다() {
+        List<ConditionBatch.Condition> first = List.of(answer(3, "severe_disability", "Y", "장애의 정도가 심한 장애인",
+                "장애의 정도가 심한 장애인인가요?"));
+        List<ConditionBatch.Condition> second = List.of(answer(3, "disability_severe", "Y", "장애의 정도가 심한 장애인",
+                "중증 장애인인가요?"));
+        ConditionValidator.ServiceRules r = ConditionValidator.validate(cheonan(), first, second);
+        assertEquals("ANSWER:severe_disability", r.rules().get(0).field());
+        assertEquals(new BigDecimal("0.65"), r.rules().get(0).confidence());   // 반복 일치
+        assertTrue(r.unparsed().isEmpty());
+        assertTrue(r.review().stream().noneMatch(l -> l.status() == ConditionValidator.LineStatus.REPEAT_ONLY));
+    }
+
+    @Test
+    void 질문_답이_다르거나_근거가_다르면_다른_조건() {
+        List<ConditionBatch.Condition> first = List.of(answer(3, "severe_disability", "Y", "장애의 정도가 심한 장애인",
+                "중증인가요?"));
+        List<ConditionBatch.Condition> answerDiffers = List.of(answer(3, "x", "N", "장애의 정도가 심한 장애인", "?"));
+        List<ConditionBatch.Condition> quoteDiffers = List.of(answer(3, "x", "Y", "14세~59세 국가유공자", "?"));
+        assertTrue(ConditionValidator.validate(cheonan(), first, answerDiffers).unparsed()
+                .contains(new LabelRuleCatalog.Unparsed(ConditionValidator.REPEAT_MISMATCH, 0)));
+        assertTrue(ConditionValidator.validate(cheonan(), first, quoteDiffers).unparsed()
+                .contains(new LabelRuleCatalog.Unparsed(ConditionValidator.REPEAT_MISMATCH, 0)));
+    }
+
+    @Test
+    void 제외_대상_나이를_뒤집은_경계도_통과() {
+        ConditionSource src = new ConditionSource(1L, "149200000026", "국민내일배움카드", "고용노동부",
+                "만 15세 이상, 만 75세 이상자는 제외", null, null, null, cheonan().apiModifiedAt(), List.of(), false);
+        List<ConditionBatch.Condition> first = List.of(c(0, "AGE", "LTE", List.of("74"), "만 75세 이상자는 제외"));
+        ConditionValidator.ServiceRules r = ConditionValidator.validate(src, first, first);
+        assertEquals(1, r.rules().size());
+        assertTrue(r.unparsed().isEmpty());
+    }
 }
