@@ -31,16 +31,23 @@
 .support-item__amount { margin: var(--space-xs) 0 0; color: var(--color-primary); font-size: var(--font-size-statistic); font-weight: 700; letter-spacing: -.04em; line-height: 1.3; white-space: nowrap; }
 .support-item__note { grid-column: 1 / -1; margin: 0; padding: 0 16px 12px; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .support-summary > .login-required { grid-column: 1 / -1; }
+.support-summary > .dashboard-state { grid-column: 1 / -1; }
 .login-required { display: grid; width: 100%; min-height: 120px; align-content: center; justify-items: center; gap: var(--space-sm); margin-top: var(--space-md); border-radius: var(--radius-md); background: var(--color-mint-light); color: var(--color-text-secondary); font-size: var(--font-size-description); text-align: center; }
 .login-required p { margin: 0; }
 .login-required .btn { width: fit-content; max-width: 100%; justify-self: center; min-height: 40px; padding-inline: var(--space-md); font-size: var(--font-size-caption); white-space: nowrap; }
 .benefit-summary { display: grid; margin-top: var(--space-md); gap: 10px; }
-.benefit-tabs { display: flex; gap: var(--space-xs); overflow-x: auto; }
-.benefit-tab { min-height: 34px; flex: 1; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-white); color: var(--color-text-secondary); font-size: var(--font-size-caption); white-space: nowrap; }
+.benefit-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-xs); }
+.benefit-tab { display: grid; min-height: 34px; align-content: center; justify-items: center; padding: 3px 4px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-white); color: var(--color-text-secondary); font-size: var(--font-size-caption); text-align: center; white-space: nowrap; }
 .benefit-tab.is-current, .benefit-tab:hover { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+.benefit-tab__label { font-size: var(--font-size-caption); }
+.benefit-tab__value { font-size: var(--font-size-caption); }
 .benefit-highlight { display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); font-size: var(--font-size-description); font-weight: 600; }
 .benefit-highlight span { color: var(--color-primary); }
 .benefit-description { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.benefit-summary__section { display: grid; gap: 5px; }
+.benefit-summary__link { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-sm); color: var(--color-text); font-size: var(--font-size-caption); font-weight: 600; }
+.benefit-summary__link:hover { color: var(--color-primary); }
+.benefit-summary__link span { color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: 400; text-align: right; }
 .dashboard-state { display: grid; min-height: 104px; place-content: center; justify-items: center; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); font-size: var(--font-size-caption); text-align: center; }
 .dashboard-state p { margin: 0; }
 .dashboard-state__retry { min-height: 36px; padding-inline: var(--space-md); font-size: var(--font-size-caption); }
@@ -52,6 +59,7 @@
 .weekly-item--result .weekly-item__count { color: var(--color-info); }
 
 .application-list { display: grid; margin-top: var(--space-md); gap: 13px; }
+.application-summary-count { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .application-item { display: grid; width: 100%; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-sm); border: 0; background: transparent; color: var(--color-text); text-align: left; }
 .application-item:hover .application-item__name { color: var(--color-primary); }
 .application-item__icon { width: 22px; height: 22px; color: var(--color-primary); stroke: currentColor; stroke-width: 1.8; }
