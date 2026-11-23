@@ -1,159 +1,1131 @@
-const mockBenefits = {
-    1: {
-        id: 1,
-        title: '청년 월세 지원',
-        organization: '복지 지원 기관',
-        category: '주거',
-        region: '전국',
-        status: '접수 중',
-        amount: '월 최대 20만원',
-        period: '2026. 01. 01. ~ 2026. 12. 31.',
-        applicationMethod: '온라인 신청',
-        applicationUrl: null,
-        phone: '1600-0000',
-        tags: ['청년', '월세', '주거지원'],
-        summary: [
-            '청년의 월세 부담을 덜어주는 주거비 지원 사업이에요.',
-            '거주지·나이·소득 등 공고 조건을 충족해야 해요.',
-            '지원 금액과 기간은 해당 공고를 기준으로 확인할 수 있어요.'
-        ],
-        eligibility: {
-            status: '해당',
-            conditions: [
-                { name: '나이', detail: '사용자 정보와 공고 기준을 확인할 수 있어요.', evidence: '만 19세 이상 34세 이하 청년' },
-                { name: '거주 지역', detail: '사용자 거주 지역과 공고 기준을 확인할 수 있어요.', evidence: '대한민국에 거주하는 무주택 청년' },
-                { name: '소득 기준', detail: '사용자 소득과 공고 기준을 확인할 수 있어요.', evidence: '소득 기준은 공식 공고문을 확인해주세요.' }
-            ]
-        }
-    }
-};
-
-const mockNotice = {
-    title: '부산광역시 청년 월세 지원사업 공고',
-    organization: '부산광역시',
-    noticeDate: '2026년 11월 30일',
-    introduction: '부산광역시에서는 청년의 주거비 부담을 완화하고 안정적인 주거생활을 지원하기 위해 「청년 월세 지원사업」을 다음과 같이 공고합니다.',
-    sections: [
-        ['사업 개요', ['사업명: 청년 월세 지원사업', '지원내용: 월 최대 20만원의 월세 지원', '지원기간: 최대 12개월', '신청기간: 2026년 11월 30일 ~ 2026년 12월 31일']],
-        ['지원 대상', ['부산광역시에 거주하는 청년', '만 19세 이상 34세 이하', '무주택자', '소득 기준을 충족하는 자', '세부 지원 조건은 해당 공고의 기준에 따릅니다.']],
-        ['지원 내용', ['지원 금액: 월 최대 20만원', '지원 기간: 최대 12개월', '지원 방식: 신청 및 심사 후 지원']],
-        ['신청 방법', ['신청 자격 확인', '필요 서류 준비', '온라인 신청서 작성', '관련 서류 제출', '신청 접수 및 심사']],
-        ['제출 서류', ['신청서', '주민등록등본', '임대차계약서', '월세 납부 증빙서류', '기타 필요 서류']],
-        ['유의사항', ['제출 서류가 누락되면 보완 요청이 발생할 수 있습니다.', '신청 정보가 사실과 다르면 지원이 제한될 수 있습니다.', '신청 기간 및 세부 조건은 실제 공식 공고를 확인해야 합니다.']],
-        ['문의처', ['담당 기관: 부산광역시 청년정책 담당 부서', '문의 전화: 더미 공고문 데이터이므로 미제공']]
-    ],
-    officialUrl: null,
-    pdfUrl: null,
-    isMock: true
-};
-
-const mockDocuments = [
-    { id: 'resident', name: '주민등록등본', required: true, purpose: '거주지 및 세대 구성 확인', issuer: '정부24·주민센터', validity: '공고 기준 확인', online: '온라인 발급 가능', steps: ['정부24 공식 홈페이지 접속', '주민등록등본 발급 서비스 검색', '본인 인증 후 발급 신청'] },
-    { id: 'family', name: '가족관계증명서', required: true, purpose: '가족관계 확인', issuer: '전자가족관계등록시스템', validity: '공고 기준 확인', online: '온라인 발급 가능', steps: ['공식 발급 사이트 접속', '본인 인증 후 증명서 발급', '출력 또는 파일 저장'] },
-    { id: 'income', name: '소득금액증명', required: true, purpose: '소득 요건 확인', issuer: '홈택스·세무서', validity: '공고 기준 확인', online: '온라인 발급 가능', steps: ['홈택스 공식 홈페이지 접속', '소득금액증명 메뉴 선택', '본인 인증 후 발급 신청'] }
-];
-
-const mockApplicationSteps = [
-    { order: 1, title: '신청 사이트 접속', description: '공식 접수처로 이동', icon: 'apply' },
-    { order: 2, title: '로그인', description: '본인 인증 진행', icon: 'target' },
-    { order: 3, title: '신청서 작성', description: '신청 정보 입력', icon: 'original' },
-    { order: 4, title: '서류 제출', description: '필요 서류 등록', icon: 'documents' },
-    { order: 5, title: '신청 완료', description: '접수 여부 확인', icon: 'apply' }
-];
-
 const $ = (selector) => document.querySelector(selector);
 
-function iconBookmark() {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>';
+const state = {
+    benefitId: null,
+    detail: null,
+    screen: 'LOADING',
+    errorKind: null,
+    errorMessage: ''
+};
+
+const easyState = {
+    benefitId: null,
+    screen: 'IDLE',
+    response: null,
+    errorKind: null,
+    errorMessage: '',
+    requestPromise: null
+};
+
+const eligibilityState = {
+    benefitId: null,
+    screen: 'IDLE',
+    response: null,
+    errorKind: null,
+    errorMessage: '',
+    requestPromise: null
+};
+
+const favoriteState = {
+    benefitId: null,
+    screen: 'IDLE',
+    bookmarked: null,
+    errorMessage: '',
+    requestPromise: null
+};
+
+const askState = {
+    benefitId: null,
+    screen: 'IDLE',
+    response: null,
+    draft: '',
+    submittedQuestion: '',
+    errorKind: null,
+    errorMessage: '',
+    requestPromise: null
+};
+
+let detailRequestId = 0;
+let activeController = null;
+let easyRequestId = 0;
+let easyController = null;
+let eligibilityRequestId = 0;
+let eligibilityController = null;
+let favoriteRequestId = 0;
+let favoriteController = null;
+let askRequestId = 0;
+let askController = null;
+
+class BenefitDetailRequestError extends Error {
+    constructor(kind, message = '') {
+        super(message);
+        this.kind = kind;
+    }
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function hasText(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+function parseBenefitId(value) {
+    if (!/^[1-9]\d*$/.test(value || '')) return null;
+    const id = Number(value);
+    return Number.isSafeInteger(id) ? id : null;
+}
+
+function parseHashtags(value) {
+    if (Array.isArray(value)) return value.filter(hasText).map((tag) => tag.trim());
+    if (!hasText(value)) return [];
+    try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.filter(hasText).map((tag) => tag.trim());
+    } catch {
+        // DTO의 해시태그가 JSON 문자열이 아니면 쉼표 구분 문자열로 표시한다.
+    }
+    return value.split(',').map((tag) => tag.trim()).filter(Boolean);
+}
+
+function isSafeExternalUrl(value) {
+    if (!hasText(value)) return false;
+    try {
+        const url = new URL(value);
+        return url.protocol === 'https:' || url.protocol === 'http:';
+    } catch {
+        return false;
+    }
+}
+
+function isBenefitDetailResponse(payload) {
+    return payload
+        && typeof payload === 'object'
+        && (typeof payload.id === 'number' || typeof payload.id === 'string');
+}
+
+function isEasyResponse(payload) {
+    const statuses = ['DONE', 'NOT_READY', 'FAILED'];
+    const isOptionalText = (value) => value === null || value === undefined || typeof value === 'string';
+    const summary = payload?.summary;
+    const validSummary = summary === null || summary === undefined || (
+        typeof summary === 'object'
+        && isOptionalText(summary.who)
+        && isOptionalText(summary.what)
+        && isOptionalText(summary.how)
+        && isOptionalText(summary.when)
+    );
+    return payload
+        && typeof payload === 'object'
+        && statuses.includes(payload.status)
+        && isOptionalText(payload.text)
+        && isOptionalText(payload.generatedAt)
+        && isOptionalText(payload.notice)
+        && validSummary;
+}
+
+function isEligibilityResponse(payload) {
+    const results = ['ELIGIBLE', 'CONDITIONAL', 'INELIGIBLE'];
+    const groupStatuses = ['MET', 'CHECK', 'NOT_MET'];
+    const optionalText = (value) => value === null || value === undefined || typeof value === 'string';
+    const validCondition = (condition) => condition
+        && typeof condition === 'object'
+        && groupStatuses.includes(condition.status)
+        && optionalText(condition.field)
+        && optionalText(condition.label)
+        && optionalText(condition.expected)
+        && optionalText(condition.actual)
+        && optionalText(condition.sourceQuote)
+        && optionalText(condition.checkType)
+        && optionalText(condition.guide);
+    const validGroup = (group) => group
+        && typeof group === 'object'
+        && Number.isInteger(group.group)
+        && typeof group.alternative === 'boolean'
+        && groupStatuses.includes(group.status)
+        && optionalText(group.title)
+        && Array.isArray(group.conditions)
+        && group.conditions.every(validCondition);
+    return payload
+        && typeof payload === 'object'
+        && (typeof payload.benefitId === 'number' || typeof payload.benefitId === 'string')
+        && results.includes(payload.result)
+        && optionalText(payload.title)
+        && optionalText(payload.summary)
+        && Array.isArray(payload.groups)
+        && payload.groups.every(validGroup)
+        && Array.isArray(payload.questions)
+        && payload.questions.every((question) => question && typeof question === 'object' && optionalText(question.key) && optionalText(question.text) && optionalText(question.sourceQuote))
+        && (payload.next === null || payload.next === undefined || typeof payload.next === 'object');
+}
+
+function isFavoriteResponse(payload, benefitId) {
+    if (!payload || typeof payload !== 'object' || typeof payload.bookmarked !== 'boolean') return false;
+    const responseBenefitId = typeof payload.benefitId === 'number' || typeof payload.benefitId === 'string'
+        ? Number(payload.benefitId)
+        : NaN;
+    return Number.isSafeInteger(responseBenefitId) && responseBenefitId === benefitId;
+}
+
+function isAskResponse(payload) {
+    return payload
+        && typeof payload === 'object'
+        && typeof payload.answer === 'string'
+        && typeof payload.foundInSource === 'boolean'
+        && Array.isArray(payload.sourceQuotes)
+        && payload.sourceQuotes.every((quote) => typeof quote === 'string')
+        && typeof payload.eligibility === 'boolean'
+        && Number.isInteger(payload.remaining)
+        && payload.remaining >= 0
+        && typeof payload.notice === 'string';
+}
+
+function isMissing(detail, field) {
+    const value = detail[field];
+    const valueMissing = !hasText(value);
+    const markedMissing = Array.isArray(detail.missingFields) && detail.missingFields.includes(field);
+    // missingFields는 참고하되, 실제 값이 있으면 표시해 서버 값과 충돌하지 않게 한다.
+    if (markedMissing && !valueMissing) return false;
+    return valueMissing;
+}
+
+function amountText(detail) {
+    if (!Number.isFinite(detail.maxAmount)) return '공고 확인 필요';
+    const period = hasText(detail.amountPeriod) ? ' / ' + detail.amountPeriod.trim() : '';
+    return detail.maxAmount.toLocaleString('ko-KR') + '원' + period;
+}
+
+function periodText(detail) {
+    const start = hasText(detail.applyStart) ? detail.applyStart.trim() : '';
+    const end = hasText(detail.applyEnd) ? detail.applyEnd.trim() : '';
+    if (start && end) return start + ' ~ ' + end;
+    if (start) return start + '부터';
+    if (end) return end + '까지';
+    if (hasText(detail.applyPeriodText)) return detail.applyPeriodText.trim();
+    return '공고 확인 필요';
+}
+
+function syncedAtText(value) {
+    return hasText(value) ? value.trim().replace('T', ' ') : '정보 제공되지 않음';
+}
+
+function summaryLines(detail) {
+    return [detail.summaryWhat, detail.summaryWho, detail.summaryHow, detail.summaryWhen]
+        .filter(hasText)
+        .map((value) => value.trim());
 }
 
 function detailIcon(name) {
     const paths = {
-        easy: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path>',
         original: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h6"></path>',
-        documents: '<path d="M9 12h6"></path><path d="M9 16h6"></path><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path>',
-        apply: '<path d="m9 11 3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',
         target: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path>',
         amount: '<circle cx="12" cy="12" r="9"></circle><path d="M15 9.5c-.4-.8-1.3-1.3-2.5-1.3-1.5 0-2.5.8-2.5 1.9 0 3 5 1.2 5 4.1 0 1.1-1 1.9-2.5 1.9-1.2 0-2.1-.5-2.5-1.3"></path><path d="M12.5 6.5v11"></path>',
-        period: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>',
-        home: '<path d="m3 11 9-8 9 8"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path>'
+        period: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>'
     };
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths[name] + '</svg>';
 }
 
-function toast(message) {
-    const element = $('#toast');
-    element.textContent = message;
-    element.hidden = false;
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => {
-        element.hidden = true;
-    }, 3000);
-}
-
-function getBenefit() {
-    const id = new URLSearchParams(window.location.search).get('id') || '1';
-    return mockBenefits[id];
-}
-
-function getPageMarkup(benefit) {
-    if (!benefit) {
-        return '<section class="card empty-state"><h1>혜택 정보를 찾을 수 없어요.</h1><p>목록에서 다시 혜택을 선택해주세요.</p><a class="btn btn-secondary" href="benefit-list.html">목록으로 돌아가기</a></section>';
+function externalLink(url, label, disabledLabel) {
+    if (!isSafeExternalUrl(url)) {
+        return '<button class="icon-button" type="button" disabled aria-disabled="true">' + escapeHtml(disabledLabel) + '</button>';
     }
+    return '<a class="icon-button" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>';
+}
+
+function panelNotice(title, message) {
+    return '<section class="card source-card"><h2>' + escapeHtml(title) + '</h2><p class="small-copy">' + escapeHtml(message) + '</p></section>';
+}
+
+function bookmarkIcon() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12v17l-6-3.8-6 3.8z"></path></svg>';
+}
+
+function favoriteButtonMarkup() {
+    const saved = favoriteState.screen === 'RESULT' && favoriteState.bookmarked === true;
+    const loading = ['IDLE', 'LOADING', 'PENDING'].includes(favoriteState.screen);
+    const retry = favoriteState.screen === 'ERROR';
+    const unauthenticated = favoriteState.screen === 'UNAUTHENTICATED';
+    const label = loading
+        ? (favoriteState.screen === 'PENDING' ? '관심 혜택 저장 상태를 변경하는 중' : '관심 혜택 저장 상태를 확인하는 중')
+        : retry
+            ? '관심 혜택 저장 상태를 다시 확인'
+            : unauthenticated
+                ? '관심 혜택을 저장하려면 로그인 필요'
+                : saved ? '관심 혜택 저장 해제' : '관심 혜택 저장';
+    const title = retry
+        ? '관심 상태를 확인하지 못했습니다. 다시 시도해주세요.'
+        : unauthenticated ? '로그인 후 관심 혜택으로 저장할 수 있습니다.' : label;
+    const disabled = loading ? ' disabled aria-disabled="true"' : '';
+    const busy = loading ? ' aria-busy="true"' : '';
+    const stateClass = saved ? ' is-saved' : '';
+    return '<button id="save-button" class="icon-button icon-button--bookmark' + stateClass + '" type="button" aria-pressed="' + String(saved) + '" aria-label="' + label + '" title="' + title + '"' + busy + disabled + '>' + bookmarkIcon() + '</button><span id="favorite-status" class="sr-only" aria-live="polite"></span>';
+}
+
+function getPageMarkup(detail) {
+    const hashtags = parseHashtags(detail.hashtags);
+    const tags = hashtags.length
+        ? '<div class="benefit-info-bar__tags">' + hashtags.map((tag) => '<button class="detail-tag" type="button" data-hashtag="' + escapeHtml(tag) + '">#' + escapeHtml(tag) + '</button>').join('') + '</div>'
+        : '';
+    const status = detail.ended ? '종료' : (hasText(detail.status) ? detail.status.trim() : '상태 정보 없음');
+    const title = hasText(detail.title) ? detail.title.trim() : '혜택 상세';
 
     return [
         '<section class="detail-title-row">',
-        '<div class="benefit-info-bar"><div class="benefit-info-bar__main"><span class="detail-status">' + benefit.status + '</span><span>' + benefit.organization + '</span><span>지원 분야: ' + benefit.category + '</span><span>지역: ' + benefit.region + '</span></div>',
-        '<div class="benefit-info-bar__tags">' + benefit.tags.map((tag) => '<button class="detail-tag" type="button" data-hashtag="' + tag + '">#' + tag + '</button>').join('') + '</div><small>데이터 기준: 2026. 11. 13.</small></div>',
-        '<div class="detail-actions"><button id="save-button" class="icon-button icon-button--bookmark" type="button" aria-pressed="false" aria-label="관심 저장" title="관심 저장">' + iconBookmark() + '</button><button id="share-button" class="icon-button" type="button">공유하기</button></div></section>',
+        '<div class="benefit-info-bar"><div class="benefit-info-bar__main"><span class="detail-status">' + escapeHtml(status) + '</span></div>' + tags + '<small>데이터 기준: ' + escapeHtml(syncedAtText(detail.syncedAt)) + '</small></div>',
+        '<div class="detail-actions">' + favoriteButtonMarkup() + '<button id="share-button" class="icon-button" type="button">공유하기</button></div></section>',
         '<div class="detail-layout"><section class="detail-main">',
         '<div class="tabs" role="tablist" aria-label="혜택 상세 정보">',
         '<button class="tab-button" role="tab" id="tab-easy" aria-selected="true" aria-controls="panel-easy" data-tab="easy">쉬운 말 보기</button>',
         '<button class="tab-button" role="tab" id="tab-original" aria-selected="false" aria-controls="panel-original" data-tab="original">원문 보기</button>',
         '<button class="tab-button" role="tab" id="tab-documents" aria-selected="false" aria-controls="panel-documents" data-tab="documents">필요 서류</button>',
         '<button class="tab-button" role="tab" id="tab-apply" aria-selected="false" aria-controls="panel-apply" data-tab="apply">신청 방법</button></div>',
-        easyPanel(benefit), originalPanel(benefit), documentsPanel(), applyPanel(benefit),
-        '</section>', sidebar(benefit), '</div>'
+        easyPanel(detail), originalPanel(detail), documentsPanel(detail), applyPanel(detail),
+        '</section>', sidebar(detail), '</div>'
     ].join('');
 }
 
-function easyPanel(benefit) {
+function easyPanel(detail) {
+    return '<section class="tab-panel" id="panel-easy" role="tabpanel" aria-labelledby="tab-easy">' + easyPanelContent(detail) + eligibilityPanel() + '</section>';
+}
+
+function easySummaryCards(summary) {
     const cards = [
-        ['target', '지원 대상', '독립 거주 청년', '공고 기준의 자격 조건을 확인하세요.'],
-        ['amount', '지원 내용', benefit.amount, '지원 금액은 공고 기준으로 달라질 수 있어요.'],
-        ['period', '신청 기간', benefit.period, '마감일 전에 공식 사이트에서 신청하세요.']
+        ['target', '누가 받을 수 있나요', summary?.who],
+        ['amount', '무엇을 지원하나요', summary?.what],
+        ['original', '어떻게 신청하나요', summary?.how],
+        ['period', '언제 신청하나요', summary?.when]
     ];
-    const rows = benefit.eligibility.conditions.map((condition) => '<tr class="eligibility-row"><th scope="row"><span class="condition-check">✓</span>' + condition.name + '</th><td>' + condition.detail + '</td><td><span class="eligibility-badge">' + benefit.eligibility.status + '</span></td><td><button class="text-button" type="button" aria-expanded="false" data-evidence="' + condition.evidence + '">근거 보기</button></td></tr><tr class="evidence-row" hidden><td colspan="4"><p class="evidence-copy"></p></td></tr>').join('');
-    return '<section class="tab-panel" id="panel-easy" role="tabpanel" aria-labelledby="tab-easy"><div class="summary-box"><div><h2>3줄 핵심 요약</h2><ul>' + benefit.summary.map((summary) => '<li><span aria-hidden="true">✓</span>' + summary + '</li>').join('') + '</ul></div></div><div class="summary-cards">' + cards.map((card) => '<article class="card summary-card"><span class="summary-card__icon" aria-hidden="true">' + detailIcon(card[0]) + '</span><h3>' + card[1] + '</h3><strong>' + card[2] + '</strong><p>' + card[3] + '</p></article>').join('') + '</div><section class="card eligibility-card"><div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2><span class="eligibility-result"><span aria-hidden="true">✓</span> ' + benefit.eligibility.status + '</span></div><div class="eligibility-table-wrap"><table class="eligibility-table"><colgroup><col class="eligibility-table__condition"><col class="eligibility-table__detail"><col class="eligibility-table__status"><col class="eligibility-table__evidence"></colgroup><thead><tr><th>조건</th><th>사용자 정보 및 기준</th><th>판정</th><th>근거</th></tr></thead><tbody>' + rows + '</tbody></table></div><p class="eligibility-notice">입력하신 정보를 바탕으로 신청 가능성을 안내해 드려요. 최종 지원 여부는 담당 기관의 심사를 통해 결정됩니다.</p></section></section>';
+    return '<div class="summary-cards">' + cards.map((card) => (
+        '<article class="card summary-card"><span class="summary-card__icon" aria-hidden="true">' + detailIcon(card[0]) + '</span><h3>' + card[1] + '</h3><strong>' + escapeHtml(hasText(card[2]) ? card[2].trim() : '정보 제공되지 않음') + '</strong></article>'
+    )).join('') + '</div>';
 }
 
-function originalPanel(benefit) {
-    const sections = mockNotice.sections.map((section, index) => '<section class="notice-document__section"><h3>' + (index + 1) + '. ' + section[0] + '</h3><ul>' + section[1].map((item) => '<li>' + item + '</li>').join('') + '</ul></section>').join('');
-    return '<section class="tab-panel" id="panel-original" role="tabpanel" aria-labelledby="tab-original" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>해당 사업의 공식 공고문 원문을 확인할 수 있어요. 공고문 내용은 기관의 발표 기준을 따르며, 최신 내용은 아래 원문 링크에서 확인해주세요.</p></div><div class="notice-heading"><h2>공고문 원문</h2><div class="notice-heading__actions"><span>공식 공고 자료</span><div class="detail-actions"><button class="icon-button" type="button" data-official>공고문 바로가기</button><button class="icon-button" type="button" data-pdf>PDF 다운로드</button></div></div></div><div class="notice-viewer"><article class="notice-document"><header><p>' + mockNotice.organization + '</p><h3>' + mockNotice.title + '</h3><p>' + mockNotice.introduction + '</p><p class="notice-document__date">' + mockNotice.noticeDate + '<br>' + mockNotice.organization + '시장</p></header>' + sections + '<p class="notice-document__footnote">※ 본 문서는 화면 구현을 위한 예시 공고문이며 실제 공공기관의 공식 공고가 아닙니다.</p></article></div></section>';
+function easyPanelContent(detail) {
+    if (easyState.screen === 'IDLE' || easyState.screen === 'LOADING') {
+        return panelNotice('쉬운 말 안내를 불러오는 중이에요.', '저장된 쉬운 말 결과를 확인하고 있습니다.');
+    }
+    if (easyState.screen === 'DONE') {
+        const response = easyState.response;
+        const text = hasText(response.text) ? response.text.trim() : '쉬운 말 본문 정보가 제공되지 않았습니다.';
+        const generatedAt = hasText(response.generatedAt) ? '<p class="small-copy">생성 시각: ' + escapeHtml(syncedAtText(response.generatedAt)) + '</p>' : '';
+        const notice = hasText(response.notice) ? '<p class="eligibility-notice">' + escapeHtml(response.notice.trim()) + '</p>' : '';
+        return '<div class="summary-box"><div><h2>쉬운 말 핵심 요약</h2><p class="small-copy">AI가 공고문을 쉽게 풀어 쓴 내용입니다.</p></div></div>'
+            + easySummaryCards(response.summary)
+            + '<section class="source-card"><h2>쉬운 말로 풀어쓴 안내</h2><p>' + escapeHtml(text) + '</p>' + generatedAt + notice + '</section>';
+    }
+    if (easyState.screen === 'NOT_READY') {
+        const notice = hasText(easyState.response?.notice) ? ' ' + easyState.response.notice.trim() : '';
+        return panelNotice('쉬운 말 안내가 아직 준비되지 않았어요.', '현재는 공고 원문을 확인해주세요.' + notice)
+            + '<div class="detail-actions"><button class="icon-button" type="button" data-open-original>원문 보기</button><button class="icon-button" type="button" data-retry-easy>다시 확인</button></div>';
+    }
+    if (easyState.screen === 'FAILED') {
+        const notice = hasText(easyState.response?.notice) ? ' ' + easyState.response.notice.trim() : '';
+        return panelNotice('쉬운 말 안내를 제공하지 못했어요.', '공고 원문을 확인해주세요.' + notice)
+            + '<div class="detail-actions"><button class="icon-button" type="button" data-open-original>원문 보기</button><button class="icon-button" type="button" data-retry-easy>다시 시도</button></div>';
+    }
+    const message = easyState.errorKind === 'NETWORK'
+        ? '네트워크 연결을 확인한 뒤 다시 시도해주세요.'
+        : (easyState.errorMessage || '잠시 후 다시 시도해주세요.');
+    return panelNotice('쉬운 말 안내를 불러오지 못했어요.', message)
+        + '<div class="detail-actions"><button class="icon-button" type="button" data-retry-easy>다시 시도</button></div>';
 }
 
-function documentsPanel() {
-    const required = mockDocuments.filter((document) => document.required).length;
-    const cards = mockDocuments.map((document) => '<article class="document-item" data-document="' + document.id + '"><div class="document-item__basic"><span class="document-item__icon" aria-hidden="true">' + detailIcon('original') + '</span><div><h3>' + document.name + ' <span class="requirement-badge' + (document.required ? '' : ' optional') + '">' + (document.required ? '필수' : '선택') + '</span></h3><p>' + document.purpose + '</p></div></div><div class="document-item__issue"><p><strong>발급처</strong><span>' + document.issuer + '</span></p><p><strong>유효기간</strong><span>' + document.validity + '</span></p></div><button class="icon-button document-toggle" type="button" aria-expanded="false" data-document-guide="' + document.id + '">발급 방법 보기</button><div class="document-guide" hidden><h4>' + document.name + ' 발급 방법</h4><p>발급처: ' + document.issuer + '<br>' + document.online + '</p><ol>' + document.steps.map((step) => '<li>' + step + '</li>').join('') + '</ol><p>유효기간 및 주의사항은 실제 공고를 확인해 주세요.</p></div></article>').join('');
-    return '<section class="tab-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>신청할 때 아래 서류를 준비해야 해요. 서류마다 필요한 이유와 발급 방법을 확인하고 미리 준비해보세요.</p></div><div class="document-heading"><h2>신청에 필요한 서류</h2><div class="document-summary"><span>전체 ' + mockDocuments.length + '건</span><span>필수 ' + required + '건</span><span>선택 ' + (mockDocuments.length - required) + '건</span></div></div><div class="document-list">' + cards + '</div><div class="documents-note"><h3>알아두세요!</h3><ul><li>모든 서류는 신청일 기준 유효기간을 확인해 주세요.</li><li>상황에 따라 추가 서류가 요구될 수 있어요. 기관이 직접 확인하는 서류는 제출이 생략될 수 있으므로 실제 공고를 확인해 주세요.</li></ul></div></section>';
+function updateEasyPanel() {
+    const panel = $('#panel-easy');
+    if (panel && state.detail) {
+        panel.innerHTML = easyPanelContent(state.detail) + eligibilityPanel();
+    }
 }
 
-function applyPanel(benefit) {
-    const steps = mockApplicationSteps.map((step, index) => '<div class="application-process__item"><article class="application-step"><span class="application-step__icon">' + detailIcon(step.icon) + '</span><span class="application-step__number">' + step.order + '</span><h3>' + step.title + '</h3><p>' + step.description + '</p></article>' + (index < mockApplicationSteps.length - 1 ? '<span class="application-process__arrow" aria-hidden="true">→</span>' : '') + '</div>').join('');
-    const disabled = benefit.applicationUrl ? '' : ' disabled aria-disabled="true"';
-    return '<section class="tab-panel" id="panel-apply" role="tabpanel" aria-labelledby="tab-apply" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>이 사업은 ' + benefit.applicationMethod + '할 수 있어요. 아래 절차를 따라 신청을 진행해보세요.</p></div><h2 class="apply-title">신청 절차</h2><div class="application-process">' + steps + '</div><section class="application-cta"><div><h3>공식 사이트에서 신청하기</h3><p>신청서를 작성하고 필요한 서류를 제출할 수 있어요.</p></div><button class="btn primary-button" type="button" data-application-url' + disabled + '>공식 신청 사이트 바로가기 ↗</button></section><section class="apply-notice"><h3>신청 시 유의사항</h3><ul><li>신청 전 지원 대상과 제출 서류를 확인해 주세요.</li><li>신청 기간이 지나면 접수가 제한될 수 있어요.</li><li>신청 완료 후 접수 여부를 꼭 확인해 주세요.</li><li>실제 신청 절차와 제출 방법은 공식 공고를 우선 확인해 주세요.</li></ul></section></section>';
+function resetEasyState(benefitId) {
+    easyRequestId += 1;
+    if (easyController) easyController.abort();
+    easyController = null;
+    easyState.benefitId = benefitId;
+    easyState.screen = 'IDLE';
+    easyState.response = null;
+    easyState.errorKind = null;
+    easyState.errorMessage = '';
+    easyState.requestPromise = null;
 }
 
-function sidebar(benefit) {
-    return '<aside class="detail-sidebar"><section class="card"><h2>신청 정보</h2><dl class="application-info"><div><dt>신청 상태</dt><dd>' + benefit.status + '</dd></div><div><dt>신청 기간</dt><dd>' + benefit.period + '</dd></div><div><dt>신청 방법</dt><dd>온라인 신청</dd></div><div><dt>담당 기관</dt><dd>' + benefit.organization + '</dd></div><div><dt>문의처</dt><dd>' + benefit.phone + '</dd></div></dl><button id="assistant-button" class="btn primary-button" type="button">AI 신청 도우미 시작하기</button></section><section class="card"><h2>복덩이에게 물어보세요</h2><p class="small-copy">공고문에 나온 내용을 바탕으로 답변해 드립니다.</p><div class="question-suggestions"><button type="button" data-question="휴학생도 신청할 수 있나요?">휴학생도 신청할 수 있나요?</button><button type="button" data-question="소득 조건이 어떻게 되나요?">소득 조건</button><button type="button" data-question="어떤 서류가 필요한가요?">필요 서류</button></div><form id="question-form" class="question-form"><label class="sr-only" for="question-input">공고문 질문</label><textarea id="question-input" placeholder="궁금한 내용을 입력하세요."></textarea><button class="btn primary-button" type="submit">질문 전송</button></form><div id="answer" class="answer" aria-live="polite" hidden></div></section></aside>';
+function eligibilityResultLabel(result) {
+    const labels = {
+        ELIGIBLE: '해당 가능성이 있어요',
+        CONDITIONAL: '추가 확인이 필요해요',
+        INELIGIBLE: '현재 조건에서는 해당하지 않아요'
+    };
+    return labels[result] || result;
+}
+
+function eligibilityConditionLabel(status) {
+    const labels = { MET: '충족', CHECK: '확인 필요', NOT_MET: '미충족' };
+    return labels[status] || status;
+}
+
+function eligibilityPanel() {
+    return '<section id="eligibility-panel" class="card eligibility-card">' + eligibilityPanelContent() + '</section>';
+}
+
+function eligibilityPanelContent() {
+    if (eligibilityState.screen === 'IDLE' || eligibilityState.screen === 'LOADING') {
+        return '<div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2></div><p class="small-copy">내 조건에 맞는지 확인하고 있어요.</p>';
+    }
+    if (eligibilityState.screen === 'UNAUTHENTICATED') {
+        return '<div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2></div><p class="small-copy">로그인하면 내 조건에 맞는 혜택인지 확인할 수 있어요.</p><a class="btn btn-secondary" href="login.html">로그인하기</a>';
+    }
+    if (eligibilityState.screen === 'NO_RESULT') {
+        return '<div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2></div><p class="small-copy">현재 이 혜택의 자격 판정 결과를 확인할 수 없습니다.</p><button class="btn btn-secondary" type="button" data-retry-eligibility>다시 시도</button>';
+    }
+    if (eligibilityState.screen === 'ERROR') {
+        const message = eligibilityState.errorKind === 'NETWORK'
+            ? '네트워크 연결을 확인한 뒤 다시 시도해주세요.'
+            : (eligibilityState.errorMessage || '잠시 후 다시 시도해주세요.');
+        return '<div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2></div><p class="small-copy">' + escapeHtml(message) + '</p><button class="btn btn-secondary" type="button" data-retry-eligibility>다시 시도</button>';
+    }
+
+    const response = eligibilityState.response;
+    const profileIncomplete = response.groups.some((group) => group.conditions.some((condition) => (
+        condition.status === 'CHECK' && ['PROFILE', 'SENSITIVE'].includes(condition.checkType)
+    )));
+    const profileAction = profileIncomplete
+        ? '<p class="eligibility-notice">프로필에 확인이 필요한 정보가 있어요. <a href="my-page.html">프로필 입력으로 이동</a></p>'
+        : '';
+    const groups = response.groups.length
+        ? response.groups.map(eligibilityGroupMarkup).join('')
+        : '<p class="small-copy">조건별 판정 근거가 제공되지 않았습니다.</p>';
+    const next = hasText(response.next?.message)
+        ? '<p class="eligibility-notice">' + escapeHtml(response.next.message.trim()) + '</p>'
+        : '';
+    return '<div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2><span class="eligibility-result">' + escapeHtml(eligibilityResultLabel(response.result)) + '</span></div><p class="small-copy">' + escapeHtml(hasText(response.summary) ? response.summary.trim() : '판정 요약 정보가 제공되지 않았습니다.') + '</p>' + profileAction + groups + next;
+}
+
+function eligibilityGroupMarkup(group) {
+    const title = hasText(group.title) ? group.title.trim() : '조건 묶음';
+    const conditions = group.conditions.map((condition) => {
+        const expected = hasText(condition.expected) ? condition.expected.trim() : '요구 조건 정보 없음';
+        const sourceQuote = hasText(condition.sourceQuote) ? condition.sourceQuote.trim() : '근거 확인 필요';
+        const guide = hasText(condition.guide) ? '<p class="evidence-copy">' + escapeHtml(condition.guide.trim()) + '</p>' : '';
+        return '<tr class="eligibility-row"><th scope="row">' + escapeHtml(hasText(condition.label) ? condition.label.trim() : '조건') + '</th><td>' + escapeHtml(expected) + '</td><td><span class="eligibility-badge">' + escapeHtml(eligibilityConditionLabel(condition.status)) + '</span></td><td>' + escapeHtml(sourceQuote) + guide + '</td></tr>';
+    }).join('');
+    return '<section class="eligibility-group"><h3>' + escapeHtml(title) + ' · ' + escapeHtml(eligibilityConditionLabel(group.status)) + '</h3><div class="eligibility-table-wrap"><table class="eligibility-table"><colgroup><col class="eligibility-table__condition"><col class="eligibility-table__detail"><col class="eligibility-table__status"><col class="eligibility-table__evidence"></colgroup><thead><tr><th>조건</th><th>요구 조건</th><th>판정</th><th>공고문 근거</th></tr></thead><tbody>' + conditions + '</tbody></table></div></section>';
+}
+
+function updateEligibilityPanel() {
+    const panel = $('#eligibility-panel');
+    if (panel) panel.innerHTML = eligibilityPanelContent();
+}
+
+function resetEligibilityState(benefitId) {
+    eligibilityRequestId += 1;
+    if (eligibilityController) eligibilityController.abort();
+    eligibilityController = null;
+    eligibilityState.benefitId = benefitId;
+    eligibilityState.screen = 'IDLE';
+    eligibilityState.response = null;
+    eligibilityState.errorKind = null;
+    eligibilityState.errorMessage = '';
+    eligibilityState.requestPromise = null;
+}
+
+function updateFavoriteButton() {
+    const button = $('#save-button');
+    if (!button) return;
+
+    const saved = favoriteState.screen === 'RESULT' && favoriteState.bookmarked === true;
+    const loading = ['IDLE', 'LOADING', 'PENDING'].includes(favoriteState.screen);
+    const retry = favoriteState.screen === 'ERROR';
+    const unauthenticated = favoriteState.screen === 'UNAUTHENTICATED';
+    const label = loading
+        ? (favoriteState.screen === 'PENDING' ? '관심 혜택 저장 상태를 변경하는 중' : '관심 혜택 저장 상태를 확인하는 중')
+        : retry
+            ? '관심 혜택 저장 상태를 다시 확인'
+            : unauthenticated
+                ? '관심 혜택을 저장하려면 로그인 필요'
+                : saved ? '관심 혜택 저장 해제' : '관심 혜택 저장';
+    button.disabled = loading;
+    button.setAttribute('aria-disabled', String(loading));
+    button.setAttribute('aria-busy', String(loading));
+    button.setAttribute('aria-pressed', String(saved));
+    button.setAttribute('aria-label', label);
+    button.title = retry
+        ? '관심 상태를 확인하지 못했습니다. 다시 시도해주세요.'
+        : unauthenticated ? '로그인 후 관심 혜택으로 저장할 수 있습니다.' : label;
+    if (button.classList) button.classList.toggle('is-saved', saved);
+    button.innerHTML = bookmarkIcon();
+
+    const status = $('#favorite-status');
+    if (status) {
+        status.textContent = favoriteState.screen === 'PENDING'
+            ? '관심 혜택 저장 상태를 변경하는 중입니다.'
+            : retry ? '관심 상태를 확인하지 못했습니다. 다시 시도해주세요.'
+                : unauthenticated ? '로그인 후 관심 혜택으로 저장할 수 있습니다.'
+                    : saved ? '관심 혜택으로 저장했습니다.'
+                        : favoriteState.screen === 'RESULT' ? '관심 혜택으로 저장되지 않았습니다.' : '';
+    }
+}
+
+function resetFavoriteState(benefitId) {
+    favoriteRequestId += 1;
+    if (favoriteController) favoriteController.abort();
+    favoriteController = null;
+    favoriteState.benefitId = benefitId;
+    favoriteState.screen = 'IDLE';
+    favoriteState.bookmarked = null;
+    favoriteState.errorMessage = '';
+    favoriteState.requestPromise = null;
+}
+
+async function loadFavorite(force = false) {
+    const benefitId = state.benefitId;
+    if (!benefitId || !state.detail) return;
+    if (!force && favoriteState.benefitId === benefitId) {
+        if (favoriteState.requestPromise) return favoriteState.requestPromise;
+        if (['RESULT', 'UNAUTHENTICATED'].includes(favoriteState.screen)) return;
+    }
+
+    const requestId = ++favoriteRequestId;
+    if (favoriteController) favoriteController.abort();
+    const controller = new AbortController();
+    favoriteController = controller;
+    favoriteState.benefitId = benefitId;
+    favoriteState.screen = 'LOADING';
+    favoriteState.bookmarked = null;
+    favoriteState.errorMessage = '';
+    updateFavoriteButton();
+
+    const request = (async () => {
+        try {
+            const auth = window.BokdeongiAuth;
+            if (!auth || typeof auth.authenticatedFetch !== 'function' || typeof auth.refreshAuthentication !== 'function') {
+                throw new BenefitDetailRequestError('SERVER', '로그인 상태를 확인하지 못했습니다.');
+            }
+            const authenticationState = await auth.refreshAuthentication();
+            if (authenticationState !== 'authenticated') {
+                if (requestId !== favoriteRequestId) return;
+                favoriteState.screen = 'UNAUTHENTICATED';
+                updateFavoriteButton();
+                return;
+            }
+
+            const response = await auth.authenticatedFetch('/api/benefits/' + encodeURIComponent(benefitId) + '/favorite', {
+                signal: controller.signal
+            });
+            if (response.status === 401) {
+                if (requestId !== favoriteRequestId) return;
+                favoriteState.screen = 'UNAUTHENTICATED';
+                updateFavoriteButton();
+                return;
+            }
+            if (!response.ok) {
+                throw new BenefitDetailRequestError(response.status === 404 ? 'NOT_FOUND' : 'SERVER', await readErrorMessage(response));
+            }
+            const payload = await response.json();
+            if (!isFavoriteResponse(payload, benefitId)) {
+                throw new BenefitDetailRequestError('INVALID', '관심 혜택 응답 형식이 올바르지 않습니다.');
+            }
+            if (requestId !== favoriteRequestId || state.benefitId !== benefitId) return;
+            favoriteState.bookmarked = payload.bookmarked;
+            favoriteState.screen = 'RESULT';
+            updateFavoriteButton();
+        } catch (error) {
+            if ((error && error.name === 'AbortError') || requestId !== favoriteRequestId) return;
+            favoriteState.screen = error && error.type === 'unauthenticated' ? 'UNAUTHENTICATED' : 'ERROR';
+            favoriteState.errorMessage = error instanceof BenefitDetailRequestError ? error.message : '';
+            updateFavoriteButton();
+            console.error('관심 혜택 상태를 조회하지 못했습니다.', error);
+        } finally {
+            if (requestId === favoriteRequestId) {
+                favoriteController = null;
+                favoriteState.requestPromise = null;
+            }
+        }
+    })();
+    favoriteState.requestPromise = request;
+    return request;
+}
+
+async function toggleFavorite() {
+    const benefitId = state.benefitId;
+    if (!benefitId || !state.detail || favoriteState.screen === 'PENDING') return;
+    if (favoriteState.screen === 'UNAUTHENTICATED') {
+        toast('로그인 후 관심 혜택으로 저장할 수 있어요.');
+        return;
+    }
+    if (favoriteState.screen === 'ERROR') {
+        loadFavorite(true);
+        return;
+    }
+    if (favoriteState.screen !== 'RESULT') return;
+
+    const requestId = ++favoriteRequestId;
+    if (favoriteController) favoriteController.abort();
+    const controller = new AbortController();
+    favoriteController = controller;
+    const previousBookmarked = favoriteState.bookmarked;
+    favoriteState.screen = 'PENDING';
+    favoriteState.errorMessage = '';
+    updateFavoriteButton();
+
+    try {
+        const auth = window.BokdeongiAuth;
+        if (!auth || typeof auth.authenticatedFetch !== 'function' || typeof auth.getCsrfToken !== 'function') {
+            throw new BenefitDetailRequestError('SERVER', '관심 혜택 저장 서비스를 설정하지 못했습니다.');
+        }
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch('/api/benefits/' + encodeURIComponent(benefitId) + '/favorite', {
+            method: previousBookmarked ? 'DELETE' : 'POST',
+            headers: { [csrf.headerName]: csrf.token },
+            signal: controller.signal
+        });
+        if (response.status === 401) {
+            if (requestId !== favoriteRequestId) return;
+            favoriteState.screen = 'UNAUTHENTICATED';
+            favoriteState.bookmarked = null;
+            updateFavoriteButton();
+            toast('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            return;
+        }
+        if (!response.ok) {
+            throw new BenefitDetailRequestError(response.status === 404 ? 'NOT_FOUND' : 'SERVER', await readErrorMessage(response));
+        }
+        const payload = await response.json();
+        if (!isFavoriteResponse(payload, benefitId)) {
+            throw new BenefitDetailRequestError('INVALID', '관심 혜택 응답 형식이 올바르지 않습니다.');
+        }
+        if (requestId !== favoriteRequestId || state.benefitId !== benefitId) return;
+        favoriteState.bookmarked = payload.bookmarked;
+        favoriteState.screen = 'RESULT';
+        updateFavoriteButton();
+        toast(payload.bookmarked ? '관심 혜택으로 저장했어요.' : '관심 혜택 저장을 해제했어요.');
+    } catch (error) {
+        if ((error && error.name === 'AbortError') || requestId !== favoriteRequestId) return;
+        const unauthenticated = error && error.type === 'unauthenticated';
+        favoriteState.bookmarked = unauthenticated ? null : previousBookmarked;
+        favoriteState.screen = unauthenticated ? 'UNAUTHENTICATED' : 'RESULT';
+        updateFavoriteButton();
+        const message = error instanceof BenefitDetailRequestError && error.kind === 'NOT_FOUND'
+            ? '존재하지 않는 혜택입니다.'
+            : unauthenticated
+                ? '로그인이 만료되었습니다. 다시 로그인해주세요.'
+                : '관심 혜택 저장 상태를 변경하지 못했습니다. 다시 시도해주세요.';
+        toast(message);
+        console.error('관심 혜택 저장 상태를 변경하지 못했습니다.', error);
+    } finally {
+        if (requestId === favoriteRequestId) {
+            favoriteController = null;
+            favoriteState.requestPromise = null;
+        }
+    }
+}
+
+function multilineMarkup(value) {
+    return escapeHtml(value).replaceAll('\n', '<br>');
+}
+
+function askPanel() {
+    return '<section id="ask-panel" class="card">' + askPanelContent() + '</section>';
+}
+
+function askPanelContent() {
+    const loadingAuthentication = askState.screen === 'IDLE' || askState.screen === 'AUTHENTICATING';
+    const unauthenticated = askState.screen === 'UNAUTHENTICATED';
+    const pending = askState.screen === 'PENDING';
+    const limited = askState.screen === 'LIMITED' || (askState.screen === 'RESULT' && askState.response?.remaining === 0);
+    const disabled = loadingAuthentication || unauthenticated || pending || limited;
+    const prompt = loadingAuthentication
+        ? '<p class="small-copy">로그인 상태를 확인하고 있어요.</p>'
+        : unauthenticated
+            ? '<p class="small-copy">로그인하면 공고문 내용을 질문할 수 있어요.</p><a class="btn btn-secondary" href="login.html">로그인하기</a>'
+            : limited
+                ? '<p class="small-copy">오늘 사용할 수 있는 질문 횟수를 모두 사용했어요. 내일 다시 물어봐 주세요.</p>'
+                : '<p class="small-copy">공고 원문에 있는 내용만 답변해 드려요. 개인정보는 입력하지 마세요.</p>';
+    const question = hasText(askState.submittedQuestion)
+        ? '<div class="ask-conversation"><p class="ask-question"><strong>질문</strong> ' + multilineMarkup(askState.submittedQuestion) + '</p>' + askAnswerMarkup() + '</div>'
+        : '';
+    const error = askState.errorMessage
+        ? '<p class="ask-message" role="alert">' + escapeHtml(askState.errorMessage) + '</p>'
+            + (askState.screen === 'ERROR' && hasText(askState.submittedQuestion)
+                ? '<button class="btn btn-secondary" type="button" data-retry-ask>같은 질문 다시 전송</button><p class="small-copy">네트워크 오류 뒤에는 서버에서 이미 처리됐을 수 있어요.</p>'
+                : '')
+        : '';
+    const remaining = askState.response && Number.isInteger(askState.response.remaining)
+        ? '<p class="small-copy">오늘 남은 질문: ' + askState.response.remaining + '회</p>'
+        : '';
+    const form = '<form id="question-form" class="question-form"><label class="sr-only" for="question-input">공고문 질문</label><textarea id="question-input" maxlength="200" placeholder="예: 어떤 서류가 필요한가요?"' + (disabled ? ' disabled' : '') + '>' + escapeHtml(askState.draft) + '</textarea><button class="btn primary-button" type="submit"' + (disabled ? ' disabled aria-disabled="true"' : '') + '>' + (pending ? '답변 생성 중…' : '질문 전송') + '</button></form>';
+    return '<h2>복덩이에게 물어보세요</h2>' + prompt + remaining + question + error + form;
+}
+
+function askAnswerMarkup() {
+    if (askState.screen === 'PENDING') {
+        return '<p class="ask-message" aria-live="polite">공고 원문을 확인하며 답변을 만들고 있어요.</p>';
+    }
+    if (askState.screen !== 'RESULT' || !askState.response) return '';
+
+    const response = askState.response;
+    const quotes = response.sourceQuotes.length
+        ? '<section class="ask-evidence"><h3>공고 원문 근거</h3><ul>' + response.sourceQuotes.map((quote) => '<li>' + multilineMarkup(quote) + '</li>').join('') + '</ul></section>'
+        : '<p class="small-copy">공고 원문에서 확인된 근거 문장이 제공되지 않았어요.</p>';
+    const eligibility = response.eligibility
+        ? '<p class="eligibility-notice">자격 여부는 AI 답변이 아닌 내 자격 확인 결과를 기준으로 확인해주세요. <button class="text-button" type="button" data-open-eligibility>내 자격 확인 보기</button></p>'
+        : '';
+    const notice = hasText(response.notice) ? '<p class="small-copy">' + multilineMarkup(response.notice) + '</p>' : '';
+    return '<section class="answer"><h3>복덩이 답변</h3><p>' + multilineMarkup(response.answer) + '</p>' + quotes + eligibility + notice + '</section>';
+}
+
+function updateAskPanel() {
+    const panel = $('#ask-panel');
+    if (panel) panel.innerHTML = askPanelContent();
+}
+
+function resetAskState(benefitId) {
+    askRequestId += 1;
+    if (askController) askController.abort();
+    askController = null;
+    askState.benefitId = benefitId;
+    askState.screen = 'IDLE';
+    askState.response = null;
+    askState.draft = '';
+    askState.submittedQuestion = '';
+    askState.errorKind = null;
+    askState.errorMessage = '';
+    askState.requestPromise = null;
+}
+
+async function loadAskAuthentication() {
+    const benefitId = state.benefitId;
+    if (!benefitId || !state.detail) return;
+    const requestId = ++askRequestId;
+    askState.benefitId = benefitId;
+    askState.screen = 'AUTHENTICATING';
+    askState.errorKind = null;
+    askState.errorMessage = '';
+    updateAskPanel();
+
+    try {
+        const auth = window.BokdeongiAuth;
+        if (!auth || typeof auth.refreshAuthentication !== 'function') {
+            throw new BenefitDetailRequestError('SERVER', '로그인 상태를 확인하지 못했습니다.');
+        }
+        const authenticationState = await auth.refreshAuthentication();
+        if (requestId !== askRequestId || state.benefitId !== benefitId) return;
+        askState.screen = authenticationState === 'authenticated' ? 'READY' : 'UNAUTHENTICATED';
+        updateAskPanel();
+    } catch (error) {
+        if (requestId !== askRequestId || (error && error.name === 'AbortError')) return;
+        askState.screen = 'ERROR';
+        askState.errorKind = error && error.type === 'network' ? 'NETWORK' : 'SERVER';
+        askState.errorMessage = '로그인 상태를 확인하지 못했습니다. 다시 시도해주세요.';
+        updateAskPanel();
+    }
+}
+
+function normalizeQuestion(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+async function submitAsk(question) {
+    const benefitId = state.benefitId;
+    if (!benefitId || !state.detail || askState.screen === 'PENDING') return;
+    const normalizedQuestion = normalizeQuestion(question);
+    if (!normalizedQuestion) {
+        askState.errorKind = 'INPUT';
+        askState.errorMessage = '질문을 입력해주세요.';
+        askState.screen = 'READY';
+        updateAskPanel();
+        return;
+    }
+    if (normalizedQuestion.length > 200) {
+        askState.errorKind = 'INPUT';
+        askState.errorMessage = '질문은 200자 이내로 입력해주세요.';
+        askState.draft = normalizedQuestion;
+        askState.screen = 'READY';
+        updateAskPanel();
+        return;
+    }
+    if (askState.screen === 'UNAUTHENTICATED') {
+        updateAskPanel();
+        return;
+    }
+    if (askState.screen !== 'READY' && askState.screen !== 'RESULT' && askState.screen !== 'ERROR') return;
+
+    const requestId = ++askRequestId;
+    if (askController) askController.abort();
+    const controller = new AbortController();
+    askController = controller;
+    askState.draft = normalizedQuestion;
+    askState.submittedQuestion = normalizedQuestion;
+    askState.response = null;
+    askState.screen = 'PENDING';
+    askState.errorKind = null;
+    askState.errorMessage = '';
+    updateAskPanel();
+
+    const request = (async () => {
+        try {
+            const auth = window.BokdeongiAuth;
+            if (!auth || typeof auth.authenticatedFetch !== 'function' || typeof auth.getCsrfToken !== 'function') {
+                throw new BenefitDetailRequestError('SERVER', '공고문 질문 서비스를 설정하지 못했습니다.');
+            }
+            const csrf = await auth.getCsrfToken();
+            const response = await auth.authenticatedFetch('/api/benefits/' + encodeURIComponent(benefitId) + '/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+                body: JSON.stringify({ question: normalizedQuestion }),
+                signal: controller.signal
+            });
+            if (requestId !== askRequestId || state.benefitId !== benefitId) return;
+            if (response.status === 401) {
+                askState.screen = 'UNAUTHENTICATED';
+                updateAskPanel();
+                return;
+            }
+            if (response.status === 429) {
+                askState.screen = 'LIMITED';
+                askState.errorKind = 'LIMIT';
+                askState.errorMessage = await readErrorMessage(response) || '오늘 사용할 수 있는 질문 횟수를 모두 사용했어요.';
+                updateAskPanel();
+                return;
+            }
+            if (!response.ok) {
+                throw new BenefitDetailRequestError(response.status === 400 ? 'INPUT' : response.status === 404 ? 'NOT_FOUND' : response.status === 502 ? 'AI_UNAVAILABLE' : 'SERVER', await readErrorMessage(response));
+            }
+            const payload = await response.json();
+            if (!isAskResponse(payload)) {
+                throw new BenefitDetailRequestError('INVALID', '공고문 질문 응답 형식이 올바르지 않습니다.');
+            }
+            if (requestId !== askRequestId || state.benefitId !== benefitId) return;
+            askState.response = payload;
+            askState.draft = '';
+            askState.screen = 'RESULT';
+            updateAskPanel();
+        } catch (error) {
+            if ((error && error.name === 'AbortError') || requestId !== askRequestId) return;
+            if (error && error.type === 'unauthenticated') {
+                askState.screen = 'UNAUTHENTICATED';
+                askState.errorMessage = '';
+            } else {
+                askState.screen = 'ERROR';
+                askState.errorKind = error instanceof BenefitDetailRequestError ? error.kind : 'NETWORK';
+                const fallback = askState.errorKind === 'AI_UNAVAILABLE'
+                    ? '지금은 질문에 답할 수 없어요. 공고 원문을 확인하거나 잠시 후 다시 물어봐 주세요.'
+                    : askState.errorKind === 'NOT_FOUND'
+                        ? '혜택을 찾을 수 없어요.'
+                        : askState.errorKind === 'INPUT'
+                            ? '질문 형식을 확인해주세요.'
+                            : askState.errorKind === 'NETWORK'
+                                ? '네트워크 연결을 확인한 뒤 다시 시도해주세요.'
+                                : '질문 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.';
+                askState.errorMessage = error instanceof BenefitDetailRequestError && error.message ? error.message : fallback;
+            }
+            updateAskPanel();
+        } finally {
+            if (requestId === askRequestId) {
+                askController = null;
+                askState.requestPromise = null;
+            }
+        }
+    })();
+    askState.requestPromise = request;
+    return request;
+}
+
+async function loadEligibility(force = false) {
+    const benefitId = state.benefitId;
+    if (!benefitId || !state.detail) return;
+    if (!force && eligibilityState.benefitId === benefitId) {
+        if (eligibilityState.requestPromise) return eligibilityState.requestPromise;
+        if (['RESULT', 'UNAUTHENTICATED', 'NO_RESULT'].includes(eligibilityState.screen)) return;
+    }
+
+    const requestId = ++eligibilityRequestId;
+    if (eligibilityController) eligibilityController.abort();
+    const controller = new AbortController();
+    eligibilityController = controller;
+    eligibilityState.benefitId = benefitId;
+    eligibilityState.screen = 'LOADING';
+    eligibilityState.response = null;
+    eligibilityState.errorKind = null;
+    eligibilityState.errorMessage = '';
+    updateEligibilityPanel();
+
+    const request = (async () => {
+        try {
+            const auth = window.BokdeongiAuth;
+            if (!auth || typeof auth.authenticatedFetch !== 'function' || typeof auth.refreshAuthentication !== 'function') {
+                throw new BenefitDetailRequestError('SERVER', '로그인 상태를 확인하지 못했습니다.');
+            }
+            const authenticationState = await auth.refreshAuthentication();
+            if (authenticationState !== 'authenticated') {
+                if (requestId !== eligibilityRequestId) return;
+                eligibilityState.screen = 'UNAUTHENTICATED';
+                updateEligibilityPanel();
+                return;
+            }
+
+            const response = await auth.authenticatedFetch('/api/benefits/' + encodeURIComponent(benefitId) + '/eligibility', {
+                signal: controller.signal
+            });
+            if (response.status === 401 || response.status === 403) {
+                if (requestId !== eligibilityRequestId) return;
+                eligibilityState.screen = 'UNAUTHENTICATED';
+                updateEligibilityPanel();
+                return;
+            }
+            if (response.status === 404) {
+                if (requestId !== eligibilityRequestId) return;
+                eligibilityState.screen = 'NO_RESULT';
+                updateEligibilityPanel();
+                return;
+            }
+            if (!response.ok) {
+                throw new BenefitDetailRequestError('SERVER', await readErrorMessage(response));
+            }
+            const payload = await response.json();
+            if (!isEligibilityResponse(payload)) {
+                throw new BenefitDetailRequestError('INVALID', '자격 판정 결과 형식이 올바르지 않습니다.');
+            }
+            if (requestId !== eligibilityRequestId || state.benefitId !== benefitId) return;
+
+            eligibilityState.response = payload;
+            eligibilityState.screen = 'RESULT';
+            updateEligibilityPanel();
+        } catch (error) {
+            if ((error && error.name === 'AbortError') || requestId !== eligibilityRequestId) return;
+            if (error && error.type === 'unauthenticated') {
+                eligibilityState.screen = 'UNAUTHENTICATED';
+            } else {
+                eligibilityState.screen = 'ERROR';
+                eligibilityState.errorKind = error instanceof BenefitDetailRequestError ? error.kind : 'NETWORK';
+                eligibilityState.errorMessage = error instanceof BenefitDetailRequestError ? error.message : '';
+            }
+            updateEligibilityPanel();
+            console.error('혜택 자격 판정 API를 호출하지 못했습니다.', error);
+        } finally {
+            if (requestId === eligibilityRequestId) {
+                eligibilityController = null;
+                eligibilityState.requestPromise = null;
+            }
+        }
+    })();
+    eligibilityState.requestPromise = request;
+    return request;
+}
+
+async function loadEasy(force = false) {
+    const benefitId = state.benefitId;
+    if (!benefitId || !state.detail) return;
+    if (!force && easyState.benefitId === benefitId) {
+        if (easyState.requestPromise) return easyState.requestPromise;
+        if (['DONE', 'NOT_READY', 'FAILED'].includes(easyState.screen)) return;
+    }
+
+    const requestId = ++easyRequestId;
+    if (easyController) easyController.abort();
+    const controller = new AbortController();
+    easyController = controller;
+    easyState.benefitId = benefitId;
+    easyState.screen = 'LOADING';
+    easyState.response = null;
+    easyState.errorKind = null;
+    easyState.errorMessage = '';
+    updateEasyPanel();
+
+    const request = (async () => {
+        try {
+            const auth = window.BokdeongiAuth;
+            if (!auth || typeof auth.getApiUrl !== 'function') {
+                throw new BenefitDetailRequestError('SERVER', '쉬운 말 조회 서비스를 설정하지 못했습니다.');
+            }
+            const response = await fetch(auth.getApiUrl('/api/benefits/' + encodeURIComponent(benefitId) + '/easy'), {
+                credentials: 'include',
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new BenefitDetailRequestError('SERVER', await readErrorMessage(response));
+            }
+            const payload = await response.json();
+            if (!isEasyResponse(payload)) {
+                throw new BenefitDetailRequestError('INVALID', '쉬운 말 결과 형식이 올바르지 않습니다.');
+            }
+            if (requestId !== easyRequestId || state.benefitId !== benefitId) return;
+
+            easyState.response = payload;
+            easyState.screen = payload.status;
+            updateEasyPanel();
+        } catch (error) {
+            if ((error && error.name === 'AbortError') || requestId !== easyRequestId) return;
+            easyState.screen = 'ERROR';
+            easyState.errorKind = error instanceof BenefitDetailRequestError ? error.kind : 'NETWORK';
+            easyState.errorMessage = error instanceof BenefitDetailRequestError ? error.message : '';
+            updateEasyPanel();
+            console.error('혜택 쉬운 말 API를 호출하지 못했습니다.', error);
+        } finally {
+            if (requestId === easyRequestId) {
+                easyController = null;
+                easyState.requestPromise = null;
+            }
+        }
+    })();
+    easyState.requestPromise = request;
+    return request;
+}
+
+function originalPanel(detail) {
+    const sections = [
+        ['지원 내용', 'contentText', detail.contentText],
+        ['선정 기준', 'criteriaText', detail.criteriaText],
+        ['신청 기간 안내', 'applyPeriodText', detail.applyPeriodText]
+    ].filter(([, field, value]) => !isMissing(detail, field) && hasText(value))
+        .map(([heading, , value]) => '<section class="notice-document__section"><h3>' + escapeHtml(heading) + '</h3><p>' + escapeHtml(value.trim()) + '</p></section>').join('');
+    const content = sections || '<p class="small-copy">표시할 공고 원문 정보가 제공되지 않았습니다.</p>';
+    return '<section class="tab-panel" id="panel-original" role="tabpanel" aria-labelledby="tab-original" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래 내용은 공고에서 제공된 원문 정보입니다. 최신 내용은 공식 공고문을 확인해주세요.</p></div><div class="notice-heading"><h2>공고문 원문</h2><div class="notice-heading__actions"><span>공식 공고 자료</span><div class="detail-actions">' + externalLink(detail.detailUrl, '공고문 바로가기', '공식 공고문 없음') + '<button class="icon-button" type="button" disabled aria-disabled="true">PDF 자료 없음</button></div></div></div><div class="notice-viewer"><article class="notice-document">' + content + '</article></div></section>';
+}
+
+function documentsPanel(detail) {
+    if (isMissing(detail, 'requiredDocsText')) {
+        return '<section class="tab-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden>' + panelNotice('신청에 필요한 서류', '필요 서류 정보가 제공되지 않았습니다. 공식 공고문에서 확인해 주세요.') + '</section>';
+    }
+    return '<section class="tab-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래는 공고에 제공된 필요 서류 원문입니다.</p></div><section class="source-card"><h2>신청에 필요한 서류</h2><p>' + escapeHtml(detail.requiredDocsText.trim()) + '</p></section></section>';
+}
+
+function applyPanel(detail) {
+    const hasApplyLink = isSafeExternalUrl(detail.onlineApplyUrl) && !detail.ended;
+    const method = isMissing(detail, 'applyMethodText') ? '신청 방법 정보가 제공되지 않았습니다. 공식 공고문에서 확인해 주세요.' : detail.applyMethodText.trim();
+    const applicationButton = hasApplyLink
+        ? '<a class="btn primary-button" href="' + escapeHtml(detail.onlineApplyUrl) + '" target="_blank" rel="noopener noreferrer">공식 신청 사이트 바로가기 ↗</a>'
+        : '<button class="btn primary-button" type="button" disabled aria-disabled="true">' + (detail.ended ? '종료된 혜택입니다' : '공식 신청 링크 없음') + '</button>';
+    return '<section class="tab-panel" id="panel-apply" role="tabpanel" aria-labelledby="tab-apply" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래는 공고에 제공된 신청 방법 원문입니다.</p></div><section class="source-card"><h2>신청 방법</h2><p>' + escapeHtml(method) + '</p></section><section class="application-cta"><div><h3>공식 사이트에서 신청하기</h3><p>' + (detail.ended ? '이 혜택은 종료되어 신청할 수 없습니다.' : '신청 가능 여부와 제출 방법은 공식 공고를 확인해주세요.') + '</p></div>' + applicationButton + '</section></section>';
+}
+
+function sidebar(detail) {
+    const target = isMissing(detail, 'targetText') ? '공고 확인 필요' : detail.targetText.trim();
+    const method = isMissing(detail, 'applyMethodText') ? '공고 확인 필요' : detail.applyMethodText.trim();
+    return '<aside class="detail-sidebar"><section class="card"><h2>신청 정보</h2><dl class="application-info"><div><dt>공고 상태</dt><dd>' + escapeHtml(detail.ended ? '종료' : (detail.status || '정보 제공되지 않음')) + '</dd></div><div><dt>지원 대상</dt><dd>' + escapeHtml(target) + '</dd></div><div><dt>지원 금액</dt><dd>' + escapeHtml(amountText(detail)) + '</dd></div><div><dt>신청 기간</dt><dd>' + escapeHtml(periodText(detail)) + '</dd></div><div><dt>신청 방법</dt><dd>' + escapeHtml(method) + '</dd></div></dl><button id="assistant-button" class="btn primary-button" type="button" disabled aria-disabled="true">AI 신청 도우미 준비 중</button></section>' + askPanel() + '</aside>';
+}
+
+function loadingMarkup() {
+    return '<section class="card empty-state" aria-live="polite"><h1>혜택 정보를 불러오는 중이에요.</h1><p>잠시만 기다려주세요.</p></section>';
+}
+
+function errorMarkup() {
+    const messages = {
+        ID_MISSING: ['혜택 ID가 없어요.', '목록에서 혜택을 다시 선택해주세요.'],
+        ID_INVALID: ['잘못된 혜택 ID예요.', '목록에서 혜택을 다시 선택해주세요.'],
+        NOT_FOUND: ['혜택 정보를 찾을 수 없어요.', '삭제되었거나 존재하지 않는 혜택입니다.'],
+        NETWORK: ['네트워크에 연결하지 못했어요.', '인터넷 연결과 서버 주소를 확인한 뒤 다시 시도해주세요.'],
+        SERVER: ['혜택 정보를 불러오지 못했어요.', state.errorMessage || '잠시 후 다시 시도해주세요.']
+    };
+    const [title, description] = messages[state.errorKind] || messages.SERVER;
+    const retry = state.benefitId ? '<button class="btn btn-secondary" type="button" data-retry-detail>다시 시도</button>' : '';
+    return '<section class="card empty-state"><h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(description) + '</p>' + retry + '<a class="btn btn-secondary" href="benefit-list.html">목록으로 돌아가기</a></section>';
+}
+
+function render() {
+    const page = $('#detail-page');
+    const banner = $('#detail-banner-copy');
+    if (state.screen === 'LOADING') {
+        banner.replaceChildren();
+        page.innerHTML = loadingMarkup();
+        return;
+    }
+    if (state.screen === 'ERROR') {
+        banner.replaceChildren();
+        page.innerHTML = errorMarkup();
+        return;
+    }
+
+    const detail = state.detail;
+    const title = hasText(detail.title) ? detail.title.trim() : '혜택 상세';
+    const summary = summaryLines(detail)[0] || '공고 상세 정보를 확인하세요.';
+    banner.innerHTML = '<h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(summary) + '</p>';
+    page.innerHTML = getPageMarkup(detail);
+}
+
+async function readErrorMessage(response) {
+    try {
+        const payload = await response.json();
+        const message = payload?.message || payload?.detail;
+        return hasText(message) ? message.trim() : '';
+    } catch {
+        return '';
+    }
+}
+
+async function loadDetail(id) {
+    const requestId = ++detailRequestId;
+    if (activeController) activeController.abort();
+    resetEasyState(null);
+    resetEligibilityState(null);
+    resetFavoriteState(null);
+    resetAskState(null);
+    activeController = new AbortController();
+    state.benefitId = id;
+    state.detail = null;
+    state.screen = 'LOADING';
+    state.errorKind = null;
+    state.errorMessage = '';
+    render();
+
+    try {
+        const auth = window.BokdeongiAuth;
+        if (!auth || typeof auth.getApiUrl !== 'function') {
+            throw new BenefitDetailRequestError('SERVER', '상세 조회 서비스를 설정하지 못했습니다.');
+        }
+        const response = await fetch(auth.getApiUrl('/api/benefits/' + encodeURIComponent(id)), {
+            credentials: 'include',
+            signal: activeController.signal
+        });
+        if (response.status === 404) {
+            throw new BenefitDetailRequestError('NOT_FOUND', await readErrorMessage(response));
+        }
+        if (!response.ok) {
+            throw new BenefitDetailRequestError('SERVER', await readErrorMessage(response));
+        }
+
+        const payload = await response.json();
+        if (!isBenefitDetailResponse(payload)) {
+            throw new BenefitDetailRequestError('SERVER', '혜택 상세 결과 형식이 올바르지 않습니다.');
+        }
+        if (requestId !== detailRequestId) return;
+
+        state.detail = payload;
+        resetEasyState(id);
+        resetEligibilityState(id);
+        resetFavoriteState(id);
+        resetAskState(id);
+        state.screen = 'RESULT';
+        render();
+        loadEasy();
+        loadEligibility();
+        loadFavorite();
+        loadAskAuthentication();
+    } catch (error) {
+        if ((error && error.name === 'AbortError') || requestId !== detailRequestId) return;
+        state.screen = 'ERROR';
+        state.errorKind = error instanceof BenefitDetailRequestError ? error.kind : 'NETWORK';
+        state.errorMessage = error instanceof BenefitDetailRequestError ? error.message : '';
+        render();
+        console.error('혜택 상세 API를 호출하지 못했습니다.', error);
+    } finally {
+        if (requestId === detailRequestId) activeController = null;
+    }
 }
 
 function selectTab(target) {
     document.querySelectorAll('.tab-button').forEach((button) => {
         const selected = button === target;
-        button.setAttribute('aria-selected', selected);
-        $('#' + button.getAttribute('aria-controls')).hidden = !selected;
+        button.setAttribute('aria-selected', String(selected));
+        const panel = $('#' + button.getAttribute('aria-controls'));
+        if (panel) panel.hidden = !selected;
     });
+    if (target.dataset.tab === 'easy') loadEasy();
 }
 
 async function copyUrl() {
@@ -165,110 +1137,59 @@ async function copyUrl() {
     }
 }
 
+function toast(message) {
+    const element = $('#toast');
+    element.textContent = message;
+    element.hidden = false;
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => { element.hidden = true; }, 3000);
+}
+
 function setup() {
-    const benefit = getBenefit();
-    let theme = localStorage.getItem('bokdeongi-theme') || 'light';
-    const themeButton = $('[data-theme-toggle]');
-
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.setProperty('--font-scale', localStorage.getItem('bokdeongi-font-scale') || 1);
-    themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-    themeButton.setAttribute('aria-pressed', theme === 'dark');
-    $('#detail-page').innerHTML = getPageMarkup(benefit);
-    if (!benefit) return;
-    $('#detail-banner-copy').innerHTML = '<h1>' + benefit.title + '</h1><p>' + benefit.summary[0] + '</p>';
-
+    const id = parseBenefitId(new URLSearchParams(window.location.search).get('id'));
     document.addEventListener('click', (event) => {
         const tab = event.target.closest('.tab-button');
         if (tab) selectTab(tab);
-        const evidence = event.target.closest('[data-evidence]');
-        if (evidence) {
-            const row = evidence.closest('.eligibility-row');
-            const evidenceRow = row.nextElementSibling;
-            const copy = evidenceRow.querySelector('.evidence-copy');
-            const expanded = evidenceRow.hidden;
-            copy.textContent = expanded ? evidence.dataset.evidence : '';
-            evidenceRow.hidden = !expanded;
-            row.classList.toggle('is-evidence-open', expanded);
-            evidence.setAttribute('aria-expanded', String(expanded));
-            evidence.textContent = expanded ? '근거 닫기' : '근거 보기';
+
+        if (event.target.closest('[data-open-original]')) {
+            const originalTab = $('#tab-original');
+            if (originalTab) selectTab(originalTab);
         }
-        const guide = event.target.closest('[data-document-guide]');
-        if (guide) {
-            document.querySelectorAll('.document-toggle').forEach((button) => {
-                const panel = button.nextElementSibling;
-                if (button !== guide) {
-                    button.setAttribute('aria-expanded', 'false');
-                    panel.hidden = true;
-                }
-            });
-            const panel = guide.nextElementSibling;
-            const expanded = guide.getAttribute('aria-expanded') === 'true';
-            guide.setAttribute('aria-expanded', String(!expanded));
-            guide.textContent = expanded ? '발급 방법 보기' : '발급 방법 닫기';
-            panel.hidden = expanded;
+        if (event.target.closest('[data-retry-easy]')) loadEasy(true);
+        if (event.target.closest('[data-retry-eligibility]')) loadEligibility(true);
+        if (event.target.closest('[data-retry-ask]') && hasText(askState.submittedQuestion)) submitAsk(askState.submittedQuestion);
+
+        if (event.target.closest('[data-open-eligibility]')) {
+            const easyTab = $('#tab-easy');
+            if (easyTab) selectTab(easyTab);
         }
+
         const hashtag = event.target.closest('[data-hashtag]');
-        if (hashtag) window.location.href = 'benefit-list.html?keyword=' + encodeURIComponent(hashtag.dataset.hashtag);
-        const question = event.target.closest('[data-question]');
-        if (question) $('#question-input').value = question.dataset.question;
-        if (event.target.closest('#save-button')) {
-            const button = $('#save-button');
-            const saved = button.classList.toggle('is-saved');
-            const label = saved ? '관심 저장됨' : '관심 저장';
-            button.setAttribute('aria-pressed', saved);
-            button.setAttribute('aria-label', label);
-            button.setAttribute('title', label);
-            button.innerHTML = iconBookmark();
-            toast(saved ? '로그인 후 관심 혜택으로 저장할 수 있어요.' : '관심 저장을 해제했어요.');
-        }
+        if (hashtag) window.location.href = 'benefit-list.html?hashtag=' + encodeURIComponent(hashtag.dataset.hashtag);
+
         if (event.target.closest('#share-button')) copyUrl();
-        if (event.target.closest('#assistant-button')) window.location.href = 'assist-eligibility.html';
-        if (event.target.closest('[data-official], [data-pdf]')) toast('현재 더미 공고문에서는 공식 공고 링크가 제공되지 않습니다.');
-        if (event.target.closest('[data-application-url]')) {
-            if (benefit.applicationUrl) window.open(benefit.applicationUrl, '_blank', 'noopener');
-            else toast('현재 공식 신청 사이트 링크가 제공되지 않습니다.');
-        }
-        if (event.target.closest('[data-unavailable-page]')) {
-            event.preventDefault();
-            toast('이 페이지는 현재 준비 중입니다.');
-        }
-        const fontSize = event.target.closest('[data-font-size]');
-        if (fontSize) {
-            const current = Number(localStorage.getItem('bokdeongi-font-scale') || 1);
-            const change = fontSize.dataset.fontSize === 'increase' ? 0.1 : -0.1;
-            const scale = Math.min(1.2, Math.max(0.9, Number((current + change).toFixed(2))));
-            localStorage.setItem('bokdeongi-font-scale', scale);
-            document.documentElement.style.setProperty('--font-scale', scale);
-        }
-        if (event.target.closest('[data-theme-toggle]')) {
-            theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-            document.documentElement.dataset.theme = theme;
-            localStorage.setItem('bokdeongi-theme', theme);
-            themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-            themeButton.setAttribute('aria-pressed', theme === 'dark');
-        }
-        const menu = event.target.closest('.menu-toggle');
-        if (menu) {
-            const navigation = $('#site-navigation');
-            const open = !navigation.classList.contains('is-open');
-            navigation.classList.toggle('is-open', open);
-            menu.setAttribute('aria-expanded', open);
-            menu.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
-        }
+        if (event.target.closest('#save-button')) toggleFavorite();
+        if (event.target.closest('[data-retry-detail]') && state.benefitId) loadDetail(state.benefitId);
+    });
+    document.addEventListener('submit', (event) => {
+        if (!event.target.closest('#question-form')) return;
+        event.preventDefault();
+        const input = $('#question-input');
+        submitAsk(input ? input.value : '');
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.target?.id !== 'question-input' || event.key !== 'Enter' || event.shiftKey) return;
+        event.preventDefault();
+        submitAsk(event.target.value);
     });
 
-    $('#question-form').addEventListener('submit', (event) => {
-        event.preventDefault();
-        const question = $('#question-input').value.trim();
-        if (!question) {
-            toast('질문을 입력해주세요.');
-            return;
-        }
-        const answer = $('#answer');
-        answer.hidden = false;
-        answer.textContent = '공고문 기준으로 확인이 필요한 내용입니다. 정확한 조건은 공식 공고와 담당 기관(' + benefit.phone + ')에 문의해주세요. 근거: 공고에 명시 없음';
-    });
+    if (id === null) {
+        state.screen = 'ERROR';
+        state.errorKind = new URLSearchParams(window.location.search).has('id') ? 'ID_INVALID' : 'ID_MISSING';
+        render();
+        return;
+    }
+    loadDetail(id);
 }
 
 document.addEventListener('DOMContentLoaded', setup);
