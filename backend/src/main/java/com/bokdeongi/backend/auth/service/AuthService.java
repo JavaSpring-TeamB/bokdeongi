@@ -14,6 +14,7 @@ import com.bokdeongi.backend.auth.entity.UserConsent;
 import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
 import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
+import com.bokdeongi.backend.benefit.application.DocumentRecordRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -59,7 +60,7 @@ public class AuthService {
     );
 
     private static final Set<String> CHANGEABLE_CONSENTS = Set.of(
-            "OPTIONAL_INFO", "SENSITIVE"
+            "OPTIONAL_INFO", "SENSITIVE", "DOC_RECORD"
     );
 
     // 카카오 임시 가입 정보 유효기간: 10분
@@ -70,6 +71,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserConsentRepository userConsentRepository;
+    private final DocumentRecordRepository documentRecordRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final LoginAttemptService loginAttemptService;
@@ -86,6 +88,9 @@ public class AuthService {
 
     @Value("${app.consent.optional-info-version}")
     private String optionalInfoConsentVersion;
+
+    @Value("${app.consent.doc-record-version}")
+    private String docRecordConsentVersion;
 
     /* ==================== 일반 회원가입 ==================== */
 
@@ -463,6 +468,13 @@ public class AuthService {
             );
         }
 
+        // DOC_RECORD 동의 철회 시 저장된 서류 기록 삭제
+        if ("DOC_RECORD".equals(request.consentType())
+                && Boolean.FALSE.equals(request.agreed())) {
+
+            documentRecordRepository.deleteRecords(userId);
+        }
+
         // 4. 동의 여부와 문서 버전이 모두 동일하면 저장하지 않음
         if (latestConsent != null
                 && latestConsent.getAgreed().equals(request.agreed())
@@ -497,7 +509,7 @@ public class AuthService {
         }
 
         List<ConsentStatusResponse.ConsentItem> consents =
-                List.of("OPTIONAL_INFO", "SENSITIVE")
+                List.of("OPTIONAL_INFO", "SENSITIVE", "DOC_RECORD")
                         .stream()
                         .map(consentType -> userConsentRepository
                                 .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
@@ -536,6 +548,7 @@ public class AuthService {
             case "PRIVACY" -> privacyConsentVersion;
             case "OPTIONAL_INFO" -> optionalInfoConsentVersion;
             case "SENSITIVE" -> sensitiveConsentVersion;
+            case "DOC_RECORD" -> docRecordConsentVersion;
             default -> throw new IllegalArgumentException(
                     "지원하지 않는 동의 유형입니다."
             );
