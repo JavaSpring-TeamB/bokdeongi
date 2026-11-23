@@ -1,5 +1,7 @@
 .login__shell { grid-template-columns: minmax(0, 440px); justify-content: center; }
-.login__card { min-height: 570px; padding: var(--space-xl); }
+.login__card { position: relative; min-height: 570px; padding: var(--space-xl); }
+.login__character { position: absolute; z-index: 1; top: 18px; right: 22px; width: 92px; height: auto; pointer-events: none; }
+.login__card > :not(.login__character) { position: relative; z-index: 2; }
 .login__heading { margin: 0 0 var(--space-lg); text-align: center; }
 .login__heading h1 { margin: 0; font-size: var(--font-size-page-title); }
 .login__heading p { margin: var(--space-xs) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-description); }
@@ -17,5 +19,5 @@
 .login__kakao svg { width: 20px; height: 20px; flex: 0 0 20px; fill: currentColor; }
 .login__kakao:hover { filter: brightness(.96); }
 .login__kakao:focus-visible { outline: 3px solid var(--color-info); outline-offset: 3px; }
-@media (max-width: 600px) { .login__card { min-height: 0; padding: var(--space-lg); } }
+@media (max-width: 600px) { .login__card { min-height: 0; padding: var(--space-lg); } .login__character { display: none; } }
 @media (max-width: 400px) { .login__card { padding: var(--space-md); } .login__support { display: grid; justify-items: center; } }

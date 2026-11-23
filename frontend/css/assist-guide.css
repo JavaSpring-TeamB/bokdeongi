@@ -9,6 +9,11 @@
     align-items: center;
     overflow: hidden;
     padding-right: 190px;
+    background-color: var(--color-primary-light);
+    background-image: url("../img/assist04_banner.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
 }
 
 .guide-banner::before {

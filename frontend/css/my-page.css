@@ -8,8 +8,19 @@
     margin-top: var(--space-xl);
     padding: 28px 32px;
     border-radius: var(--radius-lg);
-    background: var(--color-primary-light);
+    background-color: var(--color-primary-light);
 }
+
+.my-page[data-section="profile"] .my-page__banner {
+    background-image: url("../img/my-page_01.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.my-page[data-section="bookmarks"] .my-page__banner { background-image: url("../img/my-page_02.png"); background-position: center; background-repeat: no-repeat; background-size: cover; }
+.my-page[data-section="guide"] .my-page__banner { background-image: url("../img/my-page_03.png"); background-position: center; background-repeat: no-repeat; background-size: cover; }
+.my-page[data-section="legal"] .my-page__banner { background-image: url("../img/my-page_04.png"); background-position: center; background-repeat: no-repeat; background-size: cover; }
 
 .my-page__banner h1,
 .my-page__content h2,

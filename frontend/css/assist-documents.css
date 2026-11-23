@@ -1,4 +1,5 @@
 .assist-documents-page .assist-steps--icon { max-width: 760px; margin: var(--space-lg) auto var(--space-xl); }
+.assist-documents-page .assist-banner { background-color: var(--color-primary-light); background-image: url("../img/assist02_banner.png"); background-position: center; background-repeat: no-repeat; background-size: cover; }
 .assist-documents-page .assist-steps--icon .assist-step.is-complete { color: var(--color-primary); }
 .assist-documents-page .assist-steps--icon .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-on-primary); }
 

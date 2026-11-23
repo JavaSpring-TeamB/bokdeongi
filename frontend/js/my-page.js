@@ -463,6 +463,7 @@ function renderKeywords() {
 function renderSection() {
     const target = $('#my-page-content');
     const renderer = { profile: renderProfile, bookmarks: renderBookmarks, guide: renderGuide, legal: renderLegal }[currentSection];
+    document.body.dataset.section = currentSection;
     target.innerHTML = renderer();
     target.setAttribute('aria-label', document.querySelector('[data-section="' + currentSection + '"]').textContent.trim());
     if (currentSection === 'bookmarks') renderKeywords();
