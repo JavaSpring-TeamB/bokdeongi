@@ -510,6 +510,10 @@
     stroke-width: 1.8;
 }
 
+.bookmark-button.is-saved svg {
+    fill: currentColor;
+}
+
 .bookmark-button:hover,
 .bookmark-button:focus-visible {
     background: var(--color-primary-light);
