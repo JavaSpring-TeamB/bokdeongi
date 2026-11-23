@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public class ApplicationQuery {
@@ -56,6 +57,24 @@ public class ApplicationQuery {
                         ? Optional.of(mapRow(rs))
                         : Optional.empty(),
                 userId, benefitId);
+    }
+
+    // 사용자의 전체 신청 목록 조회
+    // 관심 저장만 한 혜택은 제외
+    public List<ApplicationRow> findAllByUserId(long userId) {
+        return jdbc.query("""
+                SELECT id, user_id, benefit_id,
+                       app_status, step,
+                       app_answers, doc_checks,
+                       started_api_modified_at
+                FROM user_benefits
+                WHERE user_id = ?
+                  AND app_status IS NOT NULL
+                ORDER BY id DESC
+                """,
+                (rs, rowNum) -> mapRow(rs),
+                userId
+        );
     }
 
     // 신청 시작: 기존 관심 등록 데이터는 보존
@@ -111,6 +130,29 @@ public class ApplicationQuery {
                 docChecks,
                 applicationId,
                 userId
+        );
+
+        return updated > 0;
+    }
+
+    // 사용자가 직접 신청 완료 또는 결과 상태 변경
+    public boolean updateStatus(
+            long applicationId,
+            long userId,
+            String currentStatus,
+            String newStatus
+    ) {
+        int updated = jdbc.update("""
+                UPDATE user_benefits
+                SET app_status = ?
+                WHERE id = ?
+                  AND user_id = ?
+                  AND app_status = ?
+                """,
+                newStatus,
+                applicationId,
+                userId,
+                currentStatus
         );
 
         return updated > 0;
