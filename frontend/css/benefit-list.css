@@ -190,6 +190,13 @@
     font-size: var(--font-size-description);
 }
 
+.filter-panel__notice {
+    margin: 12px 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+}
+
 .text-button {
     flex: 0 0 auto;
 }
@@ -260,6 +267,18 @@
     background: var(--color-white);
     color: var(--color-text);
     font-size: var(--font-size-caption);
+}
+
+.sort-control {
+    display: grid;
+    justify-items: end;
+    gap: 3px;
+}
+
+.sort-support-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
 }
 
 .state-panel {
@@ -578,8 +597,13 @@
     }
 
     .sort-select,
-    .sort-select select {
+    .sort-select select,
+    .sort-control {
         width: 100%;
+    }
+
+    .sort-control {
+        justify-items: stretch;
     }
 
     .state-panel img {
