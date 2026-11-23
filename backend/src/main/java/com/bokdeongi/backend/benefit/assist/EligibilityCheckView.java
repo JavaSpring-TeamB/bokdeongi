@@ -8,6 +8,7 @@ import com.bokdeongi.backend.benefit.assist.EligibilityCheckResponse.Similar;
 import com.bokdeongi.backend.benefit.recommend.RecommendResponse.Check;
 import com.bokdeongi.backend.benefit.recommend.RecommendView;
 import com.bokdeongi.backend.benefit.recommend.RecommendView.CheckType;
+import com.bokdeongi.backend.eligibility.ConditionText;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -65,7 +66,8 @@ public final class EligibilityCheckView {
                 profile |= c.type() == CheckType.PROFILE || c.type() == CheckType.SENSITIVE;
             }
             byGroup.computeIfAbsent(group, g -> new ArrayList<>()).add(new Condition(field, label(field), status,
-                    str(t.get("expected")), str(t.get("actual")), quote, type, guide));
+                    ConditionText.expected(field, str(t.get("expected"))),
+                    ConditionText.actual(field, str(t.get("actual"))), quote, type, guide));
         }
 
         List<Group> groups = new ArrayList<>();
