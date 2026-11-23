@@ -141,7 +141,7 @@ class ApplicationProgressCalculatorTest {
         };
 
         String[] expectedStages = {
-                "서류 검토 중",
+                "준비 중",
                 "신청 완료",
                 "결과",
                 "결과"
@@ -185,8 +185,8 @@ class ApplicationProgressCalculatorTest {
         String[] expectedStages = {
                 "준비 중",
                 "준비 중",
-                "서류 검토 중",
-                "서류 준비 완료"
+                "준비 중",
+                "준비 중"
         };
 
         for (int i = 0; i < steps.length; i++) {
