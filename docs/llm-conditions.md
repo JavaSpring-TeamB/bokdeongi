@@ -50,10 +50,13 @@
 1. 실행하면 `backend/conditions-review/conditions-review-c4-{시각}.csv`가 생긴다 (커밋하지 않음)
    - 앞 칸은 `rule_labels.csv`와 같고 `labeled_on`(원문 수정일, 한국 날짜)이 더 있다
    - 뒤 칸 `status`·`confidence`·`checks`·`reason`은 검수 참고용 (`KEPT` / `LOW_CONFIDENCE` / `DROPPED` / `UNPARSED` / `SPECIAL` / `REPEAT_ONLY`)
-2. 라벨 기준(`data-lab/rule_labels/README.md`)으로 줄을 고치고, 맞는 줄만 `data-lab/conditions/reviewed_rules.csv`에 붙인다.
-   `labeler`를 채운다. 엑셀로 저장하지 않는다
-3. `python data-lab/rule_labels/export_label_rules.py` → `label-rules.csv`에 함께 나간다
-4. 다음 동기화부터 그 공고는 수동 규칙(MANUAL)으로 바뀌고 질문 문구도 검수한 것을 쓴다.
+2. 검수 초안을 만든다: `python data-lab/conditions/review_tool.py draft backend/conditions-review/{파일}.csv`
+   → `data-lab/conditions/review_draft.csv` (커밋하지 않음). 검증 결과가 memo에 들어가고, 볼 줄은 memo 맨 앞이 `[확인]`
+3. 라벨 기준(`data-lab/rule_labels/README.md`)으로 줄을 고치고 `[확인]`을 지운 뒤, 맞는 줄만
+   `data-lab/conditions/reviewed_rules.csv`에 붙인다. `labeler`를 채운다. 엑셀로 저장하지 않는다
+4. `python data-lab/conditions/review_tool.py check` → 오류 0이어야 한다 (형식·값의 숫자·labeler·`[확인]` 남음·질문 키 50자)
+5. `python data-lab/rule_labels/export_label_rules.py` → `label-rules.csv`에 함께 나간다
+6. 다음 동기화부터 그 공고는 수동 규칙(MANUAL)으로 바뀌고 질문 문구도 검수한 것을 쓴다.
    원문이 바뀌면(수정일이 `labeled_on`과 다르면) 넣지 않는다 (D-93)
 
 정답셋 30건과 같은 서비스가 검수 파일에 있으면 내보내기가 멈춘다.

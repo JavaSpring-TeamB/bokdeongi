@@ -11,6 +11,7 @@ backend/.gradle/
 backend/out/
 # DATA-03 조건 추출 검수 파일 (돌릴 때마다 생김)
 backend/conditions-review/
+data-lab/conditions/review_draft.csv
 *.class
 *.log
 !backend/gradle/wrapper/gradle-wrapper.jar
