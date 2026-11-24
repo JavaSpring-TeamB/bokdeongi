@@ -2,7 +2,7 @@ package com.bokdeongi.backend.home.dto.response;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * HOME-01 홈 대시보드 응답 DTO
@@ -24,7 +24,7 @@ public record HomeSummaryResponse(
         long eligibleCount,
         long conditionalCount,
         long ineligibleCount,
-        LocalDateTime benefitDataUpdatedAt
+        OffsetDateTime benefitDataUpdatedAt
 ) {
 
     /**
