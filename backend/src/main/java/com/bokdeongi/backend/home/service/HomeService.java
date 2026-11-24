@@ -9,7 +9,8 @@ import com.bokdeongi.backend.home.repository.HomeQueryRepository.EligibleBenefit
 import com.bokdeongi.backend.profile.dto.response.ProfileResponse;
 import com.bokdeongi.backend.profile.service.ProfileService;
 import org.springframework.stereotype.Service;
-
+import com.bokdeongi.backend.home.repository.HomeQueryRepository.EligibilityCountRow;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -68,6 +69,14 @@ public class HomeService {
 
         boolean eligibilityUpdating = false;
 
+        // 맞춤 혜택 판정 통계 기본값
+        EligibilityCountRow eligibilityCounts =
+                new EligibilityCountRow(0L, 0L, 0L, 0L);
+
+        // 공고 데이터 마지막 정상 동기화 시각
+        LocalDateTime benefitDataUpdatedAt =
+                homeQueryRepository.findBenefitDataUpdatedAt();
+
         if (completed) {
 
             // 기존 추천 서비스를 통해 해당 혜택과 판정 갱신 상태를 조회한다.
@@ -89,7 +98,11 @@ public class HomeService {
             eligibleBenefits = homeQueryRepository.findEligibleBenefits(userId);
 
             // 판정 결과가 최신인 경우에만 추천 정보를 표시한다.
+            // 판정 결과가 최신인 경우에만 통계 및 추천 정보를 표시한다.
             if (!eligibilityUpdating) {
+
+                // 현재 프로필 기준 맞춤 혜택 판정 통계 조회
+                eligibilityCounts = homeQueryRepository.findEligibilityCounts(userId);
 
                 recommendations = eligibleResponse.items().stream()
                         .map(item -> new HomeSummaryResponse.RecommendationItem(
@@ -141,7 +154,12 @@ public class HomeService {
                 createClosingSoon(eligibleBenefits),
                 createApplicationSummary(applications),
                 recommendations,
-                nearMissBenefits
+                nearMissBenefits,
+                eligibilityCounts.totalCount(),
+                eligibilityCounts.eligibleCount(),
+                eligibilityCounts.conditionalCount(),
+                eligibilityCounts.ineligibleCount(),
+                benefitDataUpdatedAt
         );
     }
 

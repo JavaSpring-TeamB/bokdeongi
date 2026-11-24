@@ -2,6 +2,7 @@ package com.bokdeongi.backend.home.dto.response;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.time.LocalDateTime;
 
 /**
  * HOME-01 홈 대시보드 응답 DTO
@@ -18,7 +19,12 @@ public record HomeSummaryResponse(
         List<ClosingSoonItem> closingSoon,
         ApplicationSummary applicationSummary,
         List<RecommendationItem> recommendations,
-        List<RecommendationItem> nearMissBenefits
+        List<RecommendationItem> nearMissBenefits,
+        long totalCount,
+        long eligibleCount,
+        long conditionalCount,
+        long ineligibleCount,
+        LocalDateTime benefitDataUpdatedAt
 ) {
 
     /**
