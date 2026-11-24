@@ -9,10 +9,11 @@
     const updates = new Map();
 
     class ApplicationApiError extends Error {
-        constructor(kind, message = '', status = 0) {
+        constructor(kind, message = '', status = 0, code = null) {
             super(message);
             this.kind = kind;
             this.status = status;
+            this.code = code;
         }
     }
 
@@ -49,13 +50,16 @@
         return { ...value, id: Number(value.id), benefitId: Number(value.benefitId) };
     }
 
-    async function readErrorMessage(response) {
+    async function readError(response) {
         try {
             const body = await response.json();
             const message = body?.message || body?.detail;
-            return typeof message === 'string' ? message.trim() : '';
+            return {
+                message: typeof message === 'string' ? message.trim() : '',
+                code: typeof body?.code === 'string' ? body.code : null
+            };
         } catch {
-            return '';
+            return { message: '', code: null };
         }
     }
 
@@ -74,7 +78,7 @@
         return auth;
     }
 
-    async function request(method, path, body, signal) {
+    async function fetchJson(method, path, body, signal) {
         const auth = await requireAuth();
         const options = { method, signal };
         if (body !== undefined) {
@@ -82,14 +86,141 @@
                 throw new ApplicationApiError('CONFIGURATION', '보안 토큰을 준비하지 못했습니다.');
             }
             const csrf = await auth.getCsrfToken();
-            options.headers = { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token };
-            options.body = JSON.stringify(body);
+            const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
+            options.headers = multipart ? { [csrf.headerName]: csrf.token } : { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token };
+            options.body = multipart ? body : JSON.stringify(body);
         }
         const response = await auth.authenticatedFetch(path, options);
         if (!response.ok) {
-            throw new ApplicationApiError(errorKind(response.status), await readErrorMessage(response), response.status);
+            const error = await readError(response);
+            throw new ApplicationApiError(errorKind(response.status), error.message, response.status, error.code);
         }
-        return normalizeApplication(await response.json());
+        return response.json();
+    }
+
+    async function request(method, path, body, signal) {
+        return normalizeApplication(await fetchJson(method, path, body, signal));
+    }
+
+    function isDocumentKey(value) {
+        return /^(?:[1-9]\d*|form:[0-9]+|unknown:[0-9]+)$/.test(String(value || ''));
+    }
+
+    function isDocumentState(value) {
+        return isObject(value)
+            && typeof value.prepared === 'boolean'
+            && typeof value.reviewed === 'boolean'
+            && (value.result === null || typeof value.result === 'string')
+            && (value.reason === null || typeof value.reason === 'string')
+            && (value.issueDate === null || typeof value.issueDate === 'string')
+            && (value.documentTypeId === null || parseApplicationId(value.documentTypeId) !== null);
+    }
+
+    function documentKeys(documents) {
+        const keys = new Set();
+        if (!Array.isArray(documents.groups) || !Array.isArray(documents.forms) || !Array.isArray(documents.unknown)) return null;
+        for (const group of documents.groups) {
+            if (!isObject(group) || !Array.isArray(group.items)) return null;
+            for (const item of group.items) {
+                if (item?.documentTypeId === null || item?.documentTypeId === undefined) continue;
+                const id = parseApplicationId(item?.documentTypeId);
+                if (id === null) return null;
+                keys.add(String(id));
+            }
+        }
+        for (let index = 0; index < documents.forms.length; index += 1) keys.add('form:' + index);
+        for (let index = 0; index < documents.unknown.length; index += 1) keys.add('unknown:' + index);
+        return keys;
+    }
+
+    function isDocumentsResponse(value) {
+        if (!isObject(value) || !isObject(value.documents) || !isObject(value.states)) return false;
+        const documents = value.documents;
+        if (!Array.isArray(documents.groups) || !Array.isArray(documents.forms)
+            || !Array.isArray(documents.unknown) || !Array.isArray(documents.contacts)
+            || !Number.isInteger(documents.total) || documents.total < 0) return false;
+        const keys = documentKeys(documents);
+        return keys !== null && Object.keys(value.states).length === keys.size
+            && Object.entries(value.states).every(([key, state]) => keys.has(key) && isDocumentState(state));
+    }
+
+    function normalizeDocuments(value) {
+        if (!isDocumentsResponse(value)) {
+            throw new ApplicationApiError('INVALID', '서류 준비 응답 형식이 올바르지 않습니다.');
+        }
+        return value;
+    }
+
+    const OCR_RESULTS = new Set(['READY', 'MISSING', 'INVALID', 'RETRY']);
+
+    function isReviewResponse(value) {
+        return isObject(value)
+            && parseApplicationId(value.documentTypeId) !== null
+            && OCR_RESULTS.has(value.result)
+            && typeof value.ocrResult === 'string'
+            && (value.recognizedType === null || typeof value.recognizedType === 'string')
+            && (value.issueDate === null || typeof value.issueDate === 'string')
+            && typeof value.reason === 'string'
+            && Array.isArray(value.foundFields) && value.foundFields.every((field) => typeof field === 'string')
+            && Array.isArray(value.missingFields) && value.missingFields.every((field) => typeof field === 'string');
+    }
+
+    function normalizeReview(value) {
+        if (!isReviewResponse(value)) {
+            throw new ApplicationApiError('INVALID', '서류 검토 응답 형식이 올바르지 않습니다.');
+        }
+        return { ...value, documentTypeId: Number(value.documentTypeId) };
+    }
+
+    function isMissingDocumentsResponse(value) {
+        return isObject(value) && Array.isArray(value.groups) && Array.isArray(value.forms)
+            && Array.isArray(value.unknown) && typeof value.allReady === 'boolean';
+    }
+
+    function normalizeMissingDocuments(value) {
+        if (!isMissingDocumentsResponse(value)) {
+            throw new ApplicationApiError('INVALID', '부족 서류 응답 형식이 올바르지 않습니다.');
+        }
+        return value;
+    }
+
+    const APPLICATION_STATUSES = new Set(['SUBMITTED', 'SELECTED', 'REJECTED', 'CANCELED']);
+
+    function isGuideResponse(value) {
+        return isObject(value)
+            && (value.method === null || typeof value.method === 'string')
+            && (value.applyUrl === null || typeof value.applyUrl === 'string')
+            && (value.siteName === null || typeof value.siteName === 'string')
+            && (value.detailUrl === null || typeof value.detailUrl === 'string')
+            && Array.isArray(value.steps) && value.steps.every((step) => isObject(step) && Number.isInteger(step.order)
+                && (step.method === null || typeof step.method === 'string') && typeof step.text === 'string')
+            && Array.isArray(value.notes) && value.notes.every((note) => typeof note === 'string')
+            && Array.isArray(value.copyCards) && value.copyCards.every((card) => isObject(card)
+                && typeof card.key === 'string' && typeof card.label === 'string' && (card.value === null || typeof card.value === 'string'))
+            && (value.visit === null || isObject(value.visit))
+            && Array.isArray(value.contacts);
+    }
+
+    function normalizeGuide(value) {
+        if (!isGuideResponse(value)) {
+            throw new ApplicationApiError('INVALID', '신청 안내 응답 형식이 올바르지 않습니다.');
+        }
+        return value;
+    }
+
+    function isReviewFile(file) {
+        return isObject(file) && typeof file.name === 'string' && Number.isFinite(file.size) && file.size > 0;
+    }
+
+    function validateReviewFile(file) {
+        if (!isReviewFile(file)) return '올릴 서류 파일을 선택해 주세요.';
+        if (file.size > 10 * 1024 * 1024) return '10MB 이하 파일만 올릴 수 있어요.';
+        const allowedTypes = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+        const extension = /\.(pdf|jpe?g|png)$/i.test(file.name);
+        if ((file.type && !allowedTypes.has(file.type)) || (!file.type && !extension)) {
+            return 'JPG, PNG, PDF 파일만 올릴 수 있어요.';
+        }
+        return '';
     }
 
     function deduplicate(key, factory) {
@@ -111,6 +242,42 @@
         return deduplicate('get:' + id, () => request('GET', '/api/applications/' + encodeURIComponent(id)));
     }
 
+    function getDocuments(applicationId) {
+        const id = parseApplicationId(applicationId);
+        if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
+        return deduplicate('documents:' + id, async () => normalizeDocuments(
+            await fetchJson('GET', '/api/applications/' + encodeURIComponent(id) + '/documents')
+        ));
+    }
+
+    function getMissingDocuments(applicationId) {
+        const id = parseApplicationId(applicationId);
+        if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
+        return deduplicate('missing:' + id, async () => normalizeMissingDocuments(
+            await fetchJson('GET', '/api/applications/' + encodeURIComponent(id) + '/missing')
+        ));
+    }
+
+    function getApplicationGuide(applicationId) {
+        const id = parseApplicationId(applicationId);
+        if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
+        return deduplicate('guide:' + id, async () => normalizeGuide(
+            await fetchJson('GET', '/api/applications/' + encodeURIComponent(id) + '/guide')
+        ));
+    }
+
+    function enqueueUpdate(applicationId, factory) {
+        const previous = updates.get(applicationId);
+        const previousTail = previous ? previous.tail : Promise.resolve();
+        const pending = previousTail.catch(() => undefined).then(factory);
+        const tail = pending.catch(() => undefined);
+        updates.set(applicationId, { tail });
+        tail.finally(() => {
+            if (updates.get(applicationId)?.tail === tail) updates.delete(applicationId);
+        });
+        return pending;
+    }
+
     function updateApplication(applicationId, payload) {
         const id = parseApplicationId(applicationId);
         if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
@@ -127,16 +294,39 @@
 
         // 요청 취소는 이미 서버에서 처리 중인 PATCH의 순서를 되돌릴 수 없다.
         // 같은 신청 건의 저장은 직렬화해 서버 병합 순서도 화면의 입력 순서와 맞춘다.
-        const previous = updates.get(id);
-        const previousTail = previous ? previous.tail : Promise.resolve();
-        const pending = previousTail.catch(() => undefined)
-            .then(() => request('PATCH', '/api/applications/' + encodeURIComponent(id), requestBody));
-        const tail = pending.catch(() => undefined);
-        updates.set(id, { tail });
-        tail.finally(() => {
-            if (updates.get(id)?.tail === tail) updates.delete(id);
-        });
-        return pending;
+        return enqueueUpdate(id, () => request('PATCH', '/api/applications/' + encodeURIComponent(id), requestBody));
+    }
+
+    function updateDocumentPrepared(applicationId, documentKey, prepared) {
+        const id = parseApplicationId(applicationId);
+        if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
+        if (!isDocumentKey(documentKey) || typeof prepared !== 'boolean') {
+            return Promise.reject(new ApplicationApiError('INPUT', '서류 준비 상태가 올바르지 않습니다.'));
+        }
+        const path = '/api/applications/' + encodeURIComponent(id) + '/documents/' + encodeURIComponent(documentKey);
+        return enqueueUpdate(id, async () => normalizeDocuments(await fetchJson('PATCH', path, { prepared })));
+    }
+
+    function updateApplicationStatus(applicationId, status) {
+        const id = parseApplicationId(applicationId);
+        if (id === null || !APPLICATION_STATUSES.has(status)) {
+            return Promise.reject(new ApplicationApiError('INPUT', '변경할 신청 상태가 올바르지 않습니다.'));
+        }
+        return enqueueUpdate(id, () => request('PATCH', '/api/applications/' + encodeURIComponent(id) + '/status', { status }));
+    }
+
+    function reviewDocument(applicationId, documentTypeId, file) {
+        const id = parseApplicationId(applicationId);
+        const typeId = parseApplicationId(documentTypeId);
+        if (id === null || typeId === null) return Promise.reject(new ApplicationApiError('INPUT', '서류 종류를 확인해 주세요.'));
+        const fileError = validateReviewFile(file);
+        if (fileError) return Promise.reject(new ApplicationApiError('INPUT', fileError));
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('documentTypeId', String(typeId));
+        return enqueueUpdate(id, async () => normalizeReview(await fetchJson(
+            'POST', '/api/applications/' + encodeURIComponent(id) + '/documents', formData
+        )));
     }
 
     function assistantUrl(step, applicationId) {
@@ -206,11 +396,21 @@
         assistantUrl,
         canEdit,
         getApplication,
+        getApplicationGuide,
+        getDocuments,
+        getMissingDocuments,
         isApplicationResponse,
+        isDocumentsResponse,
+        isMissingDocumentsResponse,
+        isReviewResponse,
         loadCurrentAssistantApplication,
         messageFor,
         parseApplicationId,
+        reviewDocument,
         startApplication,
-        updateApplication
+        updateApplication,
+        updateApplicationStatus,
+        updateDocumentPrepared,
+        validateReviewFile
     });
 })();

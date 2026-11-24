@@ -111,12 +111,11 @@
                         정부24에서 신청하기 <span aria-hidden="true">↗</span>
                     </button>
                     <p id="official-apply-help" class="guide-link-help" data-official-apply-help>공식 접수처는 공고에서 확인해 주세요.</p>
+                    <a class="bk-btn bk-btn--outline bk-btn--md" data-detail-link target="_blank" rel="noopener noreferrer" hidden>공고 상세 확인</a>
                     <aside class="guide-notice" aria-labelledby="guide-notice-title">
                         <h3 id="guide-notice-title"><span aria-hidden="true">i</span> 신청 시 유의사항</h3>
                         <ul>
-                            <li>신청은 1인 1회만 가능합니다.</li>
-                            <li>온라인 신청 시, 검토가 완료된 서류 파일을 첨부해야 해요.</li>
-                            <li>신청 완료 후에는 수정이 제한될 수 있으니 입력 내용을 꼭 확인해 주세요.</li>
+                            <li data-guide-note>신청 시 참고 사항을 불러오는 중입니다.</li>
                         </ul>
                     </aside>
                 </section>
@@ -129,11 +128,10 @@
                         <li>접수 확인증을 받아 보관해 주세요.</li>
                     </ol>
                     <dl class="guide-visit-info">
-                        <div><dt>접수기관</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
-                        <div><dt>주소 또는 위치</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
-                        <div><dt>운영시간</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
-                        <div><dt>문의처</dt><dd>공식 공고에서 확인해 주세요.</dd></div>
-                        <div><dt>준비 서류</dt><dd data-visit-documents>검토 완료한 서류를 지참해 주세요.</dd></div>
+                        <div><dt>접수기관</dt><dd data-visit-places>확인 중</dd></div>
+                        <div><dt>신청 방법</dt><dd data-visit-method>확인 중</dd></div>
+                        <div><dt>문의처</dt><dd data-visit-contacts>확인 중</dd></div>
+                        <div><dt>준비물</dt><dd data-visit-documents>확인 중</dd></div>
                     </dl>
                     <p class="guide-visit-help">접수기관과 운영시간은 혜택별 공식 공고가 연동되면 실제 정보로 표시됩니다.</p>
                 </section>
@@ -143,6 +141,11 @@
                 </section>
             </section>
         </div>
+
+        <section class="guide-card" data-copy-cards hidden aria-labelledby="copy-cards-title">
+            <h2 id="copy-cards-title">신청서에 복사할 정보</h2>
+            <div data-copy-card-list></div>
+        </section>
 
         <div class="assist-actions guide-actions">
             <a class="bk-btn bk-btn--outline bk-btn--md" data-previous-step href="assist-review.html">이전 단계</a>

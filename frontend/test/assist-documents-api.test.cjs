@@ -5,22 +5,31 @@ const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'assist-documents.js'), 'utf8');
 
-test('documents stage obtains the benefit ID from the server application and renders only benefit detail data', () => {
+test('documents stage obtains the benefit and structured documents from its server application', () => {
   assert.match(source, /loadCurrentAssistantApplication\(container\)/);
-  assert.match(source, /loadBenefit\(application\.benefitId\)/);
+  assert.match(source, /loadBenefit\(state\.application\.benefitId\)/);
+  assert.match(source, /getDocuments\(state\.application\.id\)/);
   assert.match(source, /\/api\/benefits\/.*benefitId/);
-  assert.match(source, /benefit\.requiredDocsText/);
-  assert.doesNotMatch(source, /documentsData|resident|housing-status/);
+  assert.doesNotMatch(source, /requiredDocsText/);
 });
 
 test('documents stage blocks direct access before server eligibility completion', () => {
-  assert.match(source, /application\.appAnswers\?\.eligibilityConfirmed !== true/);
-  assert.match(source, /assistantUrl\(1, application\.id\)/);
+  assert.match(source, /state\.application\.appAnswers\?\.eligibilityConfirmed !== true/);
+  assert.match(source, /assistantUrl\(1, state\.application\.id\)/);
 });
 
-test('documents stage does not invent a structured-document endpoint or unsafe document save request', () => {
-  assert.doesNotMatch(source, /\/api\/applications\/.*\/documents/);
+test('documents stage saves only server document keys and protects unsaved changes', () => {
+  assert.match(source, /form:' \+ index/);
+  assert.match(source, /unknown:' \+ index/);
+  assert.match(source, /updateDocumentPrepared\(state\.application\.id, key, prepared\)/);
+  assert.match(source, /state\.localPrepared\.set\(key, prepared\)/);
+  assert.match(source, /state\.failed\.set\(key/);
+  assert.match(source, /state\.pending\.size/);
   assert.doesNotMatch(source, /docChecks/);
-  assert.match(source, /구조화된 필요 서류 목록/);
-  assert.match(source, /서류 검토로 이동<\/button>/);
+});
+
+test('documents stage moves to review only after preparation is saved and uses the common application update', () => {
+  assert.match(source, /function canMoveNext\(\) \{ return allPrepared\(\) && state\.pending\.size === 0 && state\.failed\.size === 0/);
+  assert.match(source, /updateApplication\(state\.application\.id, \{ step: 3 \}\)/);
+  assert.match(source, /assistantUrl\(3, state\.application\.id\)/);
 });
