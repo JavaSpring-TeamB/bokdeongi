@@ -5,9 +5,11 @@ const STATUS_FILTERS = [
 ];
 
 const PAGE_SIZE = 6;
+const SORTS = new Set(['relevance', 'deadline', 'amount', 'easy']);
 const state = {
     query: '',
     hashtag: '',
+    sort: 'relevance',
     response: null,
     screen: 'INITIAL',
     currentPage: 1,
@@ -59,6 +61,11 @@ function hasText(value) {
 
 function normalizeQuery(value) {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeSort(value) {
+    const sort = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return SORTS.has(sort) ? sort : 'relevance';
 }
 
 function isValidSearchQuery(query) {
@@ -436,7 +443,7 @@ function render() {
 
 function buildRequestPath(query, hashtag, page, filters = state) {
     const parameters = new URLSearchParams({
-        sort: 'relevance',
+        sort: normalizeSort(filters.sort),
         page: String(page - 1),
         size: String(PAGE_SIZE)
     });
@@ -658,6 +665,7 @@ async function requestBenefits(page) {
 function syncSearchUrl({ push = false } = {}) {
     if (!window.history || typeof window.history.replaceState !== 'function') return;
     const parameters = new URLSearchParams();
+    parameters.set('sort', normalizeSort(state.sort));
     if (state.query) parameters.set('q', state.query);
     if (state.hashtag) parameters.set('hashtag', state.hashtag);
     state.statuses.forEach((status) => parameters.append('status', status));
@@ -709,6 +717,7 @@ function reset() {
     resetFavoriteStates();
     state.query = '';
     state.hashtag = '';
+    state.sort = 'relevance';
     state.statuses = [];
     state.fields = [];
     state.targets = [];
@@ -717,6 +726,7 @@ function reset() {
     state.screen = 'INITIAL';
     $('#benefit-search-input').value = '';
     $('#search-message').textContent = '';
+    syncSortControl();
     render();
 }
 
@@ -743,26 +753,36 @@ function applyKeywordFromUrl(request = true) {
     const hashtag = normalizeQuery(parameters.get('hashtag')).replace(/^#/, '');
     state.query = keyword;
     state.hashtag = keyword ? '' : hashtag;
+    state.sort = normalizeSort(parameters.get('sort'));
     state.statuses = [...new Set(parameters.getAll('status').map((value) => value.trim().toUpperCase()).filter((value) => STATUS_FILTERS.some((filter) => filter.value === value)))];
     state.fields = [...new Set(parameters.getAll('field').map(normalizeQuery).filter(Boolean))].slice(0, 20);
     state.targets = [...new Set(parameters.getAll('target').map(normalizeQuery).filter(Boolean))].slice(0, 20);
     $('#benefit-search-input').value = keyword || hashtag;
+    syncSortControl();
     renderFilters();
     if (request && (keyword || hashtag || state.statuses.length || state.fields.length || state.targets.length)) requestBenefits(1);
 }
 
-function disableUnsupportedControls() {
+function syncSortControl() {
     const sort = $('#sort-order');
-    [...sort.options].forEach((option) => {
-        option.disabled = option.value !== 'relevance';
-    });
-    sort.value = 'relevance';
-    sort.title = '현재 검색 API는 관련도순만 지원합니다.';
+    if (sort) sort.value = normalizeSort(state.sort);
+}
+
+function changeSort(value) {
+    const nextSort = normalizeSort(value);
+    if (nextSort === state.sort) {
+        syncSortControl();
+        return;
+    }
+    state.sort = nextSort;
+    syncSortControl();
+    syncSearchUrl({ push: true });
+    requestBenefits(1);
 }
 
 function setup() {
     renderFilters();
-    disableUnsupportedControls();
+    syncSortControl();
     render();
     loadHashtags();
 
@@ -821,6 +841,10 @@ function setup() {
         }
     });
     document.addEventListener('change', (event) => {
+        if (event.target.matches('#sort-order')) {
+            changeSort(event.target.value);
+            return;
+        }
         const input = event.target.closest('[data-filter-group]');
         if (!input) return;
         updateFilterSelection(input.dataset.filterGroup, input.value, input.checked);

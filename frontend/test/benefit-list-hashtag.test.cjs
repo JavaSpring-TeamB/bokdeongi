@@ -139,6 +139,6 @@ test('uses a selected hashtag in the public benefit search and synchronizes its 
   assert.equal(hooks.state.query, '');
   assert.equal(hooks.state.hashtag, '주거 지원/청년');
   assert.match(fetchCalls[0].url, /hashtag=%EC%A3%BC%EA%B1%B0\+%EC%A7%80%EC%9B%90%2F%EC%B2%AD%EB%85%84/);
-  assert.equal(historyCalls[0][2], '/benefit-list.html?hashtag=%EC%A3%BC%EA%B1%B0+%EC%A7%80%EC%9B%90%2F%EC%B2%AD%EB%85%84');
+  assert.equal(historyCalls[0][2], '/benefit-list.html?sort=relevance&hashtag=%EC%A3%BC%EA%B1%B0+%EC%A7%80%EC%9B%90%2F%EC%B2%AD%EB%85%84');
   assert.equal(hooks.buildRequestPath('', '주거 지원/청년', 1).includes('hashtag=%EC%A3%BC%EA%B1%B0+%EC%A7%80%EC%9B%90%2F%EC%B2%AD%EB%85%84'), true);
 });
