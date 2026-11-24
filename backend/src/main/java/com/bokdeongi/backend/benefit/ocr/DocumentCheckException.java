@@ -15,6 +15,11 @@ public class DocumentCheckException extends RuntimeException {
         this.code = code;
     }
 
+    /** 서류 처리 동의(DOC_PROCESS, D-76)가 없음 */
+    public static DocumentCheckException consentRequired() {
+        return new DocumentCheckException(403, "CONSENT_REQUIRED", "서류 처리에 동의해야 서류를 올릴 수 있어요.");
+    }
+
     public static DocumentCheckException fileTooLarge() {
         return new DocumentCheckException(413, "FILE_TOO_LARGE", "10MB 이하 파일만 올릴 수 있어요.");
     }
