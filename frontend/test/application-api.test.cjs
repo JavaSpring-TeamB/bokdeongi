@@ -51,8 +51,13 @@ function applicationList(overrides = {}) {
   return { summary: { totalCount: 1, inProgressCount: 1, completedCount: 0, expiredCount: 0 }, inProgress: [item], completed: [], expired: [], ...overrides };
 }
 
-function response(status, body) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+function response(status, body, headers = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (name) => headers[name] || headers[name.toLowerCase()] || null },
+    json: async () => body
+  };
 }
 
 function harness(request = () => response(200, application())) {
@@ -70,7 +75,7 @@ function harness(request = () => response(200, application())) {
     }
   };
   const window = { BokdeongiAuth: auth };
-  const context = { AbortController, DOMException, FormData: FakeFormData, Map, Number, Object, Promise, Set, String, URLSearchParams, window };
+  const context = { AbortController, Blob, DOMException, FormData: FakeFormData, Map, Number, Object, Promise, Set, String, URLSearchParams, window };
   context.globalThis = context;
   vm.createContext(context);
   vm.runInContext(source, context);
@@ -255,4 +260,54 @@ test('forces a fresh list request after a status mutation instead of sharing an 
   assert.equal(requests.length, 2);
   assert.equal(requests[0].url, '/api/applications');
   assert.equal(requests[1].url, '/api/applications');
+});
+
+test('downloads the calendar blob for the actual application ID and uses the server file name', async () => {
+  const { api, requests } = harness(() => ({
+    ok: true,
+    status: 200,
+    headers: { get: (name) => ({ 'Content-Type': 'text/calendar;charset=UTF-8', 'Content-Disposition': 'attachment; filename="deadline.ics"' })[name] || null },
+    blob: async () => new Blob(['BEGIN:VCALENDAR'], { type: 'text/calendar;charset=UTF-8' })
+  }));
+
+  const result = await api.downloadApplicationCalendar(274);
+  assert.equal(requests[0].url, '/api/applications/274/calendar.ics');
+  assert.equal(requests[0].options.method, 'GET');
+  assert.equal(requests[0].options.headers, undefined);
+  assert.ok(result.blob instanceof Blob);
+  assert.equal(result.fileName, 'deadline.ics');
+  assert.equal(result.contentType, 'text/calendar;charset=UTF-8');
+});
+
+test('uses the documented calendar file-name fallback and preserves API download errors', async () => {
+  const fallback = harness(() => ({
+    ok: true,
+    status: 200,
+    headers: { get: (name) => name === 'Content-Type' ? 'text/calendar' : null },
+    blob: async () => new Blob(['BEGIN:VCALENDAR'])
+  }));
+  assert.equal((await fallback.api.downloadApplicationCalendar(274)).fileName, 'application-274.ics');
+
+  const input = harness(() => response(400, { code: 'CALENDAR_UNAVAILABLE', message: '신청 마감일이 일 단위로 확정되지 않았습니다.' }));
+  await assert.rejects(input.api.downloadApplicationCalendar(274), (error) => error.kind === 'INPUT' && error.code === 'CALENDAR_UNAVAILABLE' && error.message === '신청 마감일이 일 단위로 확정되지 않았습니다.');
+
+  for (const [status, kind] of [[401, 'UNAUTHENTICATED'], [403, 'FORBIDDEN'], [404, 'NOT_FOUND']]) {
+    const failure = harness(() => response(status, { message: '요청 실패' }));
+    await assert.rejects(failure.api.downloadApplicationCalendar(274), (error) => error.kind === kind && error.status === status);
+  }
+});
+
+test('does not treat JSON or network failures as calendar downloads', async () => {
+  let blobRequested = false;
+  const invalid = harness(() => ({
+    ok: true,
+    status: 200,
+    headers: { get: () => 'application/json' },
+    blob: async () => { blobRequested = true; return new Blob(['{}']); }
+  }));
+  await assert.rejects(invalid.api.downloadApplicationCalendar(274), (error) => error.kind === 'INVALID');
+  assert.equal(blobRequested, false);
+
+  const network = harness(() => { throw new TypeError('Failed to fetch'); });
+  await assert.rejects(network.api.downloadApplicationCalendar(274), (error) => error.kind === 'NETWORK');
 });

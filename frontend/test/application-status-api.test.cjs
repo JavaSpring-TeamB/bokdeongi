@@ -4,6 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'application-status.js'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'application-status.html'), 'utf8');
 
 test('application status loads only the authenticated server list and has loading and failure states', () => {
   assert.match(source, /getApplicationList\(/);
@@ -50,4 +51,15 @@ test('application status confirms and serializes only the permitted cancellation
   assert.match(source, /getApplication\(id\)/);
   assert.match(source, /state\.statusUpdatingId/);
   assert.match(source, /load\(true\)/);
+});
+
+test('application status downloads calendar files through the common API using each application ID', () => {
+  assert.match(html, /data-calendar-save data-calendar-global/);
+  assert.match(source, /data-calendar-save="' \+ item\.id/);
+  assert.match(source, /downloadApplicationCalendar\(id\)/);
+  assert.match(source, /URL\.createObjectURL\(calendar\.blob\)/);
+  assert.match(source, /link\.download = calendar\.fileName/);
+  assert.match(source, /URL\.revokeObjectURL\(objectUrl\)/);
+  assert.match(source, /state\.calendarDownloadingId/);
+  assert.match(source, /캘린더 파일 다운로드를 시작했습니다/);
 });

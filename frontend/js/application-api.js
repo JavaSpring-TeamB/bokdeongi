@@ -98,6 +98,51 @@
         return response.json();
     }
 
+    function calendarFileName(contentDisposition, applicationId) {
+        const fallback = 'application-' + applicationId + '.ics';
+        if (typeof contentDisposition !== 'string') return fallback;
+        const encoded = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(contentDisposition);
+        const quoted = /filename\s*=\s*"([^"]+)"/i.exec(contentDisposition);
+        const plain = /filename\s*=\s*([^;\s]+)/i.exec(contentDisposition);
+        let name = encoded?.[1] || quoted?.[1] || plain?.[1] || '';
+        try {
+            name = encoded ? decodeURIComponent(name) : name;
+        } catch {
+            return fallback;
+        }
+        return /^[^\\/:*?"<>|]+\.ics$/i.test(name) ? name : fallback;
+    }
+
+    async function fetchCalendar(applicationId, signal) {
+        try {
+            const auth = await requireAuth();
+            const response = await auth.authenticatedFetch(
+                '/api/applications/' + encodeURIComponent(applicationId) + '/calendar.ics',
+                { method: 'GET', signal }
+            );
+            if (!response.ok) {
+                const error = await readError(response);
+                throw new ApplicationApiError(errorKind(response.status), error.message, response.status, error.code);
+            }
+            const contentType = response.headers?.get('Content-Type') || '';
+            if (!/^text\/calendar(?:\s*;|$)/i.test(contentType) || typeof response.blob !== 'function') {
+                throw new ApplicationApiError('INVALID', '캘린더 파일 응답 형식이 올바르지 않습니다.');
+            }
+            const blob = await response.blob();
+            if (typeof Blob === 'undefined' || !(blob instanceof Blob)) {
+                throw new ApplicationApiError('INVALID', '캘린더 파일을 확인하지 못했습니다.');
+            }
+            return {
+                blob,
+                fileName: calendarFileName(response.headers?.get('Content-Disposition'), applicationId),
+                contentType
+            };
+        } catch (error) {
+            if (error instanceof ApplicationApiError) throw error;
+            throw new ApplicationApiError('NETWORK', '캘린더 파일을 다운로드하지 못했습니다.');
+        }
+    }
+
     async function request(method, path, body, signal) {
         return normalizeApplication(await fetchJson(method, path, body, signal));
     }
@@ -295,6 +340,12 @@
         ));
     }
 
+    function downloadApplicationCalendar(applicationId, signal) {
+        const id = parseApplicationId(applicationId);
+        if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
+        return deduplicate('calendar:' + id, () => fetchCalendar(id, signal));
+    }
+
     function enqueueUpdate(applicationId, factory) {
         const previous = updates.get(applicationId);
         const previousTail = previous ? previous.tail : Promise.resolve();
@@ -424,6 +475,7 @@
         ApplicationApiError,
         assistantUrl,
         canEdit,
+        downloadApplicationCalendar,
         getApplication,
         getApplicationGuide,
         getApplicationList,
