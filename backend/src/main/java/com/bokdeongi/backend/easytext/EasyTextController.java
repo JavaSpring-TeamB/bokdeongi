@@ -4,6 +4,7 @@ import com.bokdeongi.backend.common.exception.ApiErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -11,7 +12,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** 쉬운 말 번역기 (EASY-02). 로그인 없이 쓸 수 있다 (하루 20번) */
 @Tag(name = "쉬운 말 번역기")
@@ -32,6 +35,16 @@ public class EasyTextController {
     public ResponseEntity<EasyTextDto.Response> translate(Authentication authentication, HttpServletRequest request,
                                                           @RequestBody EasyTextDto.Request body) {
         return ResponseEntity.ok(service.translate(clientKey(authentication, request), body == null ? null : body.text()));
+    }
+
+    @Operation(summary = "고지서 사진·PDF 쉬운 말 변환",
+            description = "multipart: file(JPG·PNG·PDF, 10MB). 로컬 OCR 서버가 글자를 읽고 주민번호·전화·계좌를 가린 뒤 "
+                    + "글 변환과 같은 길로 보낸다. 파일은 저장하지 않는다. 응답은 POST /api/easy-text와 같다. "
+                    + "흐린 사진 422 UNREADABLE, 형식 415, 크기 413, OCR 서버 꺼짐 502")
+    @PostMapping(value = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<EasyTextDto.Response> translateFile(Authentication authentication, HttpServletRequest request,
+                                                              @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.ok(service.translateFile(clientKey(authentication, request), file));
     }
 
     @ExceptionHandler(EasyTextException.class)

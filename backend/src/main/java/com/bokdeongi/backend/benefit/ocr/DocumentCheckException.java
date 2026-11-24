@@ -15,6 +15,12 @@ public class DocumentCheckException extends RuntimeException {
         this.code = code;
     }
 
+    /** 사진이 흐리거나 개인정보를 가리지 못해 글자를 쓸 수 없음 (OCR /text 422) */
+    public static DocumentCheckException unreadable(String message) {
+        return new DocumentCheckException(422, "UNREADABLE",
+                message == null || message.isBlank() ? "사진에서 글자를 읽지 못했어요. 다시 찍어 주세요." : message);
+    }
+
     /** 서류 처리 동의(DOC_PROCESS, D-76)가 없음 */
     public static DocumentCheckException consentRequired() {
         return new DocumentCheckException(403, "CONSENT_REQUIRED", "서류 처리에 동의해야 서류를 올릴 수 있어요.");

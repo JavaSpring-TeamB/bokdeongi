@@ -130,7 +130,8 @@ public class SecurityConfig {
                                 "/api/auth/signup",
                                 "/api/auth/login",
                                 "/api/auth/refresh",
-                                "/api/easy-text"
+                                "/api/easy-text",
+                                "/api/easy-text/file"
                         ).permitAll()
 
                         // 그 외 API는 인증 필요
