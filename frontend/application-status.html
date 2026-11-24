@@ -11,6 +11,7 @@
     <script src="./js/common-ui.js" defer></script>
     <script src="./js/auth-config.local.js" defer></script>
     <script src="./js/auth.js" defer></script>
+    <script src="./js/application-api.js" defer></script>
     <script src="./js/application-status.js" defer></script>
 </head>
 <body class="application-status-page">
@@ -57,7 +58,7 @@
             </div>
             <dl class="application-status-summary" aria-label="신청 상태 요약">
                 <div><dt>진행 중</dt><dd data-summary-count="in-progress">0건</dd></div>
-                <div><dt>준비 중</dt><dd data-summary-count="preparing">0건</dd></div>
+                <div><dt>기간 만료</dt><dd data-summary-count="expired">0건</dd></div>
                 <div><dt>완료</dt><dd data-summary-count="completed">0건</dd></div>
             </dl>
         </section>
@@ -66,7 +67,7 @@
             <div class="application-status-tabs" role="tablist" aria-label="신청 상태별 목록">
                 <button id="all-tab" class="application-status-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="application-list" data-status-tab="all">전체 <span data-tab-count="all"></span></button>
                 <button id="in-progress-tab" class="application-status-tab" type="button" role="tab" aria-selected="false" aria-controls="application-list" data-status-tab="in-progress">진행 중 <span data-tab-count="in-progress"></span></button>
-                <button id="preparing-tab" class="application-status-tab" type="button" role="tab" aria-selected="false" aria-controls="application-list" data-status-tab="preparing">준비 중 <span data-tab-count="preparing"></span></button>
+                <button id="expired-tab" class="application-status-tab" type="button" role="tab" aria-selected="false" aria-controls="application-list" data-status-tab="expired">기간 만료 <span data-tab-count="expired"></span></button>
                 <button id="completed-tab" class="application-status-tab" type="button" role="tab" aria-selected="false" aria-controls="application-list" data-status-tab="completed">완료 <span data-tab-count="completed"></span></button>
             </div>
             <button class="bk-btn bk-btn--secondary bk-btn--sm application-calendar-button" type="button" data-calendar-save>일정 저장</button>

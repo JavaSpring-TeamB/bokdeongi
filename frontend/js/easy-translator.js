@@ -1,13 +1,14 @@
 const $ = (selector) => document.querySelector(selector);
 const MAX_TEXT_LENGTH = 5000;
-const translatorState = { screen: 'IDLE', response: null, errorKind: null, errorMessage: '', lastSubmittedText: '' };
+const translatorState = { screen: 'IDLE', response: null, errorKind: null, errorCode: null, errorMessage: '', lastSubmittedText: '' };
 let selectedInputMode = 'text';
 let selectedResultTab = 'simple';
 let translateRequestId = 0;
 let translateController = null;
+const selectedFiles = { image: null, pdf: null };
 
 class EasyTextRequestError extends Error {
-    constructor(kind, message) { super(message); this.kind = kind; }
+    constructor(kind, message, code = null) { super(message); this.kind = kind; this.code = code; }
 }
 
 function optionalText(value) { return typeof value === 'string' && value.trim() ? value.trim() : ''; }
@@ -119,6 +120,12 @@ function renderResult() {
         result.append(resultMessage('translator-empty-state', '쉬운 말로 바꾸고 있어요.', 'status'));
     } else if (translatorState.screen === 'ERROR') {
         result.append(resultMessage('translator-empty-state', translatorState.errorMessage || '쉬운 말로 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.', 'alert'));
+        if (translatorState.errorKind === 'NETWORK' || translatorState.errorCode === 'AI_UNAVAILABLE') {
+            const retry = element('button', 'bk-btn bk-btn--secondary bk-btn--md', '다시 시도');
+            retry.type = 'button';
+            retry.dataset.retryTranslation = '';
+            result.append(resultMessage('translator-error-hint', '잠시 후 다시 시도해 주세요.'), retry);
+        }
     } else if (!resultIsReady()) {
         result.append(resultMessage('translator-empty-state', '원문을 붙여 넣고 쉬운 말로 바꾸기를 눌러 주세요.'));
     } else {
@@ -150,7 +157,9 @@ function updateInputPanels() {
 function updateSubmitState() {
     const button = $('[data-translate]');
     const sourceText = $('#source-text')?.value.trim() || '';
-    if (button) button.disabled = translatorState.screen === 'LOADING' || selectedInputMode !== 'text' || sourceText.length === 0;
+    const file = selectedFiles[selectedInputMode];
+    const hasInput = selectedInputMode === 'text' ? sourceText.length > 0 : Boolean(file);
+    if (button) button.disabled = translatorState.screen === 'LOADING' || !hasInput;
 }
 
 function resetTranslationResult() {
@@ -160,12 +169,16 @@ function resetTranslationResult() {
     translatorState.screen = 'IDLE';
     translatorState.response = null;
     translatorState.errorKind = null;
+    translatorState.errorCode = null;
     translatorState.errorMessage = '';
     translatorState.lastSubmittedText = '';
     selectedResultTab = 'simple';
 }
 
 function selectInputMode(mode) {
+    if (!['text', 'image', 'pdf'].includes(mode)) return;
+    const previousMode = selectedInputMode;
+    if (previousMode !== mode && previousMode !== 'text') clearSelectedFile(previousMode, false);
     selectedInputMode = mode;
     document.querySelectorAll('[data-input-mode]').forEach((tab) => {
         const selected = tab.dataset.inputMode === mode;
@@ -173,7 +186,46 @@ function selectInputMode(mode) {
         tab.setAttribute('aria-selected', String(selected));
     });
     updateInputPanels();
-    if (mode !== 'text') { resetTranslationResult(); renderResult(); }
+    if (previousMode !== mode) { resetTranslationResult(); renderResult(); }
+    updateSubmitState();
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + 'B';
+    if (bytes < 1024 * 1024) return Math.ceil(bytes / 1024) + 'KB';
+    return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '') + 'MB';
+}
+
+function updateFilePanel(mode) {
+    const file = selectedFiles[mode];
+    const name = $('[data-file-name="' + mode + '"]');
+    const remove = $('[data-file-remove="' + mode + '"]');
+    if (name) name.textContent = file ? file.name + ' (' + formatFileSize(file.size) + ')' : '선택된 파일 없음';
+    if (remove) remove.hidden = !file;
+}
+
+function clearSelectedFile(mode, reset = true) {
+    if (!Object.hasOwn(selectedFiles, mode)) return;
+    selectedFiles[mode] = null;
+    const input = $('#' + mode + '-input');
+    if (input) input.value = '';
+    updateFilePanel(mode);
+    if (reset && selectedInputMode === mode) { resetTranslationResult(); renderResult(); }
+    updateSubmitState();
+}
+
+function selectFiles(mode, files) {
+    if (!Object.hasOwn(selectedFiles, mode)) return;
+    const selected = Array.from(files || []);
+    if (selected.length !== 1) { clearSelectedFile(mode); showToast('파일은 한 개만 선택해 주세요.'); return; }
+    const file = selected[0];
+    const validationMessage = validateEasyTextFile(file);
+    if (validationMessage) { clearSelectedFile(mode); showToast(validationMessage); return; }
+    selectedFiles[mode] = file;
+    const input = $('#' + mode + '-input');
+    if (input) input.value = '';
+    updateFilePanel(mode);
+    if (selectedInputMode === mode) { resetTranslationResult(); renderResult(); }
     updateSubmitState();
 }
 
@@ -212,9 +264,11 @@ async function copyResult() {
     catch { showToast('결과 복사에 실패했어요. 직접 선택해 복사해 주세요.'); }
 }
 
-async function readErrorMessage(response) {
-    try { return optionalText((await response.json())?.message); }
-    catch { return ''; }
+async function readError(response) {
+    try {
+        const body = await response.json();
+        return { message: optionalText(body?.message), code: optionalText(body?.code) || null };
+    } catch { return { message: '', code: null }; }
 }
 
 async function postEasyText(text, signal) {
@@ -230,27 +284,50 @@ async function postEasyText(text, signal) {
     return fetch(auth.getApiUrl('/api/easy-text'), { ...options, credentials: 'include' });
 }
 
-async function translateText() {
-    if (selectedInputMode !== 'text') { showToast('이미지와 PDF 분석 기능은 아직 지원하지 않습니다.'); return; }
-    if (translatorState.screen === 'LOADING') return;
-    const text = $('#source-text')?.value.trim() || '';
-    if (!text) { showToast('바꿀 글을 붙여 넣어 주세요.'); return; }
-    if (text.length > MAX_TEXT_LENGTH) { showToast('글은 ' + MAX_TEXT_LENGTH + '자 이내로 붙여 넣어 주세요.'); return; }
+function validateEasyTextFile(file) {
+    if (!file || Array.isArray(file) || typeof file.name !== 'string' || !Number.isFinite(file.size) || file.size <= 0) {
+        return '바꿀 JPG, PNG 또는 PDF 파일을 선택해 주세요.';
+    }
+    if (file.size > 10 * 1024 * 1024) return '파일은 10MB 이하만 올릴 수 있어요.';
+    const allowedTypes = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+    const allowedExtension = /\.(?:jpe?g|png|pdf)$/i.test(file.name);
+    if ((file.type && !allowedTypes.has(file.type)) || (!file.type && !allowedExtension)) {
+        return 'JPG, PNG, PDF 파일만 올릴 수 있어요.';
+    }
+    return '';
+}
 
+async function postEasyTextFile(file, signal) {
+    const auth = window.BokdeongiAuth;
+    if (!auth || typeof auth.getCsrfToken !== 'function' || typeof auth.getApiUrl !== 'function') {
+        throw new EasyTextRequestError('CONFIG', '쉬운 말 번역 서비스를 설정하지 못했습니다.');
+    }
+    const csrf = await auth.getCsrfToken();
+    const body = new FormData();
+    body.append('file', file);
+    const options = { method: 'POST', headers: { [csrf.headerName]: csrf.token }, body, signal };
+    if (auth.getAuthenticationState?.() === 'authenticated' && typeof auth.authenticatedFetch === 'function') {
+        return auth.authenticatedFetch('/api/easy-text/file', options);
+    }
+    return fetch(auth.getApiUrl('/api/easy-text/file'), { ...options, credentials: 'include' });
+}
+
+async function runTranslation(request, lastSubmittedText) {
+    if (translatorState.screen === 'LOADING') return;
     const requestId = ++translateRequestId;
     if (translateController) translateController.abort();
     const controller = new AbortController();
     translateController = controller;
-    Object.assign(translatorState, { screen: 'LOADING', response: null, errorKind: null, errorMessage: '', lastSubmittedText: text });
+    Object.assign(translatorState, { screen: 'LOADING', response: null, errorKind: null, errorCode: null, errorMessage: '', lastSubmittedText });
     selectedResultTab = 'simple';
     renderResult();
     updateSubmitState();
     try {
-        const response = await postEasyText(text, controller.signal);
+        const response = await request(controller.signal);
         if (requestId !== translateRequestId) return;
         if (!response.ok) {
-            const message = await readErrorMessage(response);
-            throw new EasyTextRequestError('HTTP', message || '쉬운 말로 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.');
+            const error = await readError(response);
+            throw new EasyTextRequestError('HTTP', error.message || '쉬운 말로 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.', error.code);
         }
         let payload;
         try { payload = await response.json(); }
@@ -259,12 +336,14 @@ async function translateText() {
         if (requestId !== translateRequestId) return;
         translatorState.screen = 'RESULT';
         translatorState.response = payload;
+        if (selectedInputMode !== 'text') clearSelectedFile(selectedInputMode, false);
         renderResult();
     } catch (error) {
         if ((error && error.name === 'AbortError') || requestId !== translateRequestId) return;
         translatorState.screen = 'ERROR';
         translatorState.response = null;
         translatorState.errorKind = error instanceof EasyTextRequestError ? error.kind : 'NETWORK';
+        translatorState.errorCode = error instanceof EasyTextRequestError ? error.code : null;
         translatorState.errorMessage = error instanceof EasyTextRequestError ? error.message : '네트워크 연결을 확인한 뒤 다시 시도해 주세요.';
         renderResult();
         console.error('쉬운 말 번역을 요청하지 못했습니다.', error);
@@ -273,14 +352,51 @@ async function translateText() {
     }
 }
 
+async function translateText() {
+    if (selectedInputMode !== 'text') { showToast('이미지와 PDF 분석 기능은 아직 지원하지 않습니다.'); return; }
+    const text = $('#source-text')?.value.trim() || '';
+    if (!text) { showToast('바꿀 글을 붙여 넣어 주세요.'); return; }
+    if (text.length > MAX_TEXT_LENGTH) { showToast('글은 ' + MAX_TEXT_LENGTH + '자 이내로 붙여 넣어 주세요.'); return; }
+    return runTranslation((signal) => postEasyText(text, signal), text);
+}
+
+async function translateFile(file) {
+    const validationMessage = validateEasyTextFile(file);
+    if (validationMessage) { showToast(validationMessage); return; }
+    return runTranslation((signal) => postEasyTextFile(file, signal), '');
+}
+
+async function translateSelectedFile() {
+    const file = selectedFiles[selectedInputMode];
+    if (!file) { showToast('번역할 파일을 선택해 주세요.'); return; }
+    return translateFile(file);
+}
+
+async function retryTranslation() {
+    if (selectedInputMode === 'text') return translateText();
+    return translateSelectedFile();
+}
+
 function setupInteractions() {
     $('#source-text').addEventListener('input', updateSourceTextState);
+    ['image', 'pdf'].forEach((mode) => {
+        const input = $('#' + mode + '-input');
+        input?.addEventListener('change', () => selectFiles(mode, input.files));
+        const dropZone = $('[data-file-drop-zone="' + mode + '"]');
+        if (!dropZone) return;
+        dropZone.addEventListener('dragover', (event) => { event.preventDefault(); dropZone.classList.add('is-dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('is-dragover'));
+        dropZone.addEventListener('drop', (event) => { event.preventDefault(); dropZone.classList.remove('is-dragover'); selectFiles(mode, event.dataTransfer?.files); });
+    });
     document.addEventListener('click', (event) => {
         const inputTab = event.target.closest('[data-input-mode]');
         if (inputTab) { selectInputMode(inputTab.dataset.inputMode); return; }
         const resultTab = event.target.closest('[data-result-tab]');
         if (resultTab && !resultTab.disabled && resultIsReady()) { selectedResultTab = resultTab.dataset.resultTab; renderResult(); return; }
-        if (event.target.closest('[data-translate]')) { void translateText(); return; }
+        const removeFile = event.target.closest('[data-file-remove]');
+        if (removeFile) { clearSelectedFile(removeFile.dataset.fileRemove); return; }
+        if (event.target.closest('[data-retry-translation]')) { void retryTranslation(); return; }
+        if (event.target.closest('[data-translate]')) { void (selectedInputMode === 'text' ? translateText() : translateSelectedFile()); return; }
         if (event.target.closest('[data-copy-result]')) void copyResult();
     });
 }

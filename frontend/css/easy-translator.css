@@ -161,6 +161,11 @@
     font-size: var(--font-size-description);
 }
 
+.translator-file-panel.is-dragover {
+    border-color: var(--color-primary);
+    background: var(--color-primary-light);
+}
+
 .translator-file-select:focus-within {
     outline: 3px solid var(--color-info);
     outline-offset: 3px;

@@ -8,8 +8,8 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'easy-translator
 
 function node() {
   const value = {
-    children: [], textContent: '', hidden: false, disabled: false, value: '', dataset: {}, attributes: {},
-    classList: { toggle() {} }, addEventListener() {}, setAttribute(name, text) { this.attributes[name] = text; },
+    children: [], textContent: '', hidden: false, disabled: false, value: '', files: null, dataset: {}, attributes: {}, handlers: {},
+    classList: { toggle() {}, add() {}, remove() {} }, addEventListener(type, handler) { this.handlers[type] = handler; }, setAttribute(name, text) { this.attributes[name] = text; },
     removeAttribute(name) { delete this.attributes[name]; }, append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; this.textContent = ''; }, querySelector() { return null; }
   };
@@ -37,10 +37,20 @@ function payload(overrides = {}) {
 function createHarness({ request, authenticationState = 'unauthenticated' } = {}) {
   const elements = {
     '#source-text': node(), '[data-character-count]': node(), '[data-translate]': node(),
-    '#translation-result': node(), '[data-copy-result]': node(), '#toast': node()
+    '#translation-result': node(), '[data-copy-result]': node(), '#toast': node(),
+    '#image-input': node(), '#pdf-input': node(),
+    '[data-file-name="image"]': node(), '[data-file-name="pdf"]': node(),
+    '[data-file-remove="image"]': node(), '[data-file-remove="pdf"]': node(),
+    '[data-file-drop-zone="image"]': node(), '[data-file-drop-zone="pdf"]': node()
   };
   const tabs = ['simple', 'compare', 'evidence'].map((resultTab) => ({ ...node(), dataset: { resultTab } }));
+  const inputTabs = ['text', 'image', 'pdf'].map((inputMode) => ({ ...node(), dataset: { inputMode } }));
+  const inputPanels = ['text', 'image', 'pdf'].map((mode) => ({ ...node(), id: mode + '-input-panel' }));
   const calls = [];
+  class FakeFormData {
+    constructor() { this.values = []; }
+    append(name, value) { this.values.push([name, value]); }
+  }
   const auth = {
     getApiUrl: (requestPath) => `http://backend.test${requestPath}`,
     getCsrfToken: async () => ({ headerName: 'X-XSRF-TOKEN', token: 'csrf-token' }),
@@ -48,18 +58,18 @@ function createHarness({ request, authenticationState = 'unauthenticated' } = {}
     authenticatedFetch: async (requestPath, options) => { calls.push({ requestPath, options, authenticated: true }); return request(requestPath, options); }
   };
   const document = {
-    addEventListener() {}, createElement: node, createTextNode: (text) => ({ textContent: text, children: [] }),
+    handlers: {}, addEventListener(type, handler) { this.handlers[type] = handler; }, createElement: node, createTextNode: (text) => ({ textContent: text, children: [] }),
     querySelector: (selector) => elements[selector] || null,
-    querySelectorAll: (selector) => selector === '[data-result-tab]' ? tabs : []
+    querySelectorAll: (selector) => selector === '[data-result-tab]' ? tabs : selector === '[data-input-mode]' ? inputTabs : selector === '.translator-input-panel' ? inputPanels : []
   };
   const context = {
-    AbortController, Array, JSON, Number, Object, String, console: { error() {} }, document,
+    AbortController, Array, FormData: FakeFormData, JSON, Number, Object, String, console: { error() {} }, document,
     window: { BokdeongiAuth: auth, setTimeout() {} }, navigator: { clipboard: { writeText: async () => {} } },
     fetch: async (url, options) => { calls.push({ url, options, authenticated: false }); return request(url, options); }
   };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(`${source}\nglobalThis.__easyTextHooks = { translatorState, isEasyTextResponse, translateText, updateSourceTextState, selectInputMode, getCopyText };`, context);
+  vm.runInContext(`${source}\nglobalThis.__easyTextHooks = { translatorState, isEasyTextResponse, translateText, translateFile, translateSelectedFile, retryTranslation, validateEasyTextFile, updateSourceTextState, selectInputMode, selectFiles, clearSelectedFile, getCopyText, setupInteractions };`, context);
   return { calls, elements, hooks: context.__easyTextHooks };
 }
 
@@ -102,6 +112,113 @@ test('uses authenticatedFetch for a signed-in request', async () => {
   await harness.hooks.translateText();
   assert.equal(harness.calls[0].authenticated, true);
   assert.equal(harness.calls[0].requestPath, '/api/easy-text');
+});
+
+test('posts one anonymous JPG, PNG, or PDF as multipart to the EASY-02 file endpoint and reuses the response flow', async () => {
+  const file = { name: 'notice.JPG', type: 'image/jpeg', size: 128 };
+  const harness = createHarness({ request: () => response(200, payload({ summary: '파일 결과' })) });
+  await harness.hooks.translateFile(file);
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.calls[0].authenticated, false);
+  assert.equal(harness.calls[0].url, 'http://backend.test/api/easy-text/file');
+  assert.equal(harness.calls[0].options.method, 'POST');
+  assert.equal(harness.calls[0].options.headers['X-XSRF-TOKEN'], 'csrf-token');
+  assert.equal(harness.calls[0].options.headers['Content-Type'], undefined);
+  assert.deepEqual(harness.calls[0].options.body.values, [['file', file]]);
+  assert.equal(harness.hooks.translatorState.screen, 'RESULT');
+  assert.equal(harness.hooks.translatorState.response.summary, '파일 결과');
+});
+
+test('validates the one-file contract and preserves a 422 UNREADABLE server code and message', async () => {
+  const invalid = createHarness({ request: () => { throw new Error('must not request'); } });
+  await invalid.hooks.translateFile({ name: 'notice.webp', type: 'image/webp', size: 1 });
+  await invalid.hooks.translateFile({ name: 'notice.pdf', type: 'application/pdf', size: 10 * 1024 * 1024 + 1 });
+  assert.equal(invalid.calls.length, 0);
+
+  const unreadable = createHarness({ request: () => response(422, { code: 'UNREADABLE', message: '글자를 읽지 못했어요.' }) });
+  await unreadable.hooks.translateFile({ name: 'notice.pdf', type: 'application/pdf', size: 1024 });
+  assert.equal(unreadable.hooks.translatorState.screen, 'ERROR');
+  assert.equal(unreadable.hooks.translatorState.errorCode, 'UNREADABLE');
+  assert.equal(unreadable.hooks.translatorState.errorMessage, '글자를 읽지 못했어요.');
+});
+
+test('activates image and PDF tabs only after one valid file is selected, and clears the file for reselection', () => {
+  const harness = createHarness({ request: () => response(200, payload()) });
+  const file = { name: 'notice.png', type: 'image/png', size: 2048 };
+  harness.hooks.selectInputMode('image');
+  harness.hooks.selectFiles('image', [{ name: 'notice.webp', type: 'image/webp', size: 1 }]);
+  harness.hooks.selectFiles('image', [{ name: 'large.png', type: 'image/png', size: 10 * 1024 * 1024 + 1 }]);
+  harness.hooks.selectFiles('image', [file, file]);
+  assert.equal(harness.elements['[data-file-name="image"]'].textContent, '선택된 파일 없음');
+  harness.hooks.selectFiles('image', [file]);
+  assert.equal(harness.elements['[data-file-name="image"]'].textContent, 'notice.png (2KB)');
+  assert.equal(harness.elements['[data-file-remove="image"]'].hidden, false);
+  assert.equal(harness.elements['[data-translate]'].disabled, false);
+  harness.hooks.clearSelectedFile('image');
+  assert.equal(harness.elements['[data-file-name="image"]'].textContent, '선택된 파일 없음');
+  assert.equal(harness.elements['[data-file-remove="image"]'].hidden, true);
+  assert.equal(harness.elements['[data-translate]'].disabled, true);
+  harness.hooks.selectFiles('image', [file]);
+  assert.equal(harness.elements['[data-translate]'].disabled, false);
+});
+
+test('accepts a dropped file and sends the current selected file through translateFile', async () => {
+  const file = { name: 'notice.pdf', type: 'application/pdf', size: 1024 };
+  const harness = createHarness({ request: () => response(200, payload({ summary: '드롭 결과' })) });
+  harness.hooks.setupInteractions();
+  const drop = harness.elements['[data-file-drop-zone="pdf"]'].handlers.drop;
+  let prevented = false;
+  drop({ preventDefault() { prevented = true; }, dataTransfer: { files: [file] } });
+  assert.equal(prevented, true);
+  harness.hooks.selectInputMode('pdf');
+  await harness.hooks.translateSelectedFile();
+  assert.equal(harness.calls[0].url, 'http://backend.test/api/easy-text/file');
+  assert.equal(harness.hooks.translatorState.response.summary, '드롭 결과');
+});
+
+test('clears a file and ignores its late response when the user changes tabs', async () => {
+  let resolveRequest;
+  const harness = createHarness({ request: () => new Promise((resolve) => { resolveRequest = resolve; }) });
+  const file = { name: 'notice.jpg', type: 'image/jpeg', size: 1024 };
+  harness.hooks.selectInputMode('image');
+  harness.hooks.selectFiles('image', [file]);
+  const pending = harness.hooks.translateSelectedFile();
+  await new Promise((resolve) => setImmediate(resolve));
+  harness.hooks.selectInputMode('text');
+  resolveRequest(response(200, payload({ summary: '늦은 파일 결과' })));
+  await pending;
+  assert.equal(harness.hooks.translatorState.screen, 'IDLE');
+  assert.equal(harness.hooks.translatorState.response, null);
+  assert.equal(harness.elements['[data-file-name="image"]'].textContent, '선택된 파일 없음');
+});
+
+test('preserves the AI_UNAVAILABLE message, allows retry, and releases a file after a completed response', async () => {
+  let count = 0;
+  const file = { name: 'notice.pdf', type: 'application/pdf', size: 1024 };
+  const harness = createHarness({ request: () => {
+    count += 1;
+    return count === 1
+      ? response(502, { code: 'AI_UNAVAILABLE', message: 'OCR 서비스를 사용할 수 없어요.' })
+      : response(200, payload({ summary: '재시도 결과' }));
+  } });
+  harness.hooks.selectInputMode('pdf');
+  harness.hooks.selectFiles('pdf', [file]);
+  await harness.hooks.translateSelectedFile();
+  assert.equal(harness.hooks.translatorState.errorMessage, 'OCR 서비스를 사용할 수 없어요.');
+  assert.equal(harness.hooks.translatorState.errorCode, 'AI_UNAVAILABLE');
+  assert.match(allText(harness.elements['#translation-result']), /잠시 후 다시 시도해 주세요/);
+  await harness.hooks.retryTranslation();
+  assert.equal(harness.hooks.translatorState.response.summary, '재시도 결과');
+  assert.equal(harness.elements['[data-file-name="pdf"]'].textContent, '선택된 파일 없음');
+});
+
+test('renders an invalid EASY-02 response as an error instead of a translation result', async () => {
+  const harness = createHarness({ request: () => response(200, { status: 'DONE' }) });
+  harness.elements['#source-text'].value = '안내문';
+  await harness.hooks.translateText();
+  assert.equal(harness.hooks.translatorState.screen, 'ERROR');
+  assert.equal(harness.hooks.translatorState.response, null);
+  assert.match(allText(harness.elements['#translation-result']), /변환 결과 형식이 올바르지 않습니다/);
 });
 
 test('renders FAILED with the summary only', async () => {
