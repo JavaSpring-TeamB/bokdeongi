@@ -10,9 +10,8 @@ import com.bokdeongi.backend.profile.dto.response.ProfileResponse;
 import com.bokdeongi.backend.profile.service.ProfileService;
 import org.springframework.stereotype.Service;
 import com.bokdeongi.backend.home.repository.HomeQueryRepository.EligibilityCountRow;
-import java.time.LocalDateTime;
-import java.time.LocalDate;
-import java.time.ZoneId;
+
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
@@ -73,9 +72,14 @@ public class HomeService {
         EligibilityCountRow eligibilityCounts =
                 new EligibilityCountRow(0L, 0L, 0L, 0L);
 
-        // 공고 데이터 마지막 정상 동기화 시각
-        LocalDateTime benefitDataUpdatedAt =
+        // 공고 데이터 마지막 정상 동기화 시각 (UTC)
+        LocalDateTime updatedAt =
                 homeQueryRepository.findBenefitDataUpdatedAt();
+
+        OffsetDateTime benefitDataUpdatedAt =
+                updatedAt == null
+                        ? null
+                        : updatedAt.atOffset(ZoneOffset.UTC);
 
         if (completed) {
 

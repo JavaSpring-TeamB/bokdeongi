@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -65,7 +66,10 @@ class HomeServiceTest {
         assertZeroCounts(response);
 
         assertThat(response.benefitDataUpdatedAt())
-                .isEqualTo(UPDATED_AT);
+                .isEqualTo(UPDATED_AT.atOffset(ZoneOffset.UTC));
+
+        assertThat(response.benefitDataUpdatedAt().getOffset())
+                .isEqualTo(ZoneOffset.UTC);
 
         verify(homeQueryRepository, never())
                 .findEligibilityCounts(USER_ID);
@@ -113,7 +117,10 @@ class HomeServiceTest {
         );
 
         assertThat(response.benefitDataUpdatedAt())
-                .isEqualTo(UPDATED_AT);
+                .isEqualTo(UPDATED_AT.atOffset(ZoneOffset.UTC));
+
+        assertThat(response.benefitDataUpdatedAt().getOffset())
+                .isEqualTo(ZoneOffset.UTC);
 
         verify(homeQueryRepository)
                 .findEligibilityCounts(USER_ID);
@@ -143,7 +150,10 @@ class HomeServiceTest {
         assertThat(response.nearMissBenefits()).isEmpty();
 
         assertThat(response.benefitDataUpdatedAt())
-                .isEqualTo(UPDATED_AT);
+                .isEqualTo(UPDATED_AT.atOffset(ZoneOffset.UTC));
+
+        assertThat(response.benefitDataUpdatedAt().getOffset())
+                .isEqualTo(ZoneOffset.UTC);
 
         verify(homeQueryRepository, never())
                 .findEligibilityCounts(USER_ID);
