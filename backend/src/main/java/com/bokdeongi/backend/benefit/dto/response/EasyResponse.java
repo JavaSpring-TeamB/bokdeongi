@@ -21,4 +21,9 @@ public record EasyResponse(String status, String text, Summary summary, LocalDat
     public static EasyResponse failed() {
         return new EasyResponse("FAILED", null, null, null, NOTICE);
     }
+
+    /** 아직 만든 글이 없음 (AI 꺼짐·하루 한도). 프론트는 원문만 보여 준다 */
+    public static EasyResponse notReady() {
+        return new EasyResponse("NOT_READY", null, null, null, NOTICE);
+    }
 }

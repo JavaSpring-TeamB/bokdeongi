@@ -1,6 +1,7 @@
 package com.bokdeongi.backend.benefit.controller;
 
 import com.bokdeongi.backend.benefit.dto.response.EasyResponse;
+import com.bokdeongi.backend.benefit.easy.EasyOnView;
 import com.bokdeongi.backend.benefit.entity.Benefit;
 import com.bokdeongi.backend.benefit.repository.BenefitRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,20 +11,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Objects;
-
 @Tag(name = "혜택 상세")
 @RestController
 @RequestMapping("/api/benefits")
 public class BenefitEasyController {
 
     private final BenefitRepository benefitRepository;
+    private final EasyOnView easyOnView;
 
-    public BenefitEasyController(BenefitRepository benefitRepository) {
+    public BenefitEasyController(BenefitRepository benefitRepository, EasyOnView easyOnView) {
         this.benefitRepository = benefitRepository;
+        this.easyOnView = easyOnView;
     }
 
-    @Operation(summary = "혜택 상세 - 저장된 쉬운 말 조회")
+    @Operation(summary = "혜택 상세 - 쉬운 말 조회",
+            description = "저장된 쉬운 말이 있으면 바로 준다. 없으면 처음 볼 때 한 번 만들어 저장한다(몇 초 걸림). "
+                    + "status: DONE(글 있음) / FAILED(검사 탈락, 원문만 표시) / NOT_READY(AI 꺼짐·하루 한도, 원문만 표시)")
     @GetMapping("/{benefitId}/easy")
     public ResponseEntity<EasyResponse> getEasy(
             @PathVariable Long benefitId
@@ -33,53 +36,6 @@ public class BenefitEasyController {
                         HttpStatus.NOT_FOUND,
                         "존재하지 않는 혜택입니다."
                 ));
-
-
-        boolean fresh = benefit.getAiGeneratedAt() != null
-                && Objects.equals(
-                benefit.getAiSourceModifiedAt(),
-                benefit.getApiModifiedAt()
-        );
-
-        if (!fresh) {
-            return ResponseEntity.ok(new EasyResponse(
-                    "NOT_READY",
-                    null,
-                    null,
-                    null,
-                    EasyResponse.NOTICE
-            ));
-        }
-
-        if ("FAILED".equals(benefit.getAiStatus())) {
-            return ResponseEntity.ok(EasyResponse.failed());
-        }
-
-        if (!"DONE".equals(benefit.getAiStatus())
-                || benefit.getEasyText() == null
-                || benefit.getEasyText().isBlank()) {
-            return ResponseEntity.ok(new EasyResponse(
-                    "NOT_READY",
-                    null,
-                    null,
-                    null,
-                    EasyResponse.NOTICE
-            ));
-        }
-
-        EasyResponse response = new EasyResponse(
-                "DONE",
-                benefit.getEasyText(),
-                new EasyResponse.Summary(
-                        benefit.getSummaryWho(),
-                        benefit.getSummaryWhat(),
-                        benefit.getSummaryHow(),
-                        benefit.getSummaryWhen()
-                ),
-                benefit.getAiGeneratedAt(),
-                EasyResponse.NOTICE
-        );
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(easyOnView.view(benefit));
     }
 }
