@@ -2,6 +2,7 @@ package com.bokdeongi.backend.benefit.application;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.jdbc.core.ResultSetExtractor;
 
 @Repository
 public class DocumentRecordRepository {
@@ -16,6 +17,18 @@ public class DocumentRecordRepository {
         return jdbcTemplate.query(
                 "SELECT doc_records FROM users WHERE id = ?",
                 rs -> rs.next() ? rs.getString("doc_records") : null,
+                userId
+        );
+    }
+
+    /**
+     * 서류 기록 변경 전 사용자 행을 잠근다.
+     * 반드시 트랜잭션 내부에서 호출해야 한다.
+     */
+    public boolean lockUser(Long userId) {
+        return jdbcTemplate.query(
+                "SELECT id FROM users WHERE id = ? FOR UPDATE",
+                (ResultSetExtractor<Boolean>) rs -> rs.next(),
                 userId
         );
     }

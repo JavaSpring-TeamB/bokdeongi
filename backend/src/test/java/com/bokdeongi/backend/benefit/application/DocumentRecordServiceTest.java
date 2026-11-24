@@ -1,26 +1,26 @@
 package com.bokdeongi.backend.benefit.application;
 
 import org.junit.jupiter.api.Test;
-
 import java.time.LocalDate;
-
 import com.bokdeongi.backend.auth.entity.UserConsent;
 import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import org.mockito.Mockito;
-
 import java.util.Optional;
-
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-
 import static org.junit.jupiter.api.Assertions.*;
+import com.bokdeongi.backend.benefit.entity.DocumentType;
+import com.bokdeongi.backend.benefit.repository.DocumentTypeRepository;
+import org.springframework.http.HttpStatus;
+
+import java.time.ZoneId;
 
 class DocumentRecordServiceTest {
 
     @Test
     void shouldCalculateExpirationDate() {
         DocumentRecordService service =
-                new DocumentRecordService(null, null);
+                new DocumentRecordService(null, null, null);
 
         var result = service.calculateValidity(
                 LocalDate.of(2026, 10, 30),
@@ -36,7 +36,7 @@ class DocumentRecordServiceTest {
     @Test
     void shouldReturnNoExpirationWhenValidityIsNull() {
         DocumentRecordService service =
-                new DocumentRecordService(null, null);
+                new DocumentRecordService(null, null, null);
 
         var result = service.calculateValidity(
                 LocalDate.of(2026, 10, 30),
@@ -55,7 +55,7 @@ class DocumentRecordServiceTest {
     @Test
     void shouldRejectNegativeValidityDays() {
         DocumentRecordService service =
-                new DocumentRecordService(null, null);
+                new DocumentRecordService(null, null, null);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -100,6 +100,9 @@ class DocumentRecordServiceTest {
         DocumentRecordRepository recordRepository =
                 mock(DocumentRecordRepository.class);
 
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
         when(consentRepository
                 .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
                         1L, "DOC_RECORD"
@@ -109,7 +112,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         boolean saved = service.saveRecord(
@@ -119,7 +123,14 @@ class DocumentRecordServiceTest {
         );
 
         assertFalse(saved);
-        verifyNoInteractions(recordRepository);
+
+        verify(recordRepository).lockUser(1L);
+
+        verify(recordRepository, never())
+                .findRecords(anyLong());
+
+        verify(recordRepository, never())
+                .saveRecords(anyLong(), anyString());
     }
 
     @Test
@@ -129,6 +140,9 @@ class DocumentRecordServiceTest {
 
         DocumentRecordRepository recordRepository =
                 mock(DocumentRecordRepository.class);
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
 
         UserConsent consent = mock(UserConsent.class);
         when(consent.getAgreed()).thenReturn(true);
@@ -149,7 +163,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         boolean saved = service.saveRecord(
@@ -173,6 +188,9 @@ class DocumentRecordServiceTest {
         DocumentRecordRepository recordRepository =
                 mock(DocumentRecordRepository.class);
 
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
         UserConsent consent = mock(UserConsent.class);
         when(consent.getAgreed()).thenReturn(true);
 
@@ -190,7 +208,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         boolean saved = service.saveRecord(
@@ -224,7 +243,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         assertTrue(service.findRecords(1L).isEmpty());
@@ -255,7 +275,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         assertTrue(service.deleteRecordsOnConsentWithdrawal(1L));
@@ -283,7 +304,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         assertFalse(service.deleteRecordsOnConsentWithdrawal(1L));
@@ -316,7 +338,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         var result = service.findRecords(userId);
@@ -357,7 +380,8 @@ class DocumentRecordServiceTest {
         DocumentRecordService service =
                 new DocumentRecordService(
                         consentRepository,
-                        recordRepository
+                        recordRepository,
+                        null
                 );
 
         var result = service.findRecordsByType(userId, 268L);
@@ -373,5 +397,414 @@ class DocumentRecordServiceTest {
                 result.get(1).issueDate());
 
         verify(recordRepository).findRecords(userId);
+    }
+
+    @Test
+    void shouldRejectRecordLookupWithoutConsent() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.empty());
+
+        DocumentRecordException exception = assertThrows(
+                DocumentRecordException.class,
+                () -> service.getDocumentRecords(1L, null)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
+        assertEquals("CONSENT_REQUIRED", exception.getCode());
+        assertEquals(
+                "서류 유효기간 기억에 동의해야 합니다.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(recordRepository);
+    }
+
+    @Test
+    void shouldRejectRecordRegistrationWithoutConsent() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.empty());
+
+        DocumentRecordRequest request =
+                new DocumentRecordRequest(
+                        256L,
+                        LocalDate.now(ZoneId.of("Asia/Seoul"))
+                );
+
+        DocumentRecordException exception = assertThrows(
+                DocumentRecordException.class,
+                () -> service.registerDocumentRecord(1L, request)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
+        assertEquals("CONSENT_REQUIRED", exception.getCode());
+        assertEquals(
+                "서류 유효기간 기억에 동의해야 합니다.",
+                exception.getMessage()
+        );
+
+        verify(recordRepository, never())
+                .saveRecords(anyLong(), anyString());
+
+        verifyNoInteractions(documentTypeRepository);
+    }
+
+    @Test
+    void shouldRegisterDocumentRecordWithConsent() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        UserConsent consent = mock(UserConsent.class);
+
+        when(consent.getAgreed()).thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(consent));
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
+        when(documentTypeRepository.existsById(256L))
+                .thenReturn(true);
+
+        when(recordRepository.findRecords(1L))
+                .thenReturn(null);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        DocumentRecordRequest request =
+                new DocumentRecordRequest(
+                        256L,
+                        LocalDate.now(ZoneId.of("Asia/Seoul"))
+                );
+
+        assertDoesNotThrow(
+                () -> service.registerDocumentRecord(1L, request)
+        );
+
+        verify(recordRepository)
+                .saveRecords(eq(1L), anyString());
+    }
+
+    @Test
+    void shouldReturnDocumentRecordsWithValidity() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        UserConsent consent = mock(UserConsent.class);
+        DocumentType documentType = mock(DocumentType.class);
+
+        LocalDate issueDate =
+                LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        when(consent.getAgreed()).thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(consent));
+
+        when(recordRepository.findRecords(1L))
+                .thenReturn(
+                        "[{\"documentTypeId\":256,\"issueDate\":\""
+                                + issueDate + "\"}]"
+                );
+
+        when(documentTypeRepository.findById(256L))
+                .thenReturn(Optional.of(documentType));
+
+        when(documentType.getName())
+                .thenReturn("주민등록등본");
+
+        when(documentType.getDefaultValidityDays())
+                .thenReturn(90);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        DocumentRecordResponse response =
+                service.getDocumentRecords(1L, null);
+
+        assertEquals(1, response.records().size());
+
+        DocumentRecordResponse.Item item =
+                response.records().get(0);
+
+        assertEquals(256L, item.documentTypeId());
+        assertEquals("주민등록등본", item.documentName());
+        assertEquals(issueDate, item.issueDate());
+        assertEquals(90, item.validityDays());
+        assertEquals(issueDate.plusDays(90), item.expiresAt());
+        assertEquals(Boolean.TRUE, item.valid());
+    }
+
+    @Test
+    void shouldRejectUnknownDocumentType() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        UserConsent consent = mock(UserConsent.class);
+
+        when(consent.getAgreed()).thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(consent));
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
+        when(documentTypeRepository.existsById(999999L))
+                .thenReturn(false);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        DocumentRecordRequest request =
+                new DocumentRecordRequest(
+                        999999L,
+                        LocalDate.now(ZoneId.of("Asia/Seoul"))
+                );
+
+        DocumentRecordException exception = assertThrows(
+                DocumentRecordException.class,
+                () -> service.registerDocumentRecord(1L, request)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+        assertEquals("DOCUMENT_TYPE_NOT_FOUND", exception.getCode());
+        assertEquals(
+                "존재하지 않는 서류 종류입니다.",
+                exception.getMessage()
+        );
+
+        verify(recordRepository, never())
+                .saveRecords(anyLong(), anyString());
+    }
+
+    @Test
+    void shouldRejectFutureIssueDate() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        UserConsent consent = mock(UserConsent.class);
+
+        when(consent.getAgreed()).thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(consent));
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        DocumentRecordRequest request =
+                new DocumentRecordRequest(
+                        256L,
+                        LocalDate.now(ZoneId.of("Asia/Seoul"))
+                                .plusDays(1)
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.registerDocumentRecord(1L, request)
+        );
+
+        verify(recordRepository, never())
+                .saveRecords(anyLong(), anyString());
+
+        verifyNoInteractions(documentTypeRepository);
+    }
+
+    @Test
+    void shouldNotSaveRecordForMissingUser() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(false);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        boolean saved = service.saveRecord(
+                1L,
+                256L,
+                LocalDate.now(ZoneId.of("Asia/Seoul"))
+        );
+
+        assertFalse(saved);
+
+        verify(recordRepository).lockUser(1L);
+
+        verify(recordRepository, never())
+                .saveRecords(anyLong(), anyString());
+
+        verifyNoInteractions(consentRepository);
+    }
+
+    @Test
+    void shouldReturnRecordsFilteredByDocumentType() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        DocumentTypeRepository documentTypeRepository =
+                mock(DocumentTypeRepository.class);
+
+        UserConsent consent = mock(UserConsent.class);
+        DocumentType documentType = mock(DocumentType.class);
+
+        LocalDate issueDate =
+                LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        when(consent.getAgreed()).thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(consent));
+
+        when(recordRepository.findRecords(1L))
+                .thenReturn(
+                        "[{\"documentTypeId\":256,\"issueDate\":\""
+                                + issueDate + "\"},"
+                                + "{\"documentTypeId\":257,\"issueDate\":\""
+                                + issueDate + "\"}]"
+                );
+
+        when(documentTypeRepository.findById(256L))
+                .thenReturn(Optional.of(documentType));
+
+        when(documentType.getName())
+                .thenReturn("주민등록등본");
+
+        when(documentType.getDefaultValidityDays())
+                .thenReturn(90);
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        documentTypeRepository
+                );
+
+        DocumentRecordResponse response =
+                service.getDocumentRecords(1L, 256L);
+
+        assertEquals(1, response.records().size());
+
+        assertEquals(
+                256L,
+                response.records().get(0).documentTypeId()
+        );
+
+        verify(documentTypeRepository, never())
+                .findById(257L);
     }
 }
