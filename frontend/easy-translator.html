@@ -70,16 +70,18 @@
                     <p class="translator-character-count"><span data-character-count>0</span> / 5,000자</p>
                 </section>
 
-                <section id="image-input-panel" class="translator-input-panel translator-file-panel" role="tabpanel" aria-labelledby="image-input-tab" hidden>
-                    <label class="bk-btn bk-btn--secondary bk-btn--md translator-file-select">이미지 파일 선택<input id="image-input" class="sr-only translator-file-input" type="file" accept="image/png,image/jpeg,image/webp"></label>
+                <section id="image-input-panel" class="translator-input-panel translator-file-panel" role="tabpanel" aria-labelledby="image-input-tab" data-file-drop-zone="image" tabindex="0" hidden>
+                    <label class="bk-btn bk-btn--secondary bk-btn--md translator-file-select">이미지 파일 선택<input id="image-input" class="sr-only translator-file-input" type="file" accept="image/png,image/jpeg"></label>
                     <span class="translator-file-name" data-file-name="image">선택된 파일 없음</span>
-                    <p class="translator-file-help">이미지 글자 인식 기능은 추후 연동 예정입니다. 현재는 파일을 분석하지 않습니다.</p>
+                    <button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-file-remove="image" hidden>파일 제거</button>
+                    <p class="translator-file-help">JPG, JPEG, PNG 파일을 선택하거나 이 영역에 끌어다 놓으세요. 최대 10MB</p>
                 </section>
 
-                <section id="pdf-input-panel" class="translator-input-panel translator-file-panel" role="tabpanel" aria-labelledby="pdf-input-tab" hidden>
+                <section id="pdf-input-panel" class="translator-input-panel translator-file-panel" role="tabpanel" aria-labelledby="pdf-input-tab" data-file-drop-zone="pdf" tabindex="0" hidden>
                     <label class="bk-btn bk-btn--secondary bk-btn--md translator-file-select">PDF 파일 선택<input id="pdf-input" class="sr-only translator-file-input" type="file" accept="application/pdf"></label>
                     <span class="translator-file-name" data-file-name="pdf">선택된 파일 없음</span>
-                    <p class="translator-file-help">PDF 텍스트 추출 기능은 추후 연동 예정입니다. 현재는 파일을 분석하지 않습니다.</p>
+                    <button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-file-remove="pdf" hidden>파일 제거</button>
+                    <p class="translator-file-help">PDF 파일을 선택하거나 이 영역에 끌어다 놓으세요. 최대 10MB</p>
                 </section>
 
                 <button class="bk-btn bk-btn--primary bk-btn--lg translator-submit" type="button" data-translate>쉬운 말로 바꾸기 <span aria-hidden="true">→</span></button>

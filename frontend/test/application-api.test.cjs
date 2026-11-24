@@ -46,6 +46,11 @@ function guide(overrides = {}) {
     steps: [{ order: 1, method: 'ONLINE', text: '로그인합니다.' }], notes: [], copyCards: [], visit: null, contacts: [], ...overrides };
 }
 
+function applicationList(overrides = {}) {
+  const item = { id: 1, benefitId: 2, benefitName: '청년 지원', appStatus: 'IN_PROGRESS', stage: '준비 중', step: 1, completedItems: 0, totalItems: 4, progressPercent: 0, deadline: null, deadlineLabel: null, dDay: null };
+  return { summary: { totalCount: 1, inProgressCount: 1, completedCount: 0, expiredCount: 0 }, inProgress: [item], completed: [], expired: [], ...overrides };
+}
+
 function response(status, body) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }
@@ -232,4 +237,22 @@ test('loads guide data and serializes the documented status DTO with other appli
   await assert.rejects(api.updateApplicationStatus(274, 'IN_PROGRESS'), (error) => error.kind === 'INPUT');
   const malformed = harness(() => response(200, { method: 'ONLINE' }));
   await assert.rejects(malformed.api.getApplicationGuide(274), (error) => error.kind === 'INVALID');
+});
+
+test('loads and validates the server-classified application lists without client filtering', async () => {
+  const { api, requests } = harness(() => response(200, applicationList()));
+  const result = await api.getApplicationList();
+  assert.equal(result.inProgress[0].benefitName, '청년 지원');
+  assert.equal(requests[0].url, '/api/applications');
+  assert.equal(requests[0].options.method, 'GET');
+  const malformed = harness(() => response(200, { summary: {}, inProgress: [], completed: [], expired: [] }));
+  await assert.rejects(malformed.api.getApplicationList(), (error) => error.kind === 'INVALID');
+});
+
+test('forces a fresh list request after a status mutation instead of sharing an older list response', async () => {
+  const { api, requests } = harness(() => response(200, applicationList()));
+  await Promise.all([api.getApplicationList(), api.getApplicationList({ force: true })]);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].url, '/api/applications');
+  assert.equal(requests[1].url, '/api/applications');
 });

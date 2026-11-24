@@ -208,6 +208,30 @@
         return value;
     }
 
+    function isApplicationListItem(value) {
+        return isObject(value) && parseApplicationId(value.id) !== null && parseApplicationId(value.benefitId) !== null
+            && typeof value.benefitName === 'string' && typeof value.appStatus === 'string' && typeof value.stage === 'string'
+            && (value.step === null || Number.isInteger(value.step)) && Number.isInteger(value.completedItems)
+            && Number.isInteger(value.totalItems) && Number.isInteger(value.progressPercent)
+            && (value.deadline === null || typeof value.deadline === 'string')
+            && (value.deadlineLabel === null || typeof value.deadlineLabel === 'string')
+            && (value.dDay === null || Number.isInteger(value.dDay));
+    }
+
+    function isApplicationListResponse(value) {
+        return isObject(value) && isObject(value.summary) && Number.isInteger(value.summary.totalCount)
+            && Number.isInteger(value.summary.inProgressCount) && Number.isInteger(value.summary.completedCount)
+            && Number.isInteger(value.summary.expiredCount) && Array.isArray(value.inProgress)
+            && Array.isArray(value.completed) && Array.isArray(value.expired)
+            && value.inProgress.every(isApplicationListItem) && value.completed.every(isApplicationListItem)
+            && value.expired.every(isApplicationListItem);
+    }
+
+    function normalizeApplicationList(value) {
+        if (!isApplicationListResponse(value)) throw new ApplicationApiError('INVALID', '신청 목록 응답 형식이 올바르지 않습니다.');
+        return value;
+    }
+
     function isReviewFile(file) {
         return isObject(file) && typeof file.name === 'string' && Number.isFinite(file.size) && file.size > 0;
     }
@@ -240,6 +264,11 @@
         const id = parseApplicationId(applicationId);
         if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
         return deduplicate('get:' + id, () => request('GET', '/api/applications/' + encodeURIComponent(id)));
+    }
+
+    function getApplicationList(options = {}) {
+        const requestList = async () => normalizeApplicationList(await fetchJson('GET', '/api/applications'));
+        return options.force === true ? requestList() : deduplicate('list', requestList);
     }
 
     function getDocuments(applicationId) {
@@ -397,9 +426,11 @@
         canEdit,
         getApplication,
         getApplicationGuide,
+        getApplicationList,
         getDocuments,
         getMissingDocuments,
         isApplicationResponse,
+        isApplicationListResponse,
         isDocumentsResponse,
         isMissingDocumentsResponse,
         isReviewResponse,

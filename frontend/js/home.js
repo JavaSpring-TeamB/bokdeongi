@@ -104,7 +104,12 @@ function isHomeSummaryResponse(payload) {
     || !payload.amountSummary
     || !payload.applicationSummary
     || !Array.isArray(payload.applicationSummary.items)
-    || !isNullableInteger(payload.profileStep)) return false;
+    || !isNullableInteger(payload.profileStep)
+    || !Number.isInteger(payload.totalCount) || payload.totalCount < 0
+    || !Number.isInteger(payload.eligibleCount) || payload.eligibleCount < 0
+    || !Number.isInteger(payload.conditionalCount) || payload.conditionalCount < 0
+    || !Number.isInteger(payload.ineligibleCount) || payload.ineligibleCount < 0
+    || !isNullableString(payload.benefitDataUpdatedAt)) return false;
 
   const amount = payload.amountSummary;
   const applications = payload.applicationSummary;
@@ -197,6 +202,38 @@ function eligibilityStatisticsMarkup(summary) {
   return `<div class="benefit-tabs" aria-label="맞춤 혜택 통계">${statistics.map(([label, field], index) => `<span class="benefit-tab${index === 0 ? ' is-current' : ''}"><span class="benefit-tab__label">${label}</span><strong class="benefit-tab__value">${eligibilityCountValue(summary, field)}</strong></span>`).join('')}</div>`;
 }
 
+function benefitSummaryMode(data) {
+  if (!data.profileCompleted) return 'profile';
+  if (data.eligibilityUpdating) return 'updating';
+  return 'ready';
+}
+
+function daysInMonth(year, month) {
+  if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+function formatBenefitDataUpdatedAt(value) {
+  if (value === null) return '정상 동기화 기록이 없습니다.';
+  if (typeof value !== 'string') return '갱신 시각 형식을 확인할 수 없습니다.';
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?$/.exec(value);
+  if (!match) return '갱신 시각 형식을 확인할 수 없습니다.';
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map((part) => part === undefined ? undefined : Number(part));
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month) || hour > 23 || minute > 59 || (second !== undefined && second > 59)) {
+    return '갱신 시각 형식을 확인할 수 없습니다.';
+  }
+  const time = second === undefined ? `${match[4]}:${match[5]}` : `${match[4]}:${match[5]}:${match[6]}${match[7] || ''}`;
+  return `${match[1]}년 ${match[2]}월 ${match[3]}일 ${time}`;
+}
+
+function benefitDataUpdatedAtText(data, authStatus = authState.status, summaryStatus = homeSummaryState.status) {
+  if (authStatus === 'checking') return '인증 상태를 확인하는 중이에요.';
+  if (authStatus === 'unauthenticated') return '로그인 후 확인할 수 있어요.';
+  if (authStatus === 'error' || summaryStatus === 'error' || !data) return '갱신 시각을 불러오지 못했어요.';
+  if (summaryStatus === 'idle' || summaryStatus === 'loading') return '불러오는 중이에요.';
+  return formatBenefitDataUpdatedAt(data.benefitDataUpdatedAt);
+}
+
 function renderBenefitSummary(data) {
   const target = document.querySelector('#benefit-summary');
   if (!target) return;
@@ -221,16 +258,17 @@ function renderBenefitSummary(data) {
     return;
   }
 
-  const statistics = eligibilityStatisticsMarkup(data.eligibilitySummary);
-  if (!data.profileCompleted) {
-    target.innerHTML = `${statistics}<p class="benefit-description">${profileStepLabel(data.profileStep)} 프로필을 완료하면 맞춤 혜택을 알려드려요.</p>`;
+  const mode = benefitSummaryMode(data);
+  if (mode === 'profile') {
+    target.innerHTML = `<p class="benefit-description">${profileStepLabel(data.profileStep)} 프로필을 완료하면 맞춤 혜택을 알려드려요.</p><a class="btn btn-secondary" href="signup-profile.html">프로필 입력하기</a>`;
     return;
   }
-  if (data.eligibilityUpdating) {
-    target.innerHTML = `${statistics}<p class="benefit-description">자격 판정 결과를 갱신하고 있어요. 최신 결과가 준비되면 맞춤 혜택을 보여드릴게요.</p>`;
+  if (mode === 'updating') {
+    target.innerHTML = '<div class="dashboard-state dashboard-state--loading" role="status"><p>자격 판정 결과를 분석하고 있어요. 최신 결과가 준비되면 맞춤 혜택을 보여드릴게요.</p></div>';
     return;
   }
 
+  const statistics = eligibilityStatisticsMarkup(data);
   const recommendations = data.recommendations.slice(0, 5);
   const nearMiss = data.nearMissBenefits.slice(0, 5);
   const closingSoon = data.closingSoon.slice(0, 5);
@@ -483,7 +521,7 @@ function renderHome() {
   renderApplications(data);
   renderCalendar(getSectionState());
   const timestamp = document.querySelector('#data-updated-at');
-  if (timestamp) timestamp.textContent = '제공 예정';
+  if (timestamp) timestamp.textContent = benefitDataUpdatedAtText(data);
 }
 
 async function loadHomeSummary({ force = false } = {}) {
