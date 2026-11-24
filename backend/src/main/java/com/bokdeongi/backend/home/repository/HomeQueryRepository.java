@@ -2,6 +2,7 @@ package com.bokdeongi.backend.home.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -20,6 +21,53 @@ public class HomeQueryRepository {
 
     public HomeQueryRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    // HOME-01 사용자별 맞춤 혜택 판정 통계
+    public EligibilityCountRow findEligibilityCounts(long userId) {
+        String sql = """
+                SELECT
+                    COUNT(*) AS total_count,
+                    COUNT(CASE WHEN er.result = 'ELIGIBLE'
+                               THEN 1 END) AS eligible_count,
+                    COUNT(CASE WHEN er.result = 'CONDITIONAL'
+                               THEN 1 END) AS conditional_count,
+                    COUNT(CASE WHEN er.result = 'INELIGIBLE'
+                               THEN 1 END) AS ineligible_count
+                FROM eligibility_results er
+                JOIN users u ON u.id = er.user_id
+                JOIN benefits b ON b.id = er.benefit_id
+                WHERE er.user_id = ?
+                  AND er.profile_version = u.profile_version
+                  AND b.status = 'ACTIVE'
+                  AND er.result IN (
+                      'ELIGIBLE', 'CONDITIONAL', 'INELIGIBLE'
+                  )
+                """;
+
+        return jdbcTemplate.queryForObject(sql, (rs, rowNum) ->
+                new EligibilityCountRow(
+                        rs.getLong("total_count"),
+                        rs.getLong("eligible_count"),
+                        rs.getLong("conditional_count"),
+                        rs.getLong("ineligible_count")
+                ), userId);
+    }
+
+    // HOME-01 공고 데이터 마지막 정상 동기화 시각
+    public LocalDateTime findBenefitDataUpdatedAt() {
+        String sql = """
+                SELECT MAX(finished_at) AS benefit_data_updated_at
+                FROM sync_logs
+                WHERE operation = 'SERVICE_LIST'
+                  AND status = 'SUCCESS'
+                """;
+
+        return jdbcTemplate.queryForObject(sql, (rs, rowNum) ->
+                rs.getObject(
+                        "benefit_data_updated_at",
+                        LocalDateTime.class
+                ));
     }
 
     // 사용자별 판정 결과와 혜택 정보
@@ -97,6 +145,14 @@ public class HomeQueryRepository {
                         rs.getString("result"),
                         rs.getString("near_miss_reason")
                 ), userId);
+    }
+
+    public record EligibilityCountRow(
+            long totalCount,
+            long eligibleCount,
+            long conditionalCount,
+            long ineligibleCount
+    ) {
     }
 
     public record EligibleBenefitRow(
