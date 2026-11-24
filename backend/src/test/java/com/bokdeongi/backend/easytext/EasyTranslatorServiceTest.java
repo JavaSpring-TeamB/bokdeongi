@@ -17,6 +17,9 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 
 import com.bokdeongi.backend.benefit.easy.EasyGenerator;
+import com.bokdeongi.backend.benefit.ocr.OcrClient;
+import java.util.List;
+import org.springframework.mock.web.MockMultipartFile;
 
 /** LLM은 흉내만 낸다. 붙여 넣은 글은 가짜 (D-92: 실제 개인정보 없음) */
 class EasyTranslatorServiceTest {
@@ -31,6 +34,7 @@ class EasyTranslatorServiceTest {
     private EasyGenerator generator;
     private EasyTextLimiter limiter;
     private EasyTranslatorService service;
+    private OcrClient ocrClient;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -39,7 +43,8 @@ class EasyTranslatorServiceTest {
         when(provider.getIfAvailable()).thenReturn(mock(ChatModel.class));
         generator = mock(EasyGenerator.class);
         limiter = new EasyTextLimiter();
-        service = new EasyTranslatorService(provider, generator, limiter);
+        ocrClient = mock(OcrClient.class);
+        service = new EasyTranslatorService(provider, generator, limiter, ocrClient);
     }
 
     @Test
@@ -94,6 +99,35 @@ class EasyTranslatorServiceTest {
         }
         assertEquals("TOO_MANY_REQUESTS", assertThrows(EasyTextException.class,
                 () -> service.translate("user:7", TEXT)).getCode());
+        verify(generator, never()).generate(anyString(), anyString());
+    }
+
+    @Test
+    void 사진은_OCR로_읽은_글을_같은_길로_바꾼다() {
+        MockMultipartFile file = new MockMultipartFile("file", "bill.png", "image/png", new byte[] {1, 2});
+        when(ocrClient.text(org.mockito.ArgumentMatchers.any(), anyString()))
+                .thenReturn(List.of("납부기한은 2026. 12. 31.까지입니다."));
+        when(generator.generate(anyString(), anyString())).thenReturn(GOOD);
+        EasyTextDto.Response r = service.translateFile("ip:1", file);
+        assertEquals(EasyTranslatorService.DONE, r.status());
+        verify(generator).generate(anyString(), argThat(user -> user.contains("납부기한은 2026. 12. 31.까지입니다.")));
+    }
+
+    @Test
+    void AI가_꺼져_있으면_OCR도_안_돌린다() {
+        when(provider.getIfAvailable()).thenReturn(null);
+        MockMultipartFile file = new MockMultipartFile("file", "bill.png", "image/png", new byte[] {1});
+        assertEquals("AI_UNAVAILABLE", assertThrows(EasyTextException.class,
+                () -> service.translateFile("ip:1", file)).getCode());
+        verify(ocrClient, never()).text(org.mockito.ArgumentMatchers.any(), anyString());
+    }
+
+    @Test
+    void 사진에서_글자를_못_찾으면_INVALID_INPUT() {
+        MockMultipartFile file = new MockMultipartFile("file", "bill.png", "image/png", new byte[] {1});
+        when(ocrClient.text(org.mockito.ArgumentMatchers.any(), anyString())).thenReturn(List.of());
+        assertEquals("INVALID_INPUT", assertThrows(EasyTextException.class,
+                () -> service.translateFile("ip:1", file)).getCode());
         verify(generator, never()).generate(anyString(), anyString());
     }
 }

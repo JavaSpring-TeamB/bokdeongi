@@ -89,6 +89,51 @@ public class OcrClient {
         return parse(body);
     }
 
+    /**
+     * 사진·PDF 글자 읽기 (POST /text, EASY-02 고지서 사진용). OCR 서버가 주민번호·전화·계좌를 가린 줄만 돌려준다.
+     *
+     * @throws DocumentCheckException 흐림·가리기 실패면 UNREADABLE(422), 크기·형식은 4xx, 서버 꺼짐은 AI_UNAVAILABLE(502)
+     */
+    public List<String> text(byte[] data, String filename) {
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("file", new ByteArrayResource(data) {
+            @Override
+            public String getFilename() {
+                return filename == null || filename.isBlank() ? "upload" : filename;
+            }
+        });
+        String body;
+        try {
+            body = restClient.post()
+                    .uri("/text")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(form)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (request, response) -> {
+                        String text = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                        throw fromError(response.getStatusCode().value(), text);
+                    })
+                    .body(String.class);
+        } catch (ResourceAccessException e) {
+            throw DocumentCheckException.unavailable();
+        }
+        return parseLines(body);
+    }
+
+    /** /text 응답 JSON {"lines": [...]} → 줄 목록 */
+    static List<String> parseLines(String json) {
+        Object v;
+        try {
+            v = JsonText.parse(json);
+        } catch (IllegalArgumentException e) {
+            throw DocumentCheckException.unavailable();
+        }
+        if (!(v instanceof Map<?, ?> m) || !(m.get("lines") instanceof List<?>)) {
+            throw DocumentCheckException.unavailable();
+        }
+        return strings(m.get("lines"));
+    }
+
     /** /check 응답 JSON → 결과 */
     static OcrCheckResult parse(String json) {
         Object v;
@@ -124,6 +169,9 @@ public class OcrClient {
         }
         if (status == 415 || "UNSUPPORTED_FORMAT".equals(code)) {
             return DocumentCheckException.unsupportedFormat();
+        }
+        if (status == 422 || "UNREADABLE".equals(code)) {
+            return DocumentCheckException.unreadable(message);
         }
         if (status == 400 && message != null) {
             return DocumentCheckException.invalidInput(message);

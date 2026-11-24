@@ -1,13 +1,18 @@
 package com.bokdeongi.backend.easytext;
 
 import com.bokdeongi.backend.benefit.easy.EasyGenerator;
+import com.bokdeongi.backend.benefit.ocr.DocumentCheckException;
+import com.bokdeongi.backend.benefit.ocr.OcrClient;
 import com.bokdeongi.backend.common.privacy.PersonalInfoMasker;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * EASY-02 쉬운 말 번역기. 사용자가 붙여 넣은 고지서·안내문을 쉬운 말로 바꾼다.
@@ -28,11 +33,53 @@ public class EasyTranslatorService {
     private final ObjectProvider<ChatModel> chatModel;
     private final EasyGenerator generator;
     private final EasyTextLimiter limiter;
+    private final OcrClient ocrClient;
 
-    public EasyTranslatorService(ObjectProvider<ChatModel> chatModel, EasyGenerator generator, EasyTextLimiter limiter) {
+    public EasyTranslatorService(ObjectProvider<ChatModel> chatModel, EasyGenerator generator, EasyTextLimiter limiter,
+                                 OcrClient ocrClient) {
         this.chatModel = chatModel;
         this.generator = generator;
         this.limiter = limiter;
+        this.ocrClient = ocrClient;
+    }
+
+    /** 10MB (OCR 서버·서류 업로드와 같음) */
+    static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
+
+    /**
+     * 고지서 사진·PDF를 쉬운 말로 (EASY-02). 로컬 OCR 서버가 글자를 읽고 주민번호·전화·계좌를 가린 뒤,
+     * 글 붙여 넣기와 같은 길(translate)로 보낸다. 파일은 메모리에서만 쓰고 저장하지 않는다.
+     */
+    public EasyTextDto.Response translateFile(String clientKey, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw EasyTextException.invalidInput("바꿀 사진이나 PDF를 올려 주세요.");
+        }
+        if (file.getSize() > MAX_FILE_BYTES) {
+            throw DocumentCheckException.fileTooLarge();
+        }
+        if (chatModel.getIfAvailable() == null) {
+            throw EasyTextException.disabled(); // AI가 꺼져 있으면 OCR도 돌리지 않는다
+        }
+        byte[] data;
+        try {
+            data = file.getBytes();
+        } catch (IOException e) {
+            throw EasyTextException.invalidInput("파일을 읽지 못했어요. 다시 올려 주세요.");
+        }
+        List<String> lines;
+        try {
+            lines = ocrClient.text(data, file.getOriginalFilename());
+        } finally {
+            Arrays.fill(data, (byte) 0); // 원본은 남기지 않는다
+        }
+        String text = String.join("\n", lines).strip();
+        if (text.isEmpty()) {
+            throw EasyTextException.invalidInput("사진에서 글자를 찾지 못했어요. 글자가 잘 보이게 다시 찍어 주세요.");
+        }
+        if (text.length() > MAX_TEXT) {
+            throw EasyTextException.invalidInput("글이 너무 길어요(" + MAX_TEXT + "자 넘음). 한 장씩 나눠 올려 주세요.");
+        }
+        return translate(clientKey, text);
     }
 
     /**
