@@ -55,6 +55,7 @@ let favoriteRequestId = 0;
 let favoriteController = null;
 let askRequestId = 0;
 let askController = null;
+let assistantStartPending = false;
 
 class BenefitDetailRequestError extends Error {
     constructor(kind, message = '') {
@@ -1007,7 +1008,10 @@ function applyPanel(detail) {
 function sidebar(detail) {
     const target = isMissing(detail, 'targetText') ? '공고 확인 필요' : detail.targetText.trim();
     const method = isMissing(detail, 'applyMethodText') ? '공고 확인 필요' : detail.applyMethodText.trim();
-    return '<aside class="detail-sidebar"><section class="card"><h2>신청 정보</h2><dl class="application-info"><div><dt>공고 상태</dt><dd>' + escapeHtml(detail.ended ? '종료' : (detail.status || '정보 제공되지 않음')) + '</dd></div><div><dt>지원 대상</dt><dd>' + escapeHtml(target) + '</dd></div><div><dt>지원 금액</dt><dd>' + escapeHtml(amountText(detail)) + '</dd></div><div><dt>신청 기간</dt><dd>' + escapeHtml(periodText(detail)) + '</dd></div><div><dt>신청 방법</dt><dd>' + escapeHtml(method) + '</dd></div></dl><button id="assistant-button" class="btn primary-button" type="button" disabled aria-disabled="true">AI 신청 도우미 준비 중</button></section>' + askPanel() + '</aside>';
+    const assistantButton = detail.ended
+        ? '<button id="assistant-button" class="btn primary-button" type="button" disabled aria-disabled="true">종료된 혜택입니다</button>'
+        : '<button id="assistant-button" class="btn primary-button" type="button">AI 신청 도우미로 시작하기</button>';
+    return '<aside class="detail-sidebar"><section class="card"><h2>신청 정보</h2><dl class="application-info"><div><dt>공고 상태</dt><dd>' + escapeHtml(detail.ended ? '종료' : (detail.status || '정보 제공되지 않음')) + '</dd></div><div><dt>지원 대상</dt><dd>' + escapeHtml(target) + '</dd></div><div><dt>지원 금액</dt><dd>' + escapeHtml(amountText(detail)) + '</dd></div><div><dt>신청 기간</dt><dd>' + escapeHtml(periodText(detail)) + '</dd></div><div><dt>신청 방법</dt><dd>' + escapeHtml(method) + '</dd></div></dl>' + assistantButton + '</section>' + askPanel() + '</aside>';
 }
 
 function loadingMarkup() {
@@ -1145,6 +1149,41 @@ function toast(message) {
     toast.timer = setTimeout(() => { element.hidden = true; }, 3000);
 }
 
+async function startAssistant() {
+    if (assistantStartPending || !state.detail || !state.benefitId || state.detail.ended) return;
+    const api = window.BokdeongiApplication;
+    if (!api) {
+        toast('신청 도우미를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+    }
+    const button = $('#assistant-button');
+    assistantStartPending = true;
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = '신청 정보를 준비하는 중…';
+    }
+    try {
+        const application = await api.startApplication(state.benefitId);
+        if (!api.canEdit(application)) {
+            toast('현재 상태의 신청은 신청 도우미에서 수정할 수 없습니다.');
+            return;
+        }
+        const target = api.assistantUrl(application.step, application.id);
+        if (!target) throw new api.ApplicationApiError('INVALID', '신청 단계 정보를 확인하지 못했습니다.');
+        window.location.assign(target);
+    } catch (error) {
+        toast(api.messageFor(error));
+    } finally {
+        assistantStartPending = false;
+        if (button && state.screen === 'RESULT' && state.detail && !state.detail.ended) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.textContent = 'AI 신청 도우미로 시작하기';
+        }
+    }
+}
+
 function setup() {
     const id = parseBenefitId(new URLSearchParams(window.location.search).get('id'));
     document.addEventListener('click', (event) => {
@@ -1169,6 +1208,7 @@ function setup() {
 
         if (event.target.closest('#share-button')) copyUrl();
         if (event.target.closest('#save-button')) toggleFavorite();
+        if (event.target.closest('#assistant-button')) void startAssistant();
         if (event.target.closest('[data-retry-detail]') && state.benefitId) loadDetail(state.benefitId);
     });
     document.addEventListener('submit', (event) => {
