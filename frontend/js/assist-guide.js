@@ -22,6 +22,7 @@ const guideSampleData = {
 const guideStorageKey = 'bokdeongi-assist-guide-snapshot';
 const applicationStatusPath = 'application-status.html';
 const $ = (selector) => document.querySelector(selector);
+let application = null;
 
 function getGuideData() {
     try {
@@ -227,7 +228,9 @@ function setupInteractions() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    application = await window.BokdeongiApplication.loadCurrentAssistantApplication($('#main-content'));
+    if (!application) return;
     renderGuideData(getGuideData());
     setupInteractions();
 });

@@ -36,6 +36,7 @@ const reviewDocuments = [
 
 let selectedDocumentId = 'income';
 let isReviewing = false;
+let application = null;
 
 function isDevelopmentTestMode() {
     const localPreview = window.location.protocol === 'file:' || ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
@@ -143,7 +144,7 @@ function render() {
         '</dl>' +
         '<div class="review-upload-actions">' +
         '<button class="bk-btn bk-btn--secondary bk-btn--md" type="button" data-upload ' + (isReviewing ? 'disabled' : '') + '>' + (isReviewing ? '검토 요청 중...' : '다시 업로드') + '</button>' +
-        '<a class="bk-btn bk-btn--secondary bk-btn--md" href="assist-documents.html?id=' + encodeURIComponent(selected.id) + '">발급 안내</a>' +
+        '<a class="bk-btn bk-btn--secondary bk-btn--md" href="' + window.BokdeongiApplication.assistantUrl(2, application.id) + '">발급 안내</a>' +
         '</div>' +
         '</section>' +
         '<section class="review-summary-section" aria-labelledby="review-summary-title">' +
@@ -296,7 +297,9 @@ function setupInteractions() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    application = await window.BokdeongiApplication.loadCurrentAssistantApplication($('#assist-content'));
+    if (!application) return;
     render();
     setupInteractions();
 });
