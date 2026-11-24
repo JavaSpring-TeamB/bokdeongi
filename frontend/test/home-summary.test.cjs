@@ -102,16 +102,23 @@ test('uses an error state rather than displaying zero counts after a HOME-01 ret
   assert.doesNotMatch(markup, /0건/);
 });
 
-test('formats a normal local date-time using the server-provided date and time components', () => {
-  assert.equal(hooks().formatBenefitDataUpdatedAt('2026-11-24T09:05:07'), '2026년 11월 24일 09:05:07');
-  assert.equal(hooks().formatBenefitDataUpdatedAt('2026-11-24T09:05'), '2026년 11월 24일 09:05');
+test('formats UTC and offset HOME-01 timestamps in Korea Standard Time', () => {
+  const api = hooks();
+  assert.equal(api.formatBenefitDataUpdatedAt('2026-11-24T00:05:07Z'), '2026년 11월 24일 09:05:07 (KST)');
+  assert.equal(api.formatBenefitDataUpdatedAt('2026-11-24T00:05:07+00:00'), '2026년 11월 24일 09:05:07 (KST)');
+  assert.equal(api.formatBenefitDataUpdatedAt('2026-11-24T09:05:07+09:00'), '2026년 11월 24일 09:05:07 (KST)');
 });
 
-test('distinguishes no completed synchronization record from malformed local date-time data', () => {
+test('converts an offset timestamp across a Korean calendar date boundary', () => {
+  assert.equal(hooks().formatBenefitDataUpdatedAt('2026-11-23T18:05:07Z'), '2026년 11월 24일 03:05:07 (KST)');
+});
+
+test('distinguishes no completed synchronization record from malformed or offset-free data', () => {
   const api = hooks();
   assert.equal(api.formatBenefitDataUpdatedAt(null), '정상 동기화 기록이 없습니다.');
   assert.equal(api.formatBenefitDataUpdatedAt('2026-02-30T09:05:00'), '갱신 시각 형식을 확인할 수 없습니다.');
-  assert.equal(api.formatBenefitDataUpdatedAt('2026-11-24T09:05:00Z'), '갱신 시각 형식을 확인할 수 없습니다.');
+  assert.equal(api.formatBenefitDataUpdatedAt('2026-11-24T09:05:00'), '갱신 시각 형식을 확인할 수 없습니다.');
+  assert.equal(api.formatBenefitDataUpdatedAt('2026-11-24T09:05:00+09:60'), '갱신 시각 형식을 확인할 수 없습니다.');
 });
 
 test('does not substitute a timestamp when HOME-01 retrieval fails', () => {

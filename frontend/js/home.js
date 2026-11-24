@@ -216,14 +216,28 @@ function daysInMonth(year, month) {
 function formatBenefitDataUpdatedAt(value) {
   if (value === null) return '정상 동기화 기록이 없습니다.';
   if (typeof value !== 'string') return '갱신 시각 형식을 확인할 수 없습니다.';
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?(Z|[+-](?:(?:0\d|1[0-7]):[0-5]\d|18:00))$/.exec(value);
   if (!match) return '갱신 시각 형식을 확인할 수 없습니다.';
   const [year, month, day, hour, minute, second] = match.slice(1, 7).map((part) => part === undefined ? undefined : Number(part));
   if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month) || hour > 23 || minute > 59 || (second !== undefined && second > 59)) {
     return '갱신 시각 형식을 확인할 수 없습니다.';
   }
-  const time = second === undefined ? `${match[4]}:${match[5]}` : `${match[4]}:${match[5]}:${match[6]}${match[7] || ''}`;
-  return `${match[1]}년 ${match[2]}월 ${match[3]}일 ${time}`;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return '갱신 시각 형식을 확인할 수 없습니다.';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(instant).reduce((values, part) => {
+    if (part.type !== 'literal') values[part.type] = part.value;
+    return values;
+  }, {});
+  return `${parts.year}년 ${parts.month}월 ${parts.day}일 ${parts.hour}:${parts.minute}:${parts.second} (KST)`;
 }
 
 function benefitDataUpdatedAtText(data, authStatus = authState.status, summaryStatus = homeSummaryState.status) {
