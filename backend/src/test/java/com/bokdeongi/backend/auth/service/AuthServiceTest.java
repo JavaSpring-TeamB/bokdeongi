@@ -95,6 +95,12 @@ class AuthServiceTest {
                 "docRecordConsentVersion",
                 "v1.0"
         );
+
+        ReflectionTestUtils.setField(
+                authService,
+                "docProcessConsentVersion",
+                "v1.0"
+        );
     }
 
     /**
@@ -593,5 +599,73 @@ class AuthServiceTest {
 
         verify(documentRecordRepository).deleteRecords(userId);
         verify(userConsentRepository, never()).save(any(UserConsent.class));
+    }
+
+    @Test
+    void shouldGrantDocProcessConsent() {
+        Long userId = 1L;
+        User user = mock(User.class);
+
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "DOC_PROCESS"))
+                .thenReturn(Optional.empty());
+
+        authService.updateConsent(
+                userId,
+                new ConsentUpdateRequest(
+                        "DOC_PROCESS", "v1.0", true
+                )
+        );
+
+        verify(userConsentRepository).save(
+                argThat(consent ->
+                        "DOC_PROCESS".equals(consent.getConsentType())
+                                && "v1.0".equals(consent.getDocVersion())
+                                && Boolean.TRUE.equals(consent.getAgreed())
+                )
+        );
+
+        verify(documentRecordRepository, never())
+                .deleteRecords(userId);
+    }
+
+    @Test
+    void shouldWithdrawDocProcessConsent() {
+        Long userId = 1L;
+        User user = mock(User.class);
+
+        when(userRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
+
+        UserConsent previousConsent = new UserConsent(
+                user, "DOC_PROCESS", "v1.0", true
+        );
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "DOC_PROCESS"))
+                .thenReturn(Optional.of(previousConsent));
+
+        authService.updateConsent(
+                userId,
+                new ConsentUpdateRequest(
+                        "DOC_PROCESS", "v1.0", false
+                )
+        );
+
+        verify(userConsentRepository).save(
+                argThat(consent ->
+                        "DOC_PROCESS".equals(consent.getConsentType())
+                                && "v1.0".equals(consent.getDocVersion())
+                                && Boolean.FALSE.equals(consent.getAgreed())
+                )
+        );
+
+        verify(documentRecordRepository, never())
+                .deleteRecords(userId);
     }
 }

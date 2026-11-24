@@ -179,7 +179,8 @@ public class AuthController {
     }
 
     /**
-     * 로그인한 회원의 선택 개인정보 및 민감정보 동의 상태를 조회한다.
+     * 로그인한 회원의 선택 개인정보, 민감정보, 서류 기억 및
+     * OCR 서류 처리 동의 상태를 조회한다.
      *
      * @param authentication 인증된 사용자 정보
      * @return 동의 유형별 최신 상태
@@ -198,7 +199,7 @@ public class AuthController {
     }
 
     /**
-     * 선택 개인정보 및 민감정보 동의 변경·철회
+     * 선택 개인정보, 민감정보, 서류 기억 및 OCR 서류 처리 동의 변경·철회
      * 기존 동의 기록은 유지하고 새로운 동의 이력을 저장한다.
      */
     @SecurityRequirement(name = "bearerAuth")

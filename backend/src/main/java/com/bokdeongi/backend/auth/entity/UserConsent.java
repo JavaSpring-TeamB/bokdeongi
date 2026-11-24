@@ -44,7 +44,7 @@ public class UserConsent {
     )
     private User user;
 
-    // 약관 유형 (TERMS, PRIVACY, OPTIONAL_INFO, SENSITIVE)
+    // 동의 유형 (TERMS, PRIVACY, OPTIONAL_INFO, SENSITIVE, DOC_RECORD, DOC_PROCESS)
     @Column(
             name = "consent_type",
             length = 15,

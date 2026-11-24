@@ -60,7 +60,7 @@ public class AuthService {
     );
 
     private static final Set<String> CHANGEABLE_CONSENTS = Set.of(
-            "OPTIONAL_INFO", "SENSITIVE", "DOC_RECORD"
+            "OPTIONAL_INFO", "SENSITIVE", "DOC_RECORD", "DOC_PROCESS"
     );
 
     // 카카오 임시 가입 정보 유효기간: 10분
@@ -91,6 +91,9 @@ public class AuthService {
 
     @Value("${app.consent.doc-record-version}")
     private String docRecordConsentVersion;
+
+    @Value("${app.consent.doc-process-version}")
+    private String docProcessConsentVersion;
 
     /* ==================== 일반 회원가입 ==================== */
 
@@ -509,7 +512,7 @@ public class AuthService {
         }
 
         List<ConsentStatusResponse.ConsentItem> consents =
-                List.of("OPTIONAL_INFO", "SENSITIVE", "DOC_RECORD")
+                List.of("OPTIONAL_INFO", "SENSITIVE", "DOC_RECORD", "DOC_PROCESS")
                         .stream()
                         .map(consentType -> userConsentRepository
                                 .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
@@ -549,6 +552,7 @@ public class AuthService {
             case "OPTIONAL_INFO" -> optionalInfoConsentVersion;
             case "SENSITIVE" -> sensitiveConsentVersion;
             case "DOC_RECORD" -> docRecordConsentVersion;
+            case "DOC_PROCESS" -> docProcessConsentVersion;
             default -> throw new IllegalArgumentException(
                     "지원하지 않는 동의 유형입니다."
             );
