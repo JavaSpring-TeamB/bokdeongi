@@ -73,7 +73,7 @@ public class ApplicationProgressCalculator {
 
 
         // 실제 제출 서류의 준비 및 검토 완료 여부 확인
-        boolean allDocumentsCompleted = !validKeys.isEmpty();
+        boolean allDocumentsCompleted = documentCount == validKeys.size();
 
         for (String key : validKeys) {
             JsonNode document = documents == null

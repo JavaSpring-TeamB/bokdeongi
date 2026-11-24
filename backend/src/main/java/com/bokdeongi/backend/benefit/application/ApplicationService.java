@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
 
 @Service
 public class ApplicationService {
@@ -106,7 +107,7 @@ public class ApplicationService {
         List<ApplicationListResponse.Item> expired =
                 new ArrayList<>();
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now( ZoneId.of("Asia/Seoul") );
 
         for (ApplicationQuery.ApplicationRow row : rows) {
 
@@ -117,16 +118,33 @@ public class ApplicationService {
                     toResponse(row, benefit);
 
             String status = row.appStatus();
+            String dateStatus = benefit.getDateStatus();
             LocalDate deadline = benefit.getApplyEnd();
 
             String deadlineLabel;
             Integer dDay = null;
 
-            // 공고 날짜를 정확히 확인할 수 있는 경우
-            if (deadline != null
-                    && "EXACT".equalsIgnoreCase(
+            // 날짜 상태를 우선 확인한다.
+            if ("ALWAYS".equalsIgnoreCase(dateStatus)) {
+
+                deadline = null;
+                deadlineLabel = "상시";
+
+            } else if ("VARIES".equalsIgnoreCase(dateStatus)) {
+
+                deadline = null;
+                deadlineLabel = "공고 확인 필요";
+
+            } else if ("NO_APPLICATION".equalsIgnoreCase(dateStatus)) {
+
+                deadline = null;
+                deadlineLabel = "신청 불필요";
+
+            } else if (deadline != null
+                    && "DAY".equalsIgnoreCase(
                     benefit.getDatePrecision())) {
 
+                // 일 단위로 확정된 마감일만 D-Day 계산
                 long remaining =
                         ChronoUnit.DAYS.between(today, deadline);
 
@@ -143,11 +161,10 @@ public class ApplicationService {
                     deadlineLabel = "D-" + remaining;
                 }
 
-            } else if ("ALWAYS".equalsIgnoreCase(
-                    benefit.getDateStatus())) {
-                deadlineLabel = "상시";
-
             } else {
+
+                // 월 단위 또는 불명확한 날짜는 정확한 마감일로 제공하지 않는다.
+                deadline = null;
                 deadlineLabel = "공고 확인 필요";
             }
 
@@ -422,10 +439,11 @@ public class ApplicationService {
                         && !Objects.equals(started, current);
 
 
-        // 기존 서류 준비 서비스에서 전체 서류 수 조회
-        int documentCount = documentService.documents(benefit).total();
+        // 동일한 서류 목록을 기준으로 진행률 계산
+        DocumentPrepResponse prep = documentService.documents(benefit);
 
-        Set<String> validKeys = validDocumentKeys(benefit);
+        int documentCount = prep.total();
+        Set<String> validKeys = validDocumentKeys(prep);
 
         // 저장된 상태를 기준으로 진행률 계산
         ApplicationProgressCalculator.Progress progress =
@@ -500,7 +518,10 @@ public class ApplicationService {
     }
 
     private Set<String> validDocumentKeys(Benefit benefit) {
-        DocumentPrepResponse prep = documentService.documents(benefit);
+        return validDocumentKeys(documentService.documents(benefit));
+    }
+
+    private Set<String> validDocumentKeys(DocumentPrepResponse prep) {
         Set<String> validKeys = new HashSet<>();
 
         for (DocumentPrepResponse.Group group : prep.groups()) {
