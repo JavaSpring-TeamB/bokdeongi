@@ -6,11 +6,12 @@ import jakarta.validation.constraints.Size;
 
 /**
  * 개인정보 동의 변경 및 철회 요청 DTO
- * 선택 개인정보와 민감정보 동의 상태 변경에 사용한다.
+ * 선택 개인정보, 민감정보, 서류 기억 및
+ * OCR 서류 처리 동의 상태 변경에 사용한다.
  */
 public record ConsentUpdateRequest(
 
-        // 변경할 동의 유형 (OPTIONAL_INFO, SENSITIVE)
+        // 변경 가능한 동의 유형: OPTIONAL_INFO, SENSITIVE, DOC_RECORD, DOC_PROCESS
         @NotBlank
         @Size(max = 15)
         String consentType,
