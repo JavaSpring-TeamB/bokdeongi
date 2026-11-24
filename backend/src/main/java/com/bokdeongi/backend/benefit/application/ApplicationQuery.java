@@ -39,20 +39,24 @@ public class ApplicationQuery {
                 applicationId, userId);
     }
 
-    // 캘린더용 조회: 신청 건과 관심 등록 혜택 모두 포함
+    // 캘린더용 조회: 신청 기록 또는 관심 저장 혜택만 허용
     public Optional<ApplicationRow> findForCalendar(
             long applicationId,
             long userId
     ) {
         return jdbc.query("""
-                SELECT id, user_id, benefit_id,
-                       app_status, step,
-                       app_answers, doc_checks,
-                       started_api_modified_at
-                FROM user_benefits
-                WHERE id = ?
-                  AND user_id = ?
-                """,
+            SELECT id, user_id, benefit_id,
+                   app_status, step,
+                   app_answers, doc_checks,
+                   started_api_modified_at
+            FROM user_benefits
+            WHERE id = ?
+              AND user_id = ?
+              AND (
+                  bookmarked = TRUE
+                  OR app_status IS NOT NULL
+              )
+            """,
                 rs -> rs.next()
                         ? Optional.of(mapRow(rs))
                         : Optional.empty(),

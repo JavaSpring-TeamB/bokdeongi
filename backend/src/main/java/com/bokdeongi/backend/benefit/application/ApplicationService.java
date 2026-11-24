@@ -121,6 +121,14 @@ public class ApplicationService {
             String dateStatus = benefit.getDateStatus();
             LocalDate deadline = benefit.getApplyEnd();
 
+            // 캘린더 등록 가능 여부 및 불가 사유 계산
+            CalendarAvailability calendarAvailability =
+                    CalendarAvailability.evaluate(
+                            dateStatus,
+                            benefit.getDatePrecision(),
+                            deadline
+                    );
+
             String deadlineLabel;
             Integer dDay = null;
 
@@ -183,7 +191,9 @@ public class ApplicationService {
                                     ? null
                                     : deadline.toString(),
                             deadlineLabel,
-                            dDay
+                            dDay,
+                            calendarAvailability.available(),
+                            calendarAvailability.unavailableReason()
                     );
 
             if ("IN_PROGRESS".equals(status)) {

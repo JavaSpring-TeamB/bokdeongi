@@ -12,6 +12,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/applications")
 @SecurityRequirement(name = "bearerAuth")
@@ -120,5 +122,19 @@ public class ApplicationController {
                 )
                 .contentLength(content.length)
                 .body(content);
+    }
+
+    // 캘린더 다운로드 전용 예외 처리
+    @ExceptionHandler(ApplicationCalendarException.class)
+    public ResponseEntity<Map<String, String>> handleCalendarException(
+            ApplicationCalendarException exception
+    ) {
+        return ResponseEntity
+                .status(exception.getStatus())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(
+                        "code", exception.getCode(),
+                        "message", exception.getMessage()
+                ));
     }
 }
