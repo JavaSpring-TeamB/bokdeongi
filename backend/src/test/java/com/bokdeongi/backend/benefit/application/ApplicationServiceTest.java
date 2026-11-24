@@ -106,6 +106,9 @@ class ApplicationServiceTest {
         assertEquals(today.plusDays(7).toString(), item.deadline());
         assertEquals("D-7", item.deadlineLabel());
         assertEquals(7, item.dDay());
+
+        assertTrue(item.calendarAvailable());
+        assertNull(item.calendarUnavailableReason());
     }
 
     // 오늘 마감
@@ -125,6 +128,9 @@ class ApplicationServiceTest {
         assertEquals("D-Day", item.deadlineLabel());
         assertEquals(0, item.dDay());
         assertTrue(response.expired().isEmpty());
+
+        assertTrue(item.calendarAvailable());
+        assertNull(item.calendarUnavailableReason());
     }
 
     // 마감일이 지난 진행 중 신청
@@ -145,6 +151,9 @@ class ApplicationServiceTest {
         assertTrue(response.inProgress().isEmpty());
         assertEquals("마감됨", item.deadlineLabel());
         assertEquals(-1, item.dDay());
+
+        assertTrue(item.calendarAvailable());
+        assertNull(item.calendarUnavailableReason());
     }
 
     // 월 단위 날짜는 정확한 마감일로 처리하지 않음
@@ -165,6 +174,12 @@ class ApplicationServiceTest {
         assertNull(item.dDay());
         assertEquals("공고 확인 필요", item.deadlineLabel());
         assertTrue(response.expired().isEmpty());
+
+        assertFalse(item.calendarAvailable());
+        assertEquals(
+                "신청 마감일이 일 단위로 확정되지 않았습니다.",
+                item.calendarUnavailableReason()
+        );
     }
 
     // 상시 신청
@@ -185,6 +200,12 @@ class ApplicationServiceTest {
         assertNull(item.deadline());
         assertNull(item.dDay());
         assertTrue(response.expired().isEmpty());
+
+        assertFalse(item.calendarAvailable());
+        assertEquals(
+                "상시 신청 혜택은 마감일이 없습니다.",
+                item.calendarUnavailableReason()
+        );
     }
 
     // 신청 일정 변동
@@ -204,6 +225,12 @@ class ApplicationServiceTest {
         assertEquals("공고 확인 필요", item.deadlineLabel());
         assertNull(item.deadline());
         assertNull(item.dDay());
+
+        assertFalse(item.calendarAvailable());
+        assertEquals(
+                "접수기관별로 신청 일정이 다릅니다.",
+                item.calendarUnavailableReason()
+        );
     }
 
     // 신청 불필요
@@ -223,6 +250,12 @@ class ApplicationServiceTest {
         assertEquals("신청 불필요", item.deadlineLabel());
         assertNull(item.deadline());
         assertNull(item.dDay());
+
+        assertFalse(item.calendarAvailable());
+        assertEquals(
+                "별도 신청이 필요 없는 혜택입니다.",
+                item.calendarUnavailableReason()
+        );
     }
 
     // 완료된 신청은 마감일이 지나도 완료 목록 유지
@@ -244,5 +277,33 @@ class ApplicationServiceTest {
                 response.completed().get(0).appStatus());
 
         assertTrue(response.expired().isEmpty());
+
+        var item = response.completed().get(0);
+
+        assertTrue(item.calendarAvailable());
+        assertNull(item.calendarUnavailableReason());
+    }
+
+    @Test
+    void shouldRejectCalendarWithoutDeadline() {
+
+        mockApplication(
+                "IN_PROGRESS",
+                null,
+                "UNKNOWN",
+                "NONE"
+        );
+
+        var response = service.getList(USER_ID);
+        var item = response.inProgress().get(0);
+
+        assertNull(item.deadline());
+        assertNull(item.dDay());
+
+        assertFalse(item.calendarAvailable());
+        assertEquals(
+                "정확한 신청 마감일을 확인할 수 없습니다.",
+                item.calendarUnavailableReason()
+        );
     }
 }

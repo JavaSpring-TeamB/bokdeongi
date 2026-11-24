@@ -2,10 +2,8 @@ package com.bokdeongi.backend.benefit.application;
 
 import com.bokdeongi.backend.benefit.entity.Benefit;
 import com.bokdeongi.backend.benefit.repository.BenefitRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -41,20 +39,16 @@ public class ApplicationCalendarService {
         // 신청 건 또는 관심 혜택 조회
         ApplicationQuery.ApplicationRow row =
                 query.findForCalendar(applicationId, userId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "신청 또는 관심 혜택 정보를 찾을 수 없습니다."
-                                ));
+                        .orElseThrow(
+                                ApplicationCalendarException::applicationNotFound
+                        );
 
         // 연결된 혜택 조회
         Benefit benefit = benefitRepository
                 .findById(row.benefitId())
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "혜택 정보를 찾을 수 없습니다."
-                        ));
+                .orElseThrow(
+                        ApplicationCalendarException::benefitNotFound
+                );
 
         LocalDate deadline = validateDeadline(benefit);
 
@@ -69,29 +63,20 @@ public class ApplicationCalendarService {
         );
     }
 
-    // 정확한 마감일인지 확인
+    // 공통 캘린더 등록 가능 여부 검증
     private LocalDate validateDeadline(Benefit benefit) {
 
-        String status = benefit.getDateStatus();
+        CalendarAvailability availability =
+                CalendarAvailability.evaluate(
+                        benefit.getDateStatus(),
+                        benefit.getDatePrecision(),
+                        benefit.getApplyEnd()
+                );
 
-        if ("ALWAYS".equalsIgnoreCase(status)) {
-            throw badRequest("상시 신청 혜택은 마감일이 없습니다.");
-        }
-
-        if ("VARIES".equalsIgnoreCase(status)) {
-            throw badRequest("접수기관별로 신청 일정이 다릅니다.");
-        }
-
-        if ("NO_APPLICATION".equalsIgnoreCase(status)) {
-            throw badRequest("별도 신청이 필요 없는 혜택입니다.");
-        }
-
-        if (benefit.getApplyEnd() == null) {
-            throw badRequest("정확한 신청 마감일을 확인할 수 없습니다.");
-        }
-
-        if (!"DAY".equalsIgnoreCase(benefit.getDatePrecision())) {
-            throw badRequest("신청 마감일이 일 단위로 확정되지 않았습니다.");
+        if (!availability.available()) {
+            throw ApplicationCalendarException.unavailable(
+                    availability.unavailableReason()
+            );
         }
 
         return benefit.getApplyEnd();
@@ -178,12 +163,5 @@ public class ApplicationCalendarService {
         }
 
         builder.append("\r\n");
-    }
-
-    private ResponseStatusException badRequest(String message) {
-        return new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                message
-        );
     }
 }

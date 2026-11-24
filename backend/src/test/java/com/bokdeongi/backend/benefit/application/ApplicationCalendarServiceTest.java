@@ -4,8 +4,6 @@ import com.bokdeongi.backend.benefit.entity.Benefit;
 import com.bokdeongi.backend.benefit.repository.BenefitRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -104,15 +102,20 @@ class ApplicationCalendarServiceTest {
 
         mockApplication(benefit);
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
                 () -> service.createCalendar(
                         USER_ID,
                         APPLICATION_ID
                 )
         );
 
-        assertEquals(400, exception.getStatusCode().value());
+        assertEquals(400, exception.getStatus().value());
+        assertEquals("CALENDAR_UNAVAILABLE", exception.getCode());
+        assertEquals(
+                "정확한 신청 마감일을 확인할 수 없습니다.",
+                exception.getMessage()
+        );
     }
 
     @Test
@@ -125,16 +128,17 @@ class ApplicationCalendarServiceTest {
 
         mockApplication(benefit);
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
                 () -> service.createCalendar(
                         USER_ID,
                         APPLICATION_ID
                 )
         );
 
-        assertEquals(400, exception.getStatusCode().value());
-        assertTrue(exception.getReason().contains("상시 신청"));
+        assertEquals(400, exception.getStatus().value());
+        assertEquals("CALENDAR_UNAVAILABLE", exception.getCode());
+        assertTrue(exception.getMessage().contains("상시 신청"));
     }
 
     @Test
@@ -147,15 +151,20 @@ class ApplicationCalendarServiceTest {
 
         mockApplication(benefit);
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
                 () -> service.createCalendar(
                         USER_ID,
                         APPLICATION_ID
                 )
         );
 
-        assertEquals(400, exception.getStatusCode().value());
+        assertEquals(400, exception.getStatus().value());
+        assertEquals("CALENDAR_UNAVAILABLE", exception.getCode());
+        assertEquals(
+                "접수기관별로 신청 일정이 다릅니다.",
+                exception.getMessage()
+        );
     }
 
     @Test
@@ -168,15 +177,20 @@ class ApplicationCalendarServiceTest {
 
         mockApplication(benefit);
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
                 () -> service.createCalendar(
                         USER_ID,
                         APPLICATION_ID
                 )
         );
 
-        assertEquals(400, exception.getStatusCode().value());
+        assertEquals(400, exception.getStatus().value());
+        assertEquals("CALENDAR_UNAVAILABLE", exception.getCode());
+        assertEquals(
+                "별도 신청이 필요 없는 혜택입니다.",
+                exception.getMessage()
+        );
     }
 
     @Test
@@ -189,15 +203,20 @@ class ApplicationCalendarServiceTest {
 
         mockApplication(benefit);
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
                 () -> service.createCalendar(
                         USER_ID,
                         APPLICATION_ID
                 )
         );
 
-        assertEquals(400, exception.getStatusCode().value());
+        assertEquals(400, exception.getStatus().value());
+        assertEquals("CALENDAR_UNAVAILABLE", exception.getCode());
+        assertEquals(
+                "신청 마감일이 일 단위로 확정되지 않았습니다.",
+                exception.getMessage()
+        );
     }
 
     @Test
@@ -205,15 +224,16 @@ class ApplicationCalendarServiceTest {
         when(query.findForCalendar(APPLICATION_ID, USER_ID))
                 .thenReturn(Optional.empty());
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
                 () -> service.createCalendar(
                         USER_ID,
                         APPLICATION_ID
                 )
         );
 
-        assertEquals(404, exception.getStatusCode().value());
+        assertEquals(404, exception.getStatus().value());
+        assertEquals("APPLICATION_NOT_FOUND", exception.getCode());
 
         verifyNoInteractions(benefitRepository);
     }
@@ -252,5 +272,41 @@ class ApplicationCalendarServiceTest {
         );
 
         assertTrue(ics.contains("DTSTART;VALUE=DATE:20261210"));
+    }
+
+    @Test
+    void shouldRejectMissingBenefit() {
+        ApplicationQuery.ApplicationRow row =
+                new ApplicationQuery.ApplicationRow(
+                        APPLICATION_ID,
+                        USER_ID,
+                        BENEFIT_ID,
+                        "IN_PROGRESS",
+                        1,
+                        null,
+                        null,
+                        null
+                );
+
+        when(query.findForCalendar(APPLICATION_ID, USER_ID))
+                .thenReturn(Optional.of(row));
+
+        when(benefitRepository.findById(BENEFIT_ID))
+                .thenReturn(Optional.empty());
+
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
+                () -> service.createCalendar(
+                        USER_ID,
+                        APPLICATION_ID
+                )
+        );
+
+        assertEquals(404, exception.getStatus().value());
+        assertEquals("BENEFIT_NOT_FOUND", exception.getCode());
+        assertEquals(
+                "혜택 정보를 찾을 수 없습니다.",
+                exception.getMessage()
+        );
     }
 }

@@ -31,7 +31,9 @@ public record ApplicationListResponse(
             int progressPercent,
             String deadline,
             String deadlineLabel,
-            Integer dDay
+            Integer dDay,
+            boolean calendarAvailable,
+            String calendarUnavailableReason
     ) {
     }
 }
