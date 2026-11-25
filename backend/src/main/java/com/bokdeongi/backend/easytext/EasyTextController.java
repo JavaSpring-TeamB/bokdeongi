@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-/** 쉬운 말 번역기 (EASY-02). 로그인 없이 쓸 수 있다 (하루 20번) */
+/** 쉬운 말 번역기 (EASY-02). 로그인해야 쓸 수 있다 (회원별 하루 20번, 봇이 한도를 다 쓰거나 OCR 서버에 부하를 주지 않게) */
 @Tag(name = "쉬운 말 번역기")
 @RestController
 @RequestMapping("/api/easy-text")
@@ -29,8 +29,8 @@ public class EasyTextController {
     }
 
     @Operation(summary = "안내문 쉬운 말 변환",
-            description = "고지서·안내문 글(5,000자 이내)을 쉬운 말 묶음으로 바꾼다. 주민번호·휴대전화·이메일은 가리고 AI에 보내며 "
-                    + "글과 결과는 저장하지 않는다. 묶음의 original은 원문에 그대로 있는 문장만. 로그인하면 회원별, 아니면 접속 주소별 하루 20번")
+            description = "고지서·안내문 글(5,000자 이내)을 쉬운 말 묶음으로 바꾼다. 주민번호·휴대전화·이메일·계좌·상세주소는 가리고 AI에 보내며 "
+                    + "글과 결과는 저장하지 않는다. 묶음의 original은 원문에 그대로 있는 문장만. 로그인 필요(401), 회원별 하루 20번. AI 호출이 실패하면 횟수를 쓰지 않는다")
     @PostMapping
     public ResponseEntity<EasyTextDto.Response> translate(Authentication authentication, HttpServletRequest request,
                                                           @RequestBody EasyTextDto.Request body) {
@@ -38,9 +38,9 @@ public class EasyTextController {
     }
 
     @Operation(summary = "고지서 사진·PDF 쉬운 말 변환",
-            description = "multipart: file(JPG·PNG·PDF, 10MB). 로컬 OCR 서버가 글자를 읽고 주민번호·전화·계좌를 가린 뒤 "
+            description = "multipart: file(JPG·PNG·PDF, 10MB). 로컬 OCR 서버가 글자를 읽고 주민번호·전화·계좌·상세주소를 가린 뒤 "
                     + "글 변환과 같은 길로 보낸다. 파일은 저장하지 않는다. 응답은 POST /api/easy-text와 같다. "
-                    + "흐린 사진 422 UNREADABLE, 형식 415, 크기 413, OCR 서버 꺼짐 502")
+                    + "로그인 필요(401). 흐린 사진 422 UNREADABLE, 형식 415, 크기 413, OCR 서버 꺼짐 502")
     @PostMapping(value = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<EasyTextDto.Response> translateFile(Authentication authentication, HttpServletRequest request,
                                                               @RequestPart("file") MultipartFile file) {

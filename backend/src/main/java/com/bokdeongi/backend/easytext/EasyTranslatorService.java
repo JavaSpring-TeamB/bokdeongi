@@ -47,7 +47,7 @@ public class EasyTranslatorService {
     static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
 
     /**
-     * 고지서 사진·PDF를 쉬운 말로 (EASY-02). 로컬 OCR 서버가 글자를 읽고 주민번호·전화·계좌를 가린 뒤,
+     * 고지서 사진·PDF를 쉬운 말로 (EASY-02). 로컬 OCR 서버가 글자를 읽고 주민번호·전화·계좌·상세주소를 가린 뒤,
      * 글 붙여 넣기와 같은 길(translate)로 보낸다. 파일은 메모리에서만 쓰고 저장하지 않는다.
      */
     public EasyTextDto.Response translateFile(String clientKey, MultipartFile file) {
@@ -83,7 +83,7 @@ public class EasyTranslatorService {
     }
 
     /**
-     * @param clientKey 횟수를 셀 열쇠 (로그인하면 "user:{id}", 아니면 "ip:{주소}")
+     * @param clientKey 횟수를 셀 열쇠 ("user:{id}")
      * @param text      붙여 넣은 글
      */
     public EasyTextDto.Response translate(String clientKey, String text) {
@@ -109,6 +109,7 @@ public class EasyTranslatorService {
         } catch (RuntimeException e) {
             // 붙여 넣은 글은 남기지 않는다. 예외 종류·메시지만
             log.warn("쉬운 말 번역 LLM 호출 실패: {}", e.toString());
+            limiter.refund(clientKey); // 실패한 호출은 횟수에서 빼지 않는다
             throw EasyTextException.unavailable();
         }
 

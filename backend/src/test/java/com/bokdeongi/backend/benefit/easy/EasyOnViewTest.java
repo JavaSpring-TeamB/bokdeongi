@@ -42,7 +42,7 @@ class EasyOnViewTest {
 
     @Test
     void 저장된_글이_없으면_처음_볼_때_만든다() {
-        assertEquals("DONE", onView.view(benefit).status());
+        assertEquals("DONE", onView.view(benefit, true).status());
         verify(service).easy(benefit);
     }
 
@@ -52,14 +52,28 @@ class EasyOnViewTest {
         when(benefit.getAiSourceModifiedAt()).thenReturn(MODIFIED);
         when(benefit.getEasyText()).thenReturn("이미 만든 글");
         when(provider.getIfAvailable()).thenReturn(null);
-        assertEquals("DONE", onView.view(benefit).status());
+        assertEquals("DONE", onView.view(benefit, true).status());
     }
 
     @Test
     void AI가_꺼져_있고_저장된_글이_없으면_NOT_READY() {
         when(provider.getIfAvailable()).thenReturn(null);
-        assertEquals("NOT_READY", onView.view(benefit).status());
+        assertEquals("NOT_READY", onView.view(benefit, true).status());
         verify(service, never()).easy(benefit);
+    }
+
+    @Test
+    void 로그인하지_않았으면_새로_만들지_않고_NOT_READY() {
+        assertEquals("NOT_READY", onView.view(benefit, false).status());
+        verify(service, never()).easy(benefit);
+    }
+
+    @Test
+    void 로그인하지_않아도_저장된_글은_보여_준다() {
+        when(benefit.getAiGeneratedAt()).thenReturn(MODIFIED.plusDays(1));
+        when(benefit.getAiSourceModifiedAt()).thenReturn(MODIFIED);
+        when(benefit.getEasyText()).thenReturn("이미 만든 글");
+        assertEquals("DONE", onView.view(benefit, false).status());
     }
 
     @Test
@@ -67,16 +81,16 @@ class EasyOnViewTest {
         when(benefit.getAiGeneratedAt()).thenReturn(MODIFIED.minusDays(10));
         when(benefit.getAiSourceModifiedAt()).thenReturn(MODIFIED.minusDays(20));
         when(benefit.getEasyText()).thenReturn("옛 원문으로 만든 글");
-        onView.view(benefit);
+        onView.view(benefit, true);
         verify(service).easy(benefit);
     }
 
     @Test
     void 하루_한도를_넘으면_NOT_READY() {
         for (int i = 0; i < EasyOnView.DAILY_LIMIT; i++) {
-            onView.view(benefit);
+            onView.view(benefit, true);
         }
-        assertEquals("NOT_READY", onView.view(benefit).status());
+        assertEquals("NOT_READY", onView.view(benefit, true).status());
         verify(service, times(EasyOnView.DAILY_LIMIT)).easy(benefit);
     }
 }

@@ -18,7 +18,8 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>같은 원문으로 만든 글(또는 검사 탈락 기록)이 있으면 LLM을 부르지 않는다 → EasyTextService 캐시 규칙 그대로</li>
  *   <li>AI가 꺼져 있으면(키 없음) 만들지 않고 NOT_READY → 프론트는 원문만 보여 준다</li>
- *   <li>로그인 없이 부를 수 있는 API라 새로 만드는 건 서버 전체 하루 {@value #DAILY_LIMIT}건까지 (넘으면 NOT_READY)</li>
+ *   <li>저장된 글은 누구나 보지만, 새로 만드는 건 로그인한 사람이 볼 때만 (아니면 NOT_READY) → 봇이 한도를 다 쓰지 않게</li>
+ *   <li>새로 만드는 건 서버 전체 하루 {@value #DAILY_LIMIT}건까지 (넘으면 NOT_READY)</li>
  * </ul>
  */
 @Component
@@ -45,11 +46,12 @@ public class EasyOnView {
         this.clock = clock;
     }
 
-    public EasyResponse view(Benefit benefit) {
+    /** @param loggedIn 로그인한 사람이 보는지. 아니면 저장된 글만 주고 새로 만들지 않는다 */
+    public EasyResponse view(Benefit benefit, boolean loggedIn) {
         if (cached(benefit)) {
             return easyTextService.easy(benefit); // 저장된 글이나 FAILED를 돌려줄 뿐 LLM은 안 부른다
         }
-        if (chatModel.getIfAvailable() == null || !tryUse()) {
+        if (!loggedIn || chatModel.getIfAvailable() == null || !tryUse()) {
             return EasyResponse.notReady();
         }
         return easyTextService.easy(benefit);
