@@ -15,6 +15,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * BEN-11: 혜택 키워드 검색 API 컨트롤러.
+ *
+ * 검색어와 페이지 정보를 전달받아 검색 결과를 조회하고,
+ * 사용자별 자격 판정 및 추천 해시태그 정보를 포함하여 반환한다.
+ */
 @RestController
 @RequestMapping("/api/benefits")
 public class BenefitSearchController {
@@ -36,6 +42,10 @@ public class BenefitSearchController {
         this.periodService = periodService;
     }
 
+    /**
+     * 키워드에 해당하는 혜택을 페이지 단위로 조회한다.
+     * 검색 결과가 없으면 관련 해시태그를 제공한다.
+     */
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/search")
     public ResponseEntity<BenefitSearchResponse> search(
