@@ -41,6 +41,9 @@
         size: PAGE_SIZE
     };
     let latestRequestId = 0;
+    let latestProfileRegionRequestId = 0;
+    let profileRegionSyncPending = false;
+    let regionFilterTouched = false;
     let loadingRequestKey = null;
     let pageInfo = { page: 0, totalPages: 0, totalElements: 0 };
     let pageRecoveryScope = null;
@@ -253,6 +256,44 @@
         );
         filterSelect('sort').value = queryState.sort.toLowerCase();
         setFilterControlsDisabled(false);
+    }
+
+    function applyProfileRegionDefault(profile) {
+        if (regionFilterTouched || !isRecord(profile)) return false;
+        const region = text(profile.sidoName);
+        if (!region || region === queryState.region) return false;
+
+        queryState.region = region;
+        queryState.page = 0;
+        pageRecoveryScope = null;
+        const select = filterSelect('region');
+        if (Array.from(select.options || []).some((option) => option.value === region)) {
+            select.value = region;
+        }
+        return true;
+    }
+
+    async function loadProfileRegionDefault() {
+        const auth = window.BokdeongiAuth;
+        if (!auth || auth.getAuthenticationState() !== 'authenticated') return false;
+
+        const requestId = ++latestProfileRegionRequestId;
+        profileRegionSyncPending = true;
+        try {
+            const response = await auth.authenticatedFetch('/api/me/profile');
+            if (requestId !== latestProfileRegionRequestId || !response.ok
+                || auth.getAuthenticationState() !== 'authenticated') return false;
+            const profile = await response.json();
+            if (requestId !== latestProfileRegionRequestId) return false;
+            return applyProfileRegionDefault(profile);
+        } catch (error) {
+            return false;
+        } finally {
+            if (requestId === latestProfileRegionRequestId) {
+                profileRegionSyncPending = false;
+                if (!regionFilterTouched) loadSelectedTab();
+            }
+        }
     }
 
     function resetTabFilters() {
@@ -1138,6 +1179,7 @@
     }
 
     async function loadSelectedTab(options = {}) {
+        if (profileRegionSyncPending && !regionFilterTouched) return;
         if (!window.BokdeongiAuth || window.BokdeongiAuth.getAuthenticationState() !== 'authenticated') {
             showLoginGuidance();
             return;
@@ -1224,6 +1266,7 @@
 
     function setupFilters() {
         filterSelect('region').addEventListener('change', (event) => {
+            regionFilterTouched = true;
             queryState.region = event.target.value;
             queryState.page = 0;
             pageRecoveryScope = null;
@@ -1271,8 +1314,8 @@
         const status = event.detail && event.detail.status;
         if (status === 'authenticated') {
             loadSavedAnswers();
-            loadSelectedTab();
             loadHashtags();
+            void loadProfileRegionDefault();
         } else if (status === 'checking') {
             showState('로그인 정보를 확인하고 있어요.');
         } else {
@@ -1302,8 +1345,8 @@
         const status = window.BokdeongiAuth.getAuthenticationState();
         if (status === 'authenticated') {
             loadSavedAnswers();
-            loadSelectedTab();
             loadHashtags();
+            void loadProfileRegionDefault();
         } else if (status === 'checking') {
             showState('로그인 정보를 확인하고 있어요.');
         } else {
