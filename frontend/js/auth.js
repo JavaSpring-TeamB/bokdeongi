@@ -327,6 +327,22 @@
   window.BokdeongiAuth = Object.freeze({
     getApiUrl,
     getCsrfToken,
+    getConsentStatus() {
+      return authenticatedFetch('/api/auth/consents');
+    },
+    async updateConsent(consentType, docVersion, agreed) {
+      if (typeof consentType !== 'string' || !consentType.trim()
+          || typeof docVersion !== 'string' || !docVersion.trim()
+          || typeof agreed !== 'boolean') {
+        throw new AuthRequestError('input');
+      }
+      const csrf = await getCsrfToken();
+      return authenticatedFetch('/api/auth/consents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+        body: JSON.stringify({ consentType, docVersion, agreed })
+      });
+    },
     getAuthenticationState: () => authenticationState,
     completeLogin(payload) {
       if (!acceptAccessToken(payload)) return false;
