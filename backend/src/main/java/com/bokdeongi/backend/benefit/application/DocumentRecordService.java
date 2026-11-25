@@ -13,6 +13,14 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 회원별 서류 발급일 기억 및 유효기간 관리 서비스.
+ *
+ * 서류 기억 동의 여부를 확인하고 발급일을 저장하며,
+ * 서류 종류별 기본 유효기간을 기준으로 만료일을 계산한다.
+ *
+ * 동일한 서류 종류와 발급일의 중복 저장을 방지한다.
+ */
 @Service
 public class DocumentRecordService {
 
@@ -34,6 +42,10 @@ public class DocumentRecordService {
         this.documentTypeRepository = documentTypeRepository;
     }
 
+    /**
+     * 회원의 최신 DOC_RECORD 동의 상태를 확인한다.
+     * 동의 이력이 없거나 철회한 경우 false를 반환한다.
+     */
     public boolean hasRecordConsent(Long userId) {
         return consentRepository
                 .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
@@ -43,6 +55,14 @@ public class DocumentRecordService {
                 .orElse(false);
     }
 
+    /**
+     * 회원의 서류 종류 및 발급일을 저장한다.
+     *
+     * 사용자 행을 잠근 후 동의 상태를 확인하며,
+     * 동일한 서류 종류와 발급일은 중복 저장하지 않는다.
+     *
+     * 저장에 성공하면 true를 반환한다.
+     */
     @Transactional
     public boolean saveRecord(
             Long userId,
@@ -64,6 +84,20 @@ public class DocumentRecordService {
         // 잠금 획득 후 동의 여부 확인
         if (!hasRecordConsent(userId)) {
             return false;
+        }
+
+        // 내부 저장 요청에서도 서류 ID와 발급일을 검증한다.
+        if (documentTypeId <= 0) {
+            throw new IllegalArgumentException(
+                    "올바른 서류 종류 ID가 필요합니다."
+            );
+        }
+
+        if (issueDate.isAfter(
+                LocalDate.now(ZoneId.of("Asia/Seoul")))) {
+            throw new IllegalArgumentException(
+                    "서류 발급일은 미래일 수 없습니다."
+            );
         }
 
         try {
@@ -100,6 +134,10 @@ public class DocumentRecordService {
         }
     }
 
+    /**
+     * 회원에게 저장된 전체 서류 기록을 조회한다.
+     * 동의하지 않았거나 저장된 기록이 없으면 빈 목록을 반환한다.
+     */
     public List<DocumentRecord> findRecords(Long userId) {
 
         if (userId == null || !hasRecordConsent(userId)) {
@@ -125,6 +163,9 @@ public class DocumentRecordService {
         }
     }
 
+    /**
+     * 지정한 서류 종류에 해당하는 기록만 조회한다.
+     */
     public List<DocumentRecord> findRecordsByType(
             Long userId,
             Long documentTypeId
@@ -241,6 +282,12 @@ public class DocumentRecordService {
         }
     }
 
+    /**
+     * 서류 발급일과 유효기간을 기준으로 만료일을 계산한다.
+     *
+     * 만료일 당일까지 유효한 것으로 판단하며,
+     * 유효기간이 null이면 만료일과 유효 여부도 null로 반환한다.
+     */
     public DocumentValidity calculateValidity(
             LocalDate issueDate,
             Integer validityDays
@@ -274,6 +321,9 @@ public class DocumentRecordService {
         );
     }
 
+    /**
+     * 서류 발급일, 만료일 및 유효 여부를 담는 객체.
+     */
     public record DocumentValidity(
             LocalDate issueDate,
             LocalDate expiresAt,
@@ -281,12 +331,19 @@ public class DocumentRecordService {
     ) {
     }
 
+    /**
+     * 회원에게 저장되는 서류 종류와 발급일 정보.
+     */
     public record DocumentRecord(
             Long documentTypeId,
             LocalDate issueDate
     ) {
     }
 
+    /**
+     * 서류 기억 동의가 철회된 회원의 서류 기록을 삭제한다.
+     * 동의 상태가 유지되고 있으면 삭제하지 않는다.
+     */
     public boolean deleteRecordsOnConsentWithdrawal(Long userId) {
         if (userId == null) {
             throw new IllegalArgumentException("사용자 ID가 필요합니다.");

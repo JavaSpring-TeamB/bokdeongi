@@ -23,6 +23,14 @@ import java.util.List;
 import java.time.temporal.ChronoUnit;
 import java.time.ZoneId;
 
+/**
+ * 회원별 혜택 신청 진행 상태를 관리하는 서비스.
+ *
+ * 신규 신청 시작, 기존 신청 이어하기,
+ * 신청 답변 및 서류 체크 상태 저장을 담당한다.
+ *
+ * 신청 현황 조회, 상태 변경 및 진행률 계산도 처리한다.
+ */
 @Service
 public class ApplicationService {
 
@@ -369,7 +377,10 @@ public class ApplicationService {
         return (ObjectNode) node;
     }
 
-
+    /**
+     * 요청에 포함된 JSON 필드를 기존 저장 데이터에 병합한다.
+     * 요청에 포함되지 않은 기존 데이터는 유지한다.
+     */
     private void merge(
             ObjectNode target,
             java.util.Map<String, Object> updates
@@ -382,6 +393,10 @@ public class ApplicationService {
         mergeObjects(target, patch);
     }
 
+    /**
+     * 중첩된 JSON 객체의 필드를 재귀적으로 병합한다.
+     * 객체가 아닌 값은 요청에 포함된 새로운 값으로 변경한다.
+     */
     private void mergeObjects(ObjectNode target, JsonNode patch) {
         patch.fields().forEachRemaining(entry -> {
             String key = entry.getKey();
@@ -406,6 +421,12 @@ public class ApplicationService {
                         ));
     }
 
+    /**
+     * 신규 신청을 시작할 수 있는 혜택인지 검증한다.
+     *
+     * 종료 상태, 신청 불필요 여부 및 확정된 마감일을
+     * 기준으로 신규 신청 가능 여부를 판단한다.
+     */
     private void validateStartable(Benefit benefit) {
 
         if (!Benefit.STATUS_ACTIVE.equals(benefit.getStatus())) {
@@ -423,8 +444,14 @@ public class ApplicationService {
             );
         }
 
-        if (benefit.getApplyEnd() != null
-                && benefit.getApplyEnd().isBefore(LocalDate.now())) {
+        // 정상적으로 파싱된 일 단위 마감일만 신청 종료 판단에 사용한다.
+        if ("PARSED".equalsIgnoreCase(benefit.getDateStatus())
+                && "DAY".equalsIgnoreCase(benefit.getDatePrecision())
+                && benefit.getApplyEnd() != null
+                && benefit.getApplyEnd().isBefore(
+                LocalDate.now(ZoneId.of("Asia/Seoul"))
+        )) {
+
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "신청 기간이 종료된 혜택입니다."
@@ -432,6 +459,12 @@ public class ApplicationService {
         }
     }
 
+    /**
+     * 저장된 신청 정보와 혜택 정보를 응답 DTO로 변환한다.
+     *
+     * 공고 변경 여부 및 서류 준비 상태를 확인하고
+     * 현재 신청 진행률을 계산하여 반환한다.
+     */
     private ApplicationResponse toResponse(
             ApplicationQuery.ApplicationRow row,
             Benefit benefit
@@ -482,7 +515,13 @@ public class ApplicationService {
         );
     }
 
-        private JsonNode parseJson(String json) {
+    /**
+     * 저장된 신청 정보와 혜택 정보를 응답 DTO로 변환한다.
+     *
+     * 공고 변경 여부 및 서류 준비 상태를 확인하고
+     * 현재 신청 진행률을 계산하여 반환한다.
+     */
+    private JsonNode parseJson(String json) {
         if (json == null || json.isBlank()) {
             return objectMapper.createObjectNode();
         }

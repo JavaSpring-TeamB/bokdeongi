@@ -807,4 +807,170 @@ class DocumentRecordServiceTest {
         verify(documentTypeRepository, never())
                 .findById(257L);
     }
+
+    /**
+     * 만료일 이전의 서류는 유효하다.
+     */
+    @Test
+    void shouldReturnValidBeforeExpiration() {
+        DocumentRecordService service =
+                new DocumentRecordService(null, null, null);
+
+        LocalDate today =
+                LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        var result = service.calculateValidity(
+                today.minusDays(10),
+                90
+        );
+
+        assertEquals(today.plusDays(80), result.expiresAt());
+        assertEquals(Boolean.TRUE, result.valid());
+    }
+
+    /**
+     * 만료일 당일까지 서류는 유효하다.
+     */
+    @Test
+    void shouldRemainValidOnExpirationDate() {
+        DocumentRecordService service =
+                new DocumentRecordService(null, null, null);
+
+        LocalDate today =
+                LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        var result = service.calculateValidity(
+                today.minusDays(90),
+                90
+        );
+
+        assertEquals(today, result.expiresAt());
+        assertEquals(Boolean.TRUE, result.valid());
+    }
+
+    /**
+     * 만료일이 지난 서류는 유효하지 않다.
+     */
+    @Test
+    void shouldReturnInvalidAfterExpiration() {
+        DocumentRecordService service =
+                new DocumentRecordService(null, null, null);
+
+        LocalDate today =
+                LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        var result = service.calculateValidity(
+                today.minusDays(91),
+                90
+        );
+
+        assertEquals(today.minusDays(1), result.expiresAt());
+        assertEquals(Boolean.FALSE, result.valid());
+    }
+
+    /**
+     * 발급일이 없으면 유효기간을 계산할 수 없다.
+     */
+    @Test
+    void shouldRejectNullIssueDate() {
+        DocumentRecordService service =
+                new DocumentRecordService(null, null, null);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.calculateValidity(null, 90)
+        );
+    }
+
+    /**
+     * 내부 저장 메서드에서도 미래 발급일을 거부한다.
+     */
+    @Test
+    void shouldRejectFutureIssueDateWhenSavingRecord() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        UserConsent consent = mock(UserConsent.class);
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
+        when(consent.getAgreed()).thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(consent));
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        null
+                );
+
+        LocalDate futureDate =
+                LocalDate.now(ZoneId.of("Asia/Seoul"))
+                        .plusDays(1);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.saveRecord(
+                        1L,
+                        256L,
+                        futureDate
+                )
+        );
+
+        verify(recordRepository, never())
+                .saveRecords(anyLong(), anyString());
+    }
+
+    /**
+     * 내부 저장 메서드에서도 0 이하의 서류 ID를 거부한다.
+     */
+    @Test
+    void shouldRejectInvalidDocumentTypeIdWhenSavingRecord() {
+        UserConsentRepository consentRepository =
+                mock(UserConsentRepository.class);
+
+        DocumentRecordRepository recordRepository =
+                mock(DocumentRecordRepository.class);
+
+        UserConsent consent = mock(UserConsent.class);
+
+        when(recordRepository.lockUser(1L))
+                .thenReturn(true);
+
+        when(consent.getAgreed()).thenReturn(true);
+
+        when(consentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        1L, "DOC_RECORD"
+                ))
+                .thenReturn(Optional.of(consent));
+
+        DocumentRecordService service =
+                new DocumentRecordService(
+                        consentRepository,
+                        recordRepository,
+                        null
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.saveRecord(
+                        1L,
+                        0L,
+                        LocalDate.now(ZoneId.of("Asia/Seoul"))
+                )
+        );
+
+        verify(recordRepository, never())
+                .saveRecords(anyLong(), anyString());
+    }
 }
