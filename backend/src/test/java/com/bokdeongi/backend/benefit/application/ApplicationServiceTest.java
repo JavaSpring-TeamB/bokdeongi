@@ -7,6 +7,8 @@ import com.bokdeongi.backend.benefit.dto.response.DocumentPrepResponse;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -43,6 +45,231 @@ class ApplicationServiceTest {
         );
 
         today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+    }
+
+    /**
+     * 신규 신청이 가능한 활성 혜택을 설정한다.
+     */
+    private Benefit mockStartableBenefit() {
+        Benefit benefit = mock(Benefit.class);
+
+        when(benefit.getStatus())
+                .thenReturn(Benefit.STATUS_ACTIVE);
+
+        when(benefit.getDateStatus())
+                .thenReturn("PARSED");
+
+        when(benefit.getDatePrecision())
+                .thenReturn("DAY");
+
+        when(benefit.getApplyEnd())
+                .thenReturn(today.plusDays(7));
+
+        when(benefitRepository.findById(BENEFIT_ID))
+                .thenReturn(Optional.of(benefit));
+
+        when(documentService.documents(benefit))
+                .thenReturn(new DocumentPrepResponse(
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        0
+                ));
+
+        return benefit;
+    }
+
+    /**
+     * 기존 신청이 없으면 1단계로 신규 신청을 시작한다.
+     */
+    @Test
+    void shouldStartNewApplication() {
+        Benefit benefit = mockStartableBenefit();
+
+        ApplicationQuery.ApplicationRow row =
+                new ApplicationQuery.ApplicationRow(
+                        APPLICATION_ID,
+                        USER_ID,
+                        BENEFIT_ID,
+                        "IN_PROGRESS",
+                        1,
+                        null,
+                        null,
+                        null
+                );
+
+        when(query.findByBenefit(USER_ID, BENEFIT_ID))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(row));
+
+        ApplicationResponse response =
+                service.start(USER_ID, BENEFIT_ID);
+
+        assertEquals(APPLICATION_ID, response.id());
+        assertEquals("IN_PROGRESS", response.appStatus());
+        assertEquals(1, response.step());
+
+        verify(query).start(
+                USER_ID,
+                BENEFIT_ID,
+                benefit.getApiModifiedAt()
+        );
+    }
+
+    /**
+     * 기존 신청의 진행 단계와 답변을 초기화하지 않는다.
+     */
+    @Test
+    void shouldResumeExistingApplication() {
+        mockStartableBenefit();
+
+        ApplicationQuery.ApplicationRow row =
+                new ApplicationQuery.ApplicationRow(
+                        APPLICATION_ID,
+                        USER_ID,
+                        BENEFIT_ID,
+                        "IN_PROGRESS",
+                        3,
+                        "{\"answer\":\"Y\"}",
+                        "{}",
+                        null
+                );
+
+        when(query.findByBenefit(USER_ID, BENEFIT_ID))
+                .thenReturn(Optional.of(row));
+
+        ApplicationResponse response =
+                service.start(USER_ID, BENEFIT_ID);
+
+        assertEquals(APPLICATION_ID, response.id());
+        assertEquals(3, response.step());
+        assertEquals("{\"answer\":\"Y\"}", response.appAnswers());
+
+        verify(query, never()).start(
+                anyLong(), anyLong(), any()
+        );
+    }
+
+    /**
+     * 종료 상태인 혜택은 새로 신청할 수 없다.
+     */
+    @Test
+    void shouldRejectEndedBenefit() {
+        Benefit benefit = mockStartableBenefit();
+
+        when(benefit.getStatus())
+                .thenReturn(Benefit.STATUS_ENDED);
+
+        when(query.findByBenefit(USER_ID, BENEFIT_ID))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.start(USER_ID, BENEFIT_ID)
+        );
+
+        assertEquals(
+                HttpStatus.CONFLICT,
+                exception.getStatusCode()
+        );
+
+        verify(query, never()).start(
+                anyLong(), anyLong(), any()
+        );
+    }
+
+    /**
+     * 확정된 신청 마감일이 지났으면 신규 신청을 제한한다.
+     */
+    @Test
+    void shouldRejectPastDeadline() {
+        Benefit benefit = mockStartableBenefit();
+
+        when(benefit.getApplyEnd())
+                .thenReturn(today.minusDays(1));
+
+        when(query.findByBenefit(USER_ID, BENEFIT_ID))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.start(USER_ID, BENEFIT_ID)
+        );
+
+        assertEquals(
+                HttpStatus.CONFLICT,
+                exception.getStatusCode()
+        );
+
+        verify(query, never()).start(
+                anyLong(), anyLong(), any()
+        );
+    }
+
+    /**
+     * 상시 신청 혜택은 과거 날짜 값만으로 신청을 제한하지 않는다.
+     */
+    @Test
+    void shouldAllowAlwaysApplicationDespitePastDate() {
+        Benefit benefit = mockStartableBenefit();
+
+        when(benefit.getDateStatus())
+                .thenReturn("ALWAYS");
+
+        when(benefit.getApplyEnd())
+                .thenReturn(today.minusDays(7));
+
+        ApplicationQuery.ApplicationRow row =
+                new ApplicationQuery.ApplicationRow(
+                        APPLICATION_ID,
+                        USER_ID,
+                        BENEFIT_ID,
+                        "IN_PROGRESS",
+                        1,
+                        null,
+                        null,
+                        null
+                );
+
+        when(query.findByBenefit(USER_ID, BENEFIT_ID))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(row));
+
+        ApplicationResponse response =
+                service.start(USER_ID, BENEFIT_ID);
+
+        assertEquals("IN_PROGRESS", response.appStatus());
+
+        verify(query).start(
+                USER_ID,
+                BENEFIT_ID,
+                benefit.getApiModifiedAt()
+        );
+    }
+
+    /**
+     * 본인의 신청 기록이 존재하지 않으면 404를 반환한다.
+     */
+    @Test
+    void shouldRejectMissingApplication() {
+        when(query.findById(APPLICATION_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.get(USER_ID, APPLICATION_ID)
+        );
+
+        assertEquals(
+                HttpStatus.NOT_FOUND,
+                exception.getStatusCode()
+        );
+
+        verifyNoInteractions(
+                benefitRepository,
+                documentService
+        );
     }
 
     // 신청현황 테스트용 데이터 설정

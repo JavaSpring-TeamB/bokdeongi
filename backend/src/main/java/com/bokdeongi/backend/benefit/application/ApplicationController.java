@@ -14,6 +14,13 @@ import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
+/**
+ * 혜택 신청 관리 API 컨트롤러.
+ *
+ * 신청 시작 및 이어하기, 진행 상태 자동 저장,
+ * 신청 현황 조회, 결과 상태 변경 및
+ * 마감일 캘린더 다운로드 요청을 처리한다.
+ */
 @RestController
 @RequestMapping("/api/applications")
 @SecurityRequirement(name = "bearerAuth")
