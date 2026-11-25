@@ -2,7 +2,13 @@ package com.bokdeongi.backend.search.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
+/**
+ * 혜택 검색 기록을 관리하는 엔티티.
+ *
+ * 검색어, 전체 검색 결과 건수 및 검색 시각을 저장한다.
+ */
 @Entity
 @Table(name = "search_logs")
 public class SearchLog {
@@ -34,9 +40,12 @@ public class SearchLog {
         this.resultCount = resultCount;
     }
 
+    /**
+     * 검색 기록 최초 저장 시 생성 및 검색 시각을 설정한다.
+     */
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
 
         if (searchedAt == null) {
             searchedAt = now;
@@ -51,9 +60,12 @@ public class SearchLog {
         }
     }
 
+    /**
+     * 검색 기록 수정 시 갱신 시각을 설정한다.
+     */
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
     }
 
     public Long getId() {

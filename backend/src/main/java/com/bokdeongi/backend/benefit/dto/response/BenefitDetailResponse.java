@@ -7,6 +7,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 혜택 상세 조회 응답 DTO.
+ *
+ * 혜택 요약, 지원 대상, 지원 금액, 신청 기간,
+ * 신청 방법, 필요 서류 및 관련 URL을 제공한다.
+ *
+ * 종료 여부와 누락된 정보 목록을 함께 반환한다.
+ */
 public record BenefitDetailResponse(
         Long id,
         String title,
@@ -32,6 +40,12 @@ public record BenefitDetailResponse(
         LocalDateTime syncedAt,
         List<String> missingFields
 ) {
+    /**
+     * Benefit 엔티티를 상세 조회 응답 DTO로 변환한다.
+     *
+     * 혜택 상태를 기준으로 종료 여부를 판단하고,
+     * 주요 정보의 누락 여부를 확인하여 목록으로 반환한다.
+     */
     public static BenefitDetailResponse from(Benefit benefit) {
         String status = benefit.getStatus();
 
@@ -75,6 +89,10 @@ public record BenefitDetailResponse(
         );
     }
 
+    /**
+     * 문자열이 null이거나 공백인 경우
+     * 해당 필드명을 누락 정보 목록에 추가한다.
+     */
     private static void addIfBlank(
             List<String> missing,
             String fieldName,

@@ -10,6 +10,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * BEN-11: 혜택 키워드 검색 서비스.
+ *
+ * 검색어와 페이지 정보를 검증하고 관련도 순으로 혜택을 조회한다.
+ * 첫 페이지 검색 시 검색어와 전체 결과 건수를 기록한다.
+ */
 @Service
 public class BenefitSearchService {
 
@@ -28,6 +34,10 @@ public class BenefitSearchService {
         this.searchLogRepository = searchLogRepository;
     }
 
+    /**
+     * 검색어를 검증하고 페이지 단위로 혜택을 조회한다.
+     * 페이지 번호가 0인 경우에만 검색 기록을 저장한다.
+     */
     @Transactional
     public Page<Benefit> search(String keyword, int page, int size) {
 
@@ -64,10 +74,18 @@ public class BenefitSearchService {
         return result;
     }
 
+    /**
+     * 기본 페이지 번호와 페이지 크기를 적용하여 혜택을 검색한다.
+     */
+    @Transactional
     public Page<Benefit> search(String keyword) {
         return search(keyword, 0, DEFAULT_PAGE_SIZE);
     }
 
+    /**
+     * 검색어의 공백, 길이 및 문자·숫자 포함 여부를 검증한다.
+     * 검증을 통과한 검색어의 앞뒤 공백을 제거하여 반환한다.
+     */
     private String validateKeyword(String keyword) {
 
         if (keyword == null || keyword.isBlank()) {

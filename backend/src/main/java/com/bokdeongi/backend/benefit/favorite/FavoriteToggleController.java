@@ -5,6 +5,12 @@ import com.bokdeongi.backend.benefit.recommend.RecommendController;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 혜택 관심 저장 관리 API 컨트롤러.
+ *
+ * 로그인한 회원의 관심 혜택 등록, 해제 및
+ * 현재 관심 저장 여부 조회 요청을 처리한다.
+ */
 @RestController
 @RequestMapping("/api/benefits/{benefitId}/favorite")
 @SecurityRequirement(name = "bearerAuth")

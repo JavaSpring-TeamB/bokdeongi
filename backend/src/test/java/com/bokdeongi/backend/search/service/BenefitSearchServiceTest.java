@@ -131,4 +131,64 @@ class BenefitSearchServiceTest {
 
         verifyNoInteractions(searchLogRepository);
     }
+
+    @Test
+    void 검색어가_100글자를_초과하면_거부한다() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> benefitSearchService.search(
+                        "가".repeat(101), 0, 10
+                )
+        );
+
+        verifyNoInteractions(
+                benefitSearchRepository,
+                searchLogRepository
+        );
+    }
+
+    @Test
+    void 공백만_입력하면_거부한다() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> benefitSearchService.search("   ", 0, 10)
+        );
+
+        verifyNoInteractions(
+                benefitSearchRepository,
+                searchLogRepository
+        );
+    }
+
+    @Test
+    void 페이지크기가_0이면_거부한다() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> benefitSearchService.search("청년", 0, 0)
+        );
+
+        verifyNoInteractions(
+                benefitSearchRepository,
+                searchLogRepository
+        );
+    }
+
+    @Test
+    void 기본_검색은_첫_페이지와_10개_크기를_사용한다() {
+        when(benefitSearchRepository.searchByKeyword(
+                eq("청년"), any(Pageable.class)
+        )).thenReturn(emptyPage);
+
+        benefitSearchService.search("청년");
+
+        verify(benefitSearchRepository).searchByKeyword(
+                eq("청년"),
+                argThat(pageable ->
+                        pageable.getPageNumber() == 0
+                                && pageable.getPageSize() == 10
+                )
+        );
+
+        verify(searchLogRepository).save(any());
+    }
 }
