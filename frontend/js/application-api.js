@@ -147,6 +147,21 @@
         return normalizeApplication(await fetchJson(method, path, body, signal));
     }
 
+    async function requestWithTimeout(method, path, body, timeoutMs = 20000) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await request(method, path, body, controller.signal);
+        } catch (error) {
+            if (controller.signal.aborted) {
+                throw new ApplicationApiError('TIMEOUT', '요청 응답을 확인하지 못했습니다. 서버 상태를 다시 확인해 주세요.');
+            }
+            throw error;
+        } finally {
+            window.clearTimeout(timeout);
+        }
+    }
+
     function isDocumentKey(value) {
         return /^(?:[1-9]\d*|form:[0-9]+|unknown:[0-9]+)$/.test(String(value || ''));
     }
@@ -308,7 +323,7 @@
     function getApplication(applicationId) {
         const id = parseApplicationId(applicationId);
         if (id === null) return Promise.reject(new ApplicationApiError('INPUT', '신청 ID가 올바르지 않습니다.'));
-        return deduplicate('get:' + id, () => request('GET', '/api/applications/' + encodeURIComponent(id)));
+        return deduplicate('get:' + id, () => requestWithTimeout('GET', '/api/applications/' + encodeURIComponent(id)));
     }
 
     function getApplicationList(options = {}) {
@@ -392,7 +407,7 @@
         if (id === null || !APPLICATION_STATUSES.has(status)) {
             return Promise.reject(new ApplicationApiError('INPUT', '변경할 신청 상태가 올바르지 않습니다.'));
         }
-        return enqueueUpdate(id, () => request('PATCH', '/api/applications/' + encodeURIComponent(id) + '/status', { status }));
+        return enqueueUpdate(id, () => requestWithTimeout('PATCH', '/api/applications/' + encodeURIComponent(id) + '/status', { status }));
     }
 
     function reviewDocument(applicationId, documentTypeId, file) {

@@ -60,7 +60,7 @@ function response(status, body, headers = {}) {
   };
 }
 
-function harness(request = () => response(200, application())) {
+function harness(request = () => response(200, application()), timers = { setTimeout, clearTimeout }) {
   const requests = [];
   class FakeFormData {
     constructor() { this.values = []; }
@@ -74,7 +74,7 @@ function harness(request = () => response(200, application())) {
       return request(url, options);
     }
   };
-  const window = { BokdeongiAuth: auth };
+  const window = { BokdeongiAuth: auth, ...timers };
   const context = { AbortController, Blob, DOMException, FormData: FakeFormData, Map, Number, Object, Promise, Set, String, URLSearchParams, window };
   context.globalThis = context;
   vm.createContext(context);
@@ -242,6 +242,15 @@ test('loads guide data and serializes the documented status DTO with other appli
   await assert.rejects(api.updateApplicationStatus(274, 'IN_PROGRESS'), (error) => error.kind === 'INPUT');
   const malformed = harness(() => response(200, { method: 'ONLINE' }));
   await assert.rejects(malformed.api.getApplicationGuide(274), (error) => error.kind === 'INVALID');
+});
+
+test('times out a stalled status mutation, aborts its request, and releases the per-application update queue', async () => {
+  const { api, requests } = harness((url, options) => new Promise((resolve, reject) => {
+    options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+  }), { setTimeout(callback) { return setTimeout(callback, 1); }, clearTimeout });
+  await assert.rejects(api.updateApplicationStatus(274, 'CANCELED'), (error) => error.kind === 'TIMEOUT');
+  assert.equal(requests[0].options.signal.aborted, true);
+  assert.equal((await api.updateApplicationStatus(274, 'CANCELED').catch((error) => error.kind)), 'TIMEOUT');
 });
 
 test('loads and validates the server-classified application lists without client filtering', async () => {
