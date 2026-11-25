@@ -1616,7 +1616,7 @@ function setupInteractions() {
             if (panel) panel.hidden = expanded;
             return;
         }
-        const sectionButton = event.target.closest('[data-section]');
+        const sectionButton = event.target.closest('.my-page__menu-button[data-section]');
         if (sectionButton) {
             currentSection = sectionButton.dataset.section;
             profileMode = 'view';
