@@ -53,13 +53,24 @@ test('application status confirms and serializes only the permitted cancellation
   assert.match(source, /load\(true\)/);
 });
 
-test('application status downloads calendar files through the common API using each application ID', () => {
-  assert.match(html, /data-calendar-save data-calendar-global/);
+test('application status keeps per-card calendar downloads and removes the page-level control', () => {
+  assert.doesNotMatch(html, /data-calendar-global|application-calendar-button/);
+  assert.match(source, /\+ calendarButton\(item\)/);
   assert.match(source, /data-calendar-save="' \+ item\.id/);
+  assert.doesNotMatch(source, /syncCalendarButton|calendarApplicationId/);
   assert.match(source, /downloadApplicationCalendar\(id\)/);
   assert.match(source, /URL\.createObjectURL\(calendar\.blob\)/);
   assert.match(source, /link\.download = calendar\.fileName/);
   assert.match(source, /URL\.revokeObjectURL\(objectUrl\)/);
   assert.match(source, /state\.calendarDownloadingId/);
   assert.match(source, /캘린더 파일 다운로드를 시작했습니다/);
+});
+
+test('application status disables unavailable calendar downloads and shows the server reason', () => {
+  assert.match(source, /item\.calendarAvailable === true/);
+  assert.match(source, /item\.calendarUnavailableReason/);
+  assert.match(source, /disabled aria-describedby="calendar-unavailable-/);
+  assert.match(source, /class="application-calendar-unavailable"/);
+  assert.match(source, /if \(item\.calendarAvailable !== true\) return showToast\(calendarUnavailableReason\(item\)\)/);
+  assert.match(source, /esc\(reason\)/);
 });

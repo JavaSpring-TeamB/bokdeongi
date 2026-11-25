@@ -52,11 +52,29 @@
 .dashboard-state p { margin: 0; }
 .dashboard-state__retry { min-height: 36px; padding-inline: var(--space-md); font-size: var(--font-size-caption); }
 .weekly-summary { margin-top: var(--space-md); }
-.weekly-item { display: flex; width: 100%; justify-content: space-between; padding: 3px 0; border: 0; background: transparent; color: var(--color-text); font-size: var(--font-size-description); text-align: left; }
-.weekly-item__count { font-weight: 700; }
+.weekly-activity-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
+.weekly-item { display: flex; min-width: 0; min-height: 76px; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 9px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--color-primary-light); color: var(--color-text); font-size: var(--font-size-caption); line-height: 1.35; text-align: left; }
+button.weekly-item { cursor: pointer; }
+.weekly-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.weekly-item__count { font-size: var(--font-size-description); font-weight: 700; }
+.weekly-item--new { background: var(--color-primary-light); }
 .weekly-item--new .weekly-item__count { color: var(--color-success); }
+.weekly-item--deadline { background: var(--color-warning-light); }
 .weekly-item--deadline .weekly-item__count { color: var(--color-warning); }
+.weekly-item--deadline.is-current { border-color: var(--color-warning); }
+.weekly-item--result { background: color-mix(in srgb, var(--color-info) 10%, var(--color-white)); }
 .weekly-item--result .weekly-item__count { color: var(--color-info); }
+.weekly-new-benefits { display: grid; margin-top: var(--space-sm); gap: 5px; }
+.weekly-list-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+.weekly-list-count, .weekly-list-empty { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.weekly-list-empty { padding: var(--space-sm); border-radius: var(--radius-sm); background: var(--color-surface); text-align: center; }
+.weekly-more-link, .weekly-more-button { justify-self: start; color: var(--color-primary); font-size: var(--font-size-caption); font-weight: 600; }
+.weekly-detail-back { padding: 0; border: 0; background: transparent; color: var(--color-primary); font-size: var(--font-size-caption); font-weight: 600; }
+.weekly-more-button { min-height: 34px; padding: 3px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-white); }
+.weekly-more-button:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+.weekly-new-benefit { min-width: 0; text-decoration: none; }
+.weekly-new-benefit__title { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.benefit-summary__link .weekly-new-benefit__title { color: var(--color-text); text-align: left; }
 
 .application-list { display: grid; margin-top: var(--space-md); gap: 13px; }
 .application-summary-count { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }

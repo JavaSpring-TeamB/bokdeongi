@@ -125,12 +125,6 @@
     background: var(--color-primary);
 }
 
-.application-calendar-button {
-    flex: 0 0 auto;
-    justify-content: center;
-    white-space: nowrap;
-}
-
 .application-list {
     padding-top: var(--space-md);
 }
@@ -334,6 +328,13 @@
     width: 100%;
 }
 
+.application-calendar-unavailable {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    line-height: 1.4;
+}
+
 .application-data-notice {
     display: flex;
     flex-wrap: wrap;
@@ -445,9 +446,5 @@
 @media (max-width: 440px) {
     .application-status-summary dd {
         font-size: var(--font-size-description);
-    }
-
-    .application-calendar-button {
-        padding: 0 8px;
     }
 }
