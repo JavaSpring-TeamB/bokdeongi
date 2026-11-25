@@ -34,11 +34,12 @@ function payload(overrides = {}) {
   };
 }
 
-function createHarness({ request, authenticationState = 'unauthenticated' } = {}) {
+function createHarness({ request, authenticationState = 'authenticated', refreshedState = authenticationState } = {}) {
   const elements = {
     '#source-text': node(), '[data-character-count]': node(), '[data-translate]': node(),
     '#translation-result': node(), '[data-copy-result]': node(), '#toast': node(),
     '#image-input': node(), '#pdf-input': node(),
+    '[data-translator-access-gate]': node(), '[data-translator-controls]': node(),
     '[data-file-name="image"]': node(), '[data-file-name="pdf"]': node(),
     '[data-file-remove="image"]': node(), '[data-file-remove="pdf"]': node(),
     '[data-file-drop-zone="image"]': node(), '[data-file-drop-zone="pdf"]': node()
@@ -54,7 +55,8 @@ function createHarness({ request, authenticationState = 'unauthenticated' } = {}
   const auth = {
     getApiUrl: (requestPath) => `http://backend.test${requestPath}`,
     getCsrfToken: async () => ({ headerName: 'X-XSRF-TOKEN', token: 'csrf-token' }),
-    getAuthenticationState: () => authenticationState,
+    getAuthenticationState: () => refreshedState,
+    refreshAuthentication: async () => refreshedState,
     authenticatedFetch: async (requestPath, options) => { calls.push({ requestPath, options, authenticated: true }); return request(requestPath, options); }
   };
   const document = {
@@ -69,7 +71,8 @@ function createHarness({ request, authenticationState = 'unauthenticated' } = {}
   };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(`${source}\nglobalThis.__easyTextHooks = { translatorState, isEasyTextResponse, translateText, translateFile, translateSelectedFile, retryTranslation, validateEasyTextFile, updateSourceTextState, selectInputMode, selectFiles, clearSelectedFile, getCopyText, setupInteractions };`, context);
+  vm.runInContext(`${source}\nglobalThis.__easyTextHooks = { translatorState, isEasyTextResponse, translateText, translateFile, translateSelectedFile, retryTranslation, validateEasyTextFile, updateSourceTextState, selectInputMode, selectFiles, clearSelectedFile, getCopyText, setupInteractions, initializeTranslatorAccess, updateSubmitState, renderResult, accessState: () => translatorAccessState, setAccessState: (value) => { translatorAccessState = value; } };`, context);
+  context.__easyTextHooks.setAccessState(authenticationState);
   return { calls, elements, hooks: context.__easyTextHooks };
 }
 
@@ -80,7 +83,7 @@ test('sends the actual EASY-02 DTO with CSRF and renders API text safely', async
   await harness.hooks.translateText();
 
   assert.equal(harness.calls.length, 1);
-  assert.equal(harness.calls[0].url, 'http://backend.test/api/easy-text');
+  assert.equal(harness.calls[0].requestPath, '/api/easy-text');
   assert.equal(harness.calls[0].options.method, 'POST');
   assert.equal(harness.calls[0].options.headers['Content-Type'], 'application/json');
   assert.equal(harness.calls[0].options.headers['X-XSRF-TOKEN'], 'csrf-token');
@@ -114,13 +117,63 @@ test('uses authenticatedFetch for a signed-in request', async () => {
   assert.equal(harness.calls[0].requestPath, '/api/easy-text');
 });
 
-test('posts one anonymous JPG, PNG, or PDF as multipart to the EASY-02 file endpoint and reuses the response flow', async () => {
+test('blocks anonymous text and file translation without sending either API request', async () => {
+  const anonymousText = createHarness({ authenticationState: 'unauthenticated', request: () => { throw new Error('request must be blocked'); } });
+  anonymousText.elements['#source-text'].value = '안내문';
+  await anonymousText.hooks.translateText();
+  assert.equal(anonymousText.calls.length, 0);
+  anonymousText.hooks.updateSubmitState();
+  assert.equal(anonymousText.elements['#source-text'].disabled, true);
+  assert.equal(anonymousText.elements['[data-translate]'].disabled, true);
+  assert.equal(anonymousText.elements['[data-translator-controls]'].hidden, true);
+  assert.match(allText(anonymousText.elements['[data-translator-access-gate]']), /로그인이 필요해요/);
+  assert.match(allText(anonymousText.elements['[data-translator-access-gate]']), /로그인하기/);
+
+  const anonymousFile = createHarness({ authenticationState: 'unauthenticated', request: () => { throw new Error('request must be blocked'); } });
+  await anonymousFile.hooks.translateFile({ name: 'notice.pdf', type: 'application/pdf', size: 100 });
+  assert.equal(anonymousFile.calls.length, 0);
+});
+
+test('waits for authentication refresh and presents the same login prompt for a final 401', async () => {
+  const initializing = createHarness({ authenticationState: 'initializing', refreshedState: 'authenticated', request: () => response(200, payload()) });
+  const originalRefresh = initializing.hooks;
+  initializing.elements['#source-text'].value = '문서';
+  await initializing.hooks.initializeTranslatorAccess();
+  await initializing.hooks.translateText();
+  assert.equal(initializing.calls.length, 1);
+  assert.ok(originalRefresh);
+
+  const unauthorized = createHarness({ authenticationState: 'authenticated', request: () => response(401, { message: '로그인이 필요해요.' }) });
+  unauthorized.elements['#source-text'].value = '문서';
+  await unauthorized.hooks.translateText();
+  assert.equal(unauthorized.hooks.translatorState.errorKind, 'UNAUTHENTICATED');
+  unauthorized.hooks.updateSubmitState();
+  assert.equal(unauthorized.elements['[data-translator-controls]'].hidden, true);
+  assert.match(allText(unauthorized.elements['[data-translator-access-gate]']), /로그인하기/);
+});
+
+test('shows an accessible indeterminate loading animation and prevents submission while a request is pending', async () => {
+  let resolveRequest;
+  const harness = createHarness({ request: () => new Promise((resolve) => { resolveRequest = resolve; }) });
+  harness.elements['#source-text'].value = '안내문';
+  const pending = harness.hooks.translateText();
+  await new Promise((resolve) => setImmediate(resolve));
+  harness.hooks.renderResult();
+  assert.equal(harness.elements['[data-translate]'].disabled, true);
+  assert.equal(harness.elements['[data-translate]'].textContent, '변환 중...');
+  assert.match(allText(harness.elements['#translation-result']), /쉬운 말로 바꾸고 있어요/);
+  resolveRequest(response(200, payload()));
+  await pending;
+  assert.equal(harness.elements['[data-translate]'].disabled, false);
+});
+
+test('posts one authenticated JPG, PNG, or PDF as multipart to the EASY-02 file endpoint and reuses the response flow', async () => {
   const file = { name: 'notice.JPG', type: 'image/jpeg', size: 128 };
-  const harness = createHarness({ request: () => response(200, payload({ summary: '파일 결과' })) });
+  const harness = createHarness({ authenticationState: 'authenticated', request: () => response(200, payload({ summary: '파일 결과' })) });
   await harness.hooks.translateFile(file);
   assert.equal(harness.calls.length, 1);
-  assert.equal(harness.calls[0].authenticated, false);
-  assert.equal(harness.calls[0].url, 'http://backend.test/api/easy-text/file');
+  assert.equal(harness.calls[0].authenticated, true);
+  assert.equal(harness.calls[0].requestPath, '/api/easy-text/file');
   assert.equal(harness.calls[0].options.method, 'POST');
   assert.equal(harness.calls[0].options.headers['X-XSRF-TOKEN'], 'csrf-token');
   assert.equal(harness.calls[0].options.headers['Content-Type'], undefined);
@@ -172,11 +225,11 @@ test('accepts a dropped file and sends the current selected file through transla
   assert.equal(prevented, true);
   harness.hooks.selectInputMode('pdf');
   await harness.hooks.translateSelectedFile();
-  assert.equal(harness.calls[0].url, 'http://backend.test/api/easy-text/file');
+  assert.equal(harness.calls[0].requestPath, '/api/easy-text/file');
   assert.equal(harness.hooks.translatorState.response.summary, '드롭 결과');
 });
 
-test('clears a file and ignores its late response when the user changes tabs', async () => {
+test('prevents input mode changes during a request and renders its eventual result', async () => {
   let resolveRequest;
   const harness = createHarness({ request: () => new Promise((resolve) => { resolveRequest = resolve; }) });
   const file = { name: 'notice.jpg', type: 'image/jpeg', size: 1024 };
@@ -184,11 +237,12 @@ test('clears a file and ignores its late response when the user changes tabs', a
   harness.hooks.selectFiles('image', [file]);
   const pending = harness.hooks.translateSelectedFile();
   await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
   harness.hooks.selectInputMode('text');
   resolveRequest(response(200, payload({ summary: '늦은 파일 결과' })));
   await pending;
-  assert.equal(harness.hooks.translatorState.screen, 'IDLE');
-  assert.equal(harness.hooks.translatorState.response, null);
+  assert.equal(harness.hooks.translatorState.screen, 'RESULT');
+  assert.equal(harness.hooks.translatorState.response.summary, '늦은 파일 결과');
   assert.equal(harness.elements['[data-file-name="image"]'].textContent, '선택된 파일 없음');
 });
 
@@ -274,6 +328,7 @@ test('prevents duplicate submissions and ignores a late previous response', asyn
   harness.elements['#source-text'].value = '첫 번째';
   const first = harness.hooks.translateText();
   await harness.hooks.translateText();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(harness.calls.length, 1);
   harness.elements['#source-text'].value = '두 번째';
   harness.hooks.updateSourceTextState();

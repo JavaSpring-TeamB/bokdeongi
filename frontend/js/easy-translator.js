@@ -6,6 +6,7 @@ let selectedResultTab = 'simple';
 let translateRequestId = 0;
 let translateController = null;
 const selectedFiles = { image: null, pdf: null };
+let translatorAccessState = 'checking';
 
 class EasyTextRequestError extends Error {
     constructor(kind, message, code = null) { super(message); this.kind = kind; this.code = code; }
@@ -117,7 +118,14 @@ function renderResult() {
 
     if (translatorState.screen === 'LOADING') {
         result.setAttribute('aria-busy', 'true');
-        result.append(resultMessage('translator-empty-state', '쉬운 말로 바꾸고 있어요.', 'status'));
+        const loading = element('section', 'translator-loading', undefined);
+        loading.setAttribute('role', 'status'); loading.setAttribute('aria-live', 'polite');
+        loading.append(element('span', 'translator-loading__spinner', ''));
+        loading.append(element('h2', '', '쉬운 말로 바꾸고 있어요!'));
+        loading.append(element('p', '', '복잡한 내용을 이해하기 쉽게 정리하고 있어요. 잠시만 기다려 주세요.'));
+        const bar = element('div', 'translator-loading__track', ''); bar.setAttribute('aria-hidden', 'true'); bar.append(element('span', 'translator-loading__indicator', ''));
+        loading.append(bar, element('p', 'translator-loading__note', '문서의 길이에 따라 시간이 걸릴 수 있어요. 변환 중에는 새로고침하지 말아 주세요.'));
+        result.append(loading);
     } else if (translatorState.screen === 'ERROR') {
         result.append(resultMessage('translator-empty-state', translatorState.errorMessage || '쉬운 말로 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.', 'alert'));
         if (translatorState.errorKind === 'NETWORK' || translatorState.errorCode === 'AI_UNAVAILABLE') {
@@ -159,7 +167,21 @@ function updateSubmitState() {
     const sourceText = $('#source-text')?.value.trim() || '';
     const file = selectedFiles[selectedInputMode];
     const hasInput = selectedInputMode === 'text' ? sourceText.length > 0 : Boolean(file);
-    if (button) button.disabled = translatorState.screen === 'LOADING' || !hasInput;
+    if (button) { button.disabled = translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING' || !hasInput; button.textContent = translatorState.screen === 'LOADING' ? '변환 중...' : '쉬운 말로 바꾸기 →'; }
+    document.querySelectorAll('[data-input-mode]').forEach((tab) => { tab.disabled = translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING'; });
+    const source = $('#source-text'); if (source) source.disabled = translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING';
+    ['image-input', 'pdf-input'].forEach((id) => { const input = $('#' + id); if (input) input.disabled = translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING'; });
+    const controls = $('[data-translator-controls]'); if (controls) controls.hidden = translatorAccessState === 'unauthenticated';
+    const gate = $('[data-translator-access-gate]');
+    if (gate) {
+        gate.hidden = translatorAccessState === 'authenticated'; gate.replaceChildren();
+        if (translatorAccessState === 'unauthenticated') {
+            const icon = element('span', 'translator-login-required__icon', '🔒'); icon.setAttribute('aria-hidden', 'true');
+            const heading = element('h2', '', '로그인이 필요해요.'); const copy = element('p', '', '로그인 후 쉬운 말 번역기를 이용할 수 있어요.');
+            const login = element('a', 'bk-btn bk-btn--primary bk-btn--md', '로그인하기'); login.href = 'login.html'; gate.append(icon, heading, copy, login);
+        } else if (translatorAccessState === 'error') gate.append(element('p', '', '로그인 상태를 확인하지 못했어요. 페이지를 새로고침하거나 다시 로그인해 주세요.'));
+        else gate.append(element('p', '', '로그인 상태를 확인하고 있어요.'));
+    }
 }
 
 function resetTranslationResult() {
@@ -176,6 +198,7 @@ function resetTranslationResult() {
 }
 
 function selectInputMode(mode) {
+    if (translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING') return;
     if (!['text', 'image', 'pdf'].includes(mode)) return;
     const previousMode = selectedInputMode;
     if (previousMode !== mode && previousMode !== 'text') clearSelectedFile(previousMode, false);
@@ -215,6 +238,7 @@ function clearSelectedFile(mode, reset = true) {
 }
 
 function selectFiles(mode, files) {
+    if (translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING') return;
     if (!Object.hasOwn(selectedFiles, mode)) return;
     const selected = Array.from(files || []);
     if (selected.length !== 1) { clearSelectedFile(mode); showToast('파일은 한 개만 선택해 주세요.'); return; }
@@ -278,10 +302,7 @@ async function postEasyText(text, signal) {
     }
     const csrf = await auth.getCsrfToken();
     const options = { method: 'POST', headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token }, body: JSON.stringify({ text }), signal };
-    if (auth.getAuthenticationState?.() === 'authenticated' && typeof auth.authenticatedFetch === 'function') {
-        return auth.authenticatedFetch('/api/easy-text', options);
-    }
-    return fetch(auth.getApiUrl('/api/easy-text'), { ...options, credentials: 'include' });
+    return auth.authenticatedFetch('/api/easy-text', options);
 }
 
 function validateEasyTextFile(file) {
@@ -306,14 +327,18 @@ async function postEasyTextFile(file, signal) {
     const body = new FormData();
     body.append('file', file);
     const options = { method: 'POST', headers: { [csrf.headerName]: csrf.token }, body, signal };
-    if (auth.getAuthenticationState?.() === 'authenticated' && typeof auth.authenticatedFetch === 'function') {
-        return auth.authenticatedFetch('/api/easy-text/file', options);
-    }
-    return fetch(auth.getApiUrl('/api/easy-text/file'), { ...options, credentials: 'include' });
+    return auth.authenticatedFetch('/api/easy-text/file', options);
+}
+
+async function requireTranslatorLogin() {
+    const auth = window.BokdeongiAuth;
+    if (!auth || typeof auth.refreshAuthentication !== 'function' || typeof auth.getAuthenticationState !== 'function') return false;
+    await auth.refreshAuthentication();
+    return auth.getAuthenticationState() === 'authenticated';
 }
 
 async function runTranslation(request, lastSubmittedText) {
-    if (translatorState.screen === 'LOADING') return;
+    if (translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING') return;
     const requestId = ++translateRequestId;
     if (translateController) translateController.abort();
     const controller = new AbortController();
@@ -323,10 +348,12 @@ async function runTranslation(request, lastSubmittedText) {
     renderResult();
     updateSubmitState();
     try {
+        if (!await requireTranslatorLogin()) throw new EasyTextRequestError('UNAUTHENTICATED', '로그인 후 쉬운 말 번역기를 이용할 수 있어요.');
         const response = await request(controller.signal);
         if (requestId !== translateRequestId) return;
         if (!response.ok) {
             const error = await readError(response);
+            if (response.status === 401) throw new EasyTextRequestError('UNAUTHENTICATED', '로그인 후 쉬운 말 번역기를 이용할 수 있어요.');
             throw new EasyTextRequestError('HTTP', error.message || '쉬운 말로 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.', error.code);
         }
         let payload;
@@ -345,6 +372,7 @@ async function runTranslation(request, lastSubmittedText) {
         translatorState.errorKind = error instanceof EasyTextRequestError ? error.kind : 'NETWORK';
         translatorState.errorCode = error instanceof EasyTextRequestError ? error.code : null;
         translatorState.errorMessage = error instanceof EasyTextRequestError ? error.message : '네트워크 연결을 확인한 뒤 다시 시도해 주세요.';
+        if (translatorState.errorKind === 'UNAUTHENTICATED') translatorAccessState = 'unauthenticated';
         renderResult();
         console.error('쉬운 말 번역을 요청하지 못했습니다.', error);
     } finally {
@@ -353,6 +381,7 @@ async function runTranslation(request, lastSubmittedText) {
 }
 
 async function translateText() {
+    if (translatorAccessState !== 'authenticated') return;
     if (selectedInputMode !== 'text') { showToast('이미지와 PDF 분석 기능은 아직 지원하지 않습니다.'); return; }
     const text = $('#source-text')?.value.trim() || '';
     if (!text) { showToast('바꿀 글을 붙여 넣어 주세요.'); return; }
@@ -361,6 +390,7 @@ async function translateText() {
 }
 
 async function translateFile(file) {
+    if (translatorAccessState !== 'authenticated') return;
     const validationMessage = validateEasyTextFile(file);
     if (validationMessage) { showToast(validationMessage); return; }
     return runTranslation((signal) => postEasyTextFile(file, signal), '');
@@ -384,9 +414,9 @@ function setupInteractions() {
         input?.addEventListener('change', () => selectFiles(mode, input.files));
         const dropZone = $('[data-file-drop-zone="' + mode + '"]');
         if (!dropZone) return;
-        dropZone.addEventListener('dragover', (event) => { event.preventDefault(); dropZone.classList.add('is-dragover'); });
+        dropZone.addEventListener('dragover', (event) => { event.preventDefault(); if (translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING') return; dropZone.classList.add('is-dragover'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('is-dragover'));
-        dropZone.addEventListener('drop', (event) => { event.preventDefault(); dropZone.classList.remove('is-dragover'); selectFiles(mode, event.dataTransfer?.files); });
+        dropZone.addEventListener('drop', (event) => { event.preventDefault(); dropZone.classList.remove('is-dragover'); if (translatorAccessState !== 'authenticated' || translatorState.screen === 'LOADING') return; selectFiles(mode, event.dataTransfer?.files); });
     });
     document.addEventListener('click', (event) => {
         const inputTab = event.target.closest('[data-input-mode]');
@@ -402,8 +432,24 @@ function setupInteractions() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    updateSubmitState();
     updateInputPanels();
     updateSourceTextState();
     renderResult();
     setupInteractions();
+    void initializeTranslatorAccess();
 });
+
+async function initializeTranslatorAccess() {
+    translatorAccessState = 'checking'; updateSubmitState();
+    const auth = window.BokdeongiAuth;
+    if (!auth || typeof auth.refreshAuthentication !== 'function' || typeof auth.getAuthenticationState !== 'function') {
+        translatorAccessState = 'error'; updateSubmitState(); return;
+    }
+    try {
+        await auth.refreshAuthentication();
+        const status = auth.getAuthenticationState();
+        translatorAccessState = status === 'authenticated' ? 'authenticated' : status === 'unauthenticated' ? 'unauthenticated' : 'error';
+    } catch { translatorAccessState = 'error'; }
+    updateSubmitState();
+}

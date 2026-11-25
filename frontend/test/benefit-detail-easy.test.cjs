@@ -37,7 +37,7 @@ function easyPayload(overrides = {}) {
   };
 }
 
-function createHarness(fetchImplementation) {
+function createHarness(fetchImplementation, authenticationState = 'authenticated') {
   const elements = {
     '#panel-easy': element(),
     '#detail-page': element(),
@@ -52,7 +52,7 @@ function createHarness(fetchImplementation) {
   };
   const window = {
     location: { search: '?id=123', href: 'http://frontend.test/benefit-detail.html?id=123' },
-    BokdeongiAuth: { getApiUrl: (requestPath) => `http://backend.test${requestPath}` }
+    BokdeongiAuth: { getApiUrl: (requestPath) => `http://backend.test${requestPath}`, getAuthenticationState: () => authenticationState }
   };
   const context = {
     AbortController,
@@ -102,6 +102,17 @@ test('requests the public easy API once and renders all DONE response fields saf
   assert.match(elements['#panel-easy'].innerHTML, /생성 시각: 2026-11-23 12:00:00/);
   assert.match(elements['#panel-easy'].innerHTML, /&lt;img src=x&gt;/);
   assert.match(elements['#panel-easy'].innerHTML, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+});
+
+test('keeps DONE easy text visible to anonymous users and adds a login hint only to NOT_READY', async () => {
+  const done = createHarness(() => response(200, easyPayload()), 'unauthenticated');
+  await done.hooks.loadEasy();
+  assert.match(done.elements['#panel-easy'].innerHTML, /쉬운 말로 풀어쓴 안내/);
+
+  const notReady = createHarness(() => response(200, easyPayload({ status: 'NOT_READY', text: '' })), 'unauthenticated');
+  await notReady.hooks.loadEasy();
+  assert.match(notReady.elements['#panel-easy'].innerHTML, /로그인하면 쉬운 말로 볼 수 있어요/);
+  assert.match(notReady.elements['#panel-easy'].innerHTML, /data-open-original/);
 });
 
 test('reuses a DONE result on tab re-entry and refetches only when forced', async () => {

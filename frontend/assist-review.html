@@ -7,9 +7,11 @@
     <link rel="stylesheet" href="./css/common.css">
     <link rel="stylesheet" href="./css/assist-eligibility.css">
     <link rel="stylesheet" href="./css/assist-review.css">
+    <link rel="stylesheet" href="./css/signup-consent.css">
     <script src="./js/common-ui.js" defer></script>
     <script src="./js/auth-config.local.js" defer></script>
     <script src="./js/auth.js" defer></script>
+    <script src="./js/consent-documents.js" defer></script>
     <script src="./js/application-api.js" defer></script>
     <script src="./js/assist-review.js" defer></script>
 </head>
@@ -50,6 +52,7 @@
     </main>
 
     <input id="review-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
+    <dialog class="signup-consent__dialog" id="doc-process-consent-dialog" aria-labelledby="doc-process-consent-title"><div class="signup-consent__dialog-header"><h2 id="doc-process-consent-title">서류 처리 동의</h2><button type="button" data-doc-process-cancel aria-label="동의 창 닫기">×</button></div><div id="doc-process-consent-content" class="signup-consent__dialog-content"></div><p data-doc-process-error role="alert" hidden></p><div class="signup-consent__dialog-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-doc-process-cancel>동의하지 않음</button><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-doc-process-agree>내용을 확인하고 동의</button></div></dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

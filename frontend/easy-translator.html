@@ -51,11 +51,13 @@
     <main id="main-content" class="container easy-translator-content">
         <section class="easy-translator-banner" aria-labelledby="easy-translator-title">
             <h1 id="easy-translator-title">쉬운 말 번역기</h1>
-            <p>어려운 복지 안내문을 쉬운 말로 바꿔드려요.</p>
+            <p>로그인 후 이용 가능, 하루 20번</p>
         </section>
 
         <div class="easy-translator-layout">
             <section class="translator-card translator-input-card" aria-labelledby="source-title">
+                <div class="translator-access-gate" data-translator-access-gate hidden aria-live="polite"></div>
+                <div data-translator-controls>
                 <h2 id="source-title">원문 입력</h2>
                 <div class="translator-input-tabs" role="tablist" aria-label="원문 입력 방식">
                     <button id="text-input-tab" class="translator-input-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="text-input-panel" data-input-mode="text">텍스트 입력</button>
@@ -86,6 +88,7 @@
 
                 <button class="bk-btn bk-btn--primary bk-btn--lg translator-submit" type="button" data-translate>쉬운 말로 바꾸기 <span aria-hidden="true">→</span></button>
                 <p class="translator-privacy-note"><span aria-hidden="true">i</span> 입력한 원문은 현재 브라우저에 저장하지 않아요.</p>
+                </div>
             </section>
 
             <section class="translator-card translator-result-card" aria-labelledby="result-title">
