@@ -86,10 +86,11 @@ class EasyTranslatorServiceTest {
     }
 
     @Test
-    void 호출이_실패하면_AI_UNAVAILABLE() {
+    void 호출이_실패하면_AI_UNAVAILABLE이고_횟수를_돌려준다() {
         when(generator.generate(anyString(), anyString())).thenThrow(new RuntimeException("503"));
         assertEquals("AI_UNAVAILABLE", assertThrows(EasyTextException.class,
                 () -> service.translate("ip:1", TEXT)).getCode());
+        assertEquals(EasyTextLimiter.DAILY_LIMIT, limiter.remaining("ip:1"));
     }
 
     @Test

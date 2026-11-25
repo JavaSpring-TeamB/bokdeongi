@@ -8,8 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * 쉬운 말 번역기 하루 횟수 제한. 로그인 없이도 쓰는 API라 로그인하면 회원 번호, 아니면 접속 주소로 센다.
+ * 쉬운 말 번역기 하루 횟수 제한. 로그인한 회원 번호로 센다.
  * 글은 저장하지 않으므로 횟수도 메모리에만 센다 (공고문 질문 AskLimiter와 같은 방식). 서버를 다시 켜면 0부터.
+ * 날짜가 바뀌면 지난 날짜 기록은 지운다. AI 호출이 실패하면 refund로 돌려준다.
  */
 @Component
 public class EasyTextLimiter {
@@ -18,6 +19,7 @@ public class EasyTextLimiter {
 
     private final Clock clock;
     private final Map<String, Count> counts = new ConcurrentHashMap<>();
+    private volatile LocalDate lastPurge;
 
     private record Count(LocalDate day, int used) {
     }
@@ -34,6 +36,7 @@ public class EasyTextLimiter {
     /** 한 번 쓴다. 오늘 한도를 넘으면 false (세지 않음) */
     public boolean tryUse(String key) {
         LocalDate today = LocalDate.now(clock);
+        purgeOld(today);
         boolean[] ok = {false};
         counts.compute(key, (k, c) -> {
             Count cur = c == null || !c.day().equals(today) ? new Count(today, 0) : c;
@@ -44,6 +47,27 @@ public class EasyTextLimiter {
             return new Count(today, cur.used() + 1);
         });
         return ok[0];
+    }
+
+    /** AI 호출이 실패했을 때 오늘 쓴 한 번을 돌려준다 */
+    public void refund(String key) {
+        LocalDate today = LocalDate.now(clock);
+        counts.computeIfPresent(key, (k, c) -> c.day().equals(today) && c.used() > 0
+                ? new Count(today, c.used() - 1) : c);
+    }
+
+    /** 지금 기억하는 열쇠 수 (테스트용) */
+    int size() {
+        return counts.size();
+    }
+
+    /** 날짜가 바뀐 뒤 처음 부를 때 지난 날짜 기록을 지운다 */
+    private void purgeOld(LocalDate today) {
+        if (today.equals(lastPurge)) {
+            return;
+        }
+        counts.entrySet().removeIf(e -> !e.getValue().day().equals(today));
+        lastPurge = today;
     }
 
     /** 오늘 남은 횟수 */
