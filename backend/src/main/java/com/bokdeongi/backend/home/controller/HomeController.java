@@ -18,11 +18,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import java.util.Map;
 
 /**
- * HOME-01 홈 대시보드 및 HOME-02 활동 요약 API Controller
+ * HOME-01, HOME-02, HOME-03 홈 관련 API 컨트롤러.
  *
- * 로그인 사용자의 홈 대시보드 요약 정보를 조회하는 API를 제공한다.
- * 사용자 ID를 인증 정보에서 추출하고 HomeService를 호출하여
- * 프로필, 수령 가능 금액, 마감 임박 혜택, 신청현황 및 추천 정보를 반환한다.
+ * 로그인 사용자의 인증 정보에서 회원 ID를 추출하여
+ * 홈 대시보드, 신규 해당 혜택, 주간 요약 및
+ * 신청 일정 캘린더 정보를 반환한다.
+ *
+ * 신규 해당 혜택의 확인 처리 요청도 담당한다.
  */
 @RestController
 @RequestMapping("/api/home")

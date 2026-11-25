@@ -97,13 +97,12 @@ public class HomeService {
 
             eligibilityUpdating = eligibleResponse.updating();
 
-            // 현재 프로필 버전에 해당하는 적격 혜택만 조회한다.
-            // HomeQueryRepository에서 프로필 버전 일치 조건을 적용해야 한다.
-            eligibleBenefits = homeQueryRepository.findEligibleBenefits(userId);
-
-            // 판정 결과가 최신인 경우에만 추천 정보를 표시한다.
-            // 판정 결과가 최신인 경우에만 통계 및 추천 정보를 표시한다.
+            // 판정 결과가 최신인 경우에만
+            // 수령 가능 금액, 마감 임박 혜택, 통계 및 추천 정보를 조회한다.
             if (!eligibilityUpdating) {
+
+                // 현재 프로필 버전에 해당하는 적격 혜택 조회
+                eligibleBenefits = homeQueryRepository.findEligibleBenefits(userId);
 
                 // 현재 프로필 기준 맞춤 혜택 판정 통계 조회
                 eligibilityCounts = homeQueryRepository.findEligibilityCounts(userId);

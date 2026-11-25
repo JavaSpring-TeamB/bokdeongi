@@ -72,6 +72,10 @@ public class HomeCalendarRepository {
         );
     }
 
+    /**
+     * SQL 조회 결과를 캘린더 일정 구성에 필요한
+     * 혜택 데이터 객체로 변환한다.
+     */
     private CalendarBenefitRow mapRow(
             java.sql.ResultSet rs,
             int rowNum
