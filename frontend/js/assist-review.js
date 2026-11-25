@@ -6,7 +6,7 @@
         ['서류 검토', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h4M21 15v4a2 2 0 0 1-2 2h-4"></path><path d="m8 12 2.5 2.5L16 9"></path></svg>'],
         ['신청 안내', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 7-7 3-3 6z"></path><path d="m13 14 3-3"></path></svg>']
     ];
-    const state = { application: null, benefit: null, documents: null, missing: null, entries: [], selectedKey: null, uploadingKey: null, transientResults: new Map(), error: '', moving: false };
+    const state = { application: null, benefit: null, documents: null, missing: null, entries: [], selectedKey: null, uploadingKey: null, selectedFileName: '', consentChecking: false, consentSaving: false, transientResults: new Map(), error: '', moving: false };
 
     function escapeHtml(value) {
         return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;')
@@ -64,7 +64,7 @@
     function selectedEntry() { return state.entries.find((entry) => entry.key === state.selectedKey) || state.entries[0] || null; }
     function errorMessage(error) {
         const message = window.BokdeongiApplication.messageFor(error);
-        if (error?.code === 'CONSENT_REQUIRED') return message + ' 동의 등록 기능은 현재 준비 중입니다.';
+        if (error?.code === 'CONSENT_REQUIRED') return message + ' 서류 처리 동의 후 다시 검토해 주세요.';
         if (error?.code === 'UNREADABLE') return message + ' 파일을 더 선명하게 촬영하거나 다른 파일로 다시 시도해 주세요.';
         if (error?.code === 'AI_UNAVAILABLE') return message + ' 신청과 기존 검토 상태는 유지됩니다.';
         return message;
@@ -100,7 +100,7 @@
         const fields = result?.missingFields?.length ? '<div><dt>부족 항목</dt><dd>' + escapeHtml(result.missingFields.join(', ')) + '</dd></div>' : '';
         const external = entry.kind === 'document' ? safeUrl(entry.group?.url) : null;
         const uploadable = entry.kind === 'document' && entry.item?.ocrSupported && isPrepared(entry);
-        return '<section class="review-detail-section" aria-labelledby="review-detail-title"><h2 id="review-detail-title" class="review-detail-title">선택한 서류 상세</h2><p class="review-detail__file">' + escapeHtml(entry.name) + '</p><dl class="review-detail-list"><div><dt>현재 상태</dt><dd>' + escapeHtml(statusFor(entry)[0]) + '</dd></div><div><dt>검토 결과</dt><dd>' + escapeHtml(description.result) + '</dd></div><div><dt>세부 사유</dt><dd>' + escapeHtml(description.reason) + '</dd></div><div><dt>권장 조치</dt><dd>' + escapeHtml(description.action) + '</dd></div>' + recognizedType + issueDate + found + fields + alternatives + '</dl><div class="review-upload-actions">' + (uploadable ? '<button class="bk-btn bk-btn--secondary bk-btn--md" type="button" data-upload' + (state.uploadingKey ? ' disabled' : '') + '>' + (state.uploadingKey === entry.key ? '검토 요청 중...' : '파일 선택 후 검토') + '</button>' : '') + (external ? '<a class="bk-btn bk-btn--outline bk-btn--md" href="' + escapeHtml(external) + '" target="_blank" rel="noopener noreferrer">발급처 열기</a>' : '') + '<a class="bk-btn bk-btn--secondary bk-btn--md" href="' + window.BokdeongiApplication.assistantUrl(2, state.application.id) + '">서류 준비로 이동</a></div></section>';
+        return '<section class="review-detail-section" aria-labelledby="review-detail-title"><h2 id="review-detail-title" class="review-detail-title">선택한 서류 상세</h2><p class="review-detail__file">' + escapeHtml(entry.name) + '</p><dl class="review-detail-list"><div><dt>현재 상태</dt><dd>' + escapeHtml(statusFor(entry)[0]) + '</dd></div><div><dt>검토 결과</dt><dd>' + escapeHtml(description.result) + '</dd></div><div><dt>세부 사유</dt><dd>' + escapeHtml(description.reason) + '</dd></div><div><dt>권장 조치</dt><dd>' + escapeHtml(description.action) + '</dd></div>' + recognizedType + issueDate + found + fields + alternatives + '</dl><div class="review-upload-actions">' + (uploadable ? '<button class="bk-btn bk-btn--secondary bk-btn--md" type="button" data-upload' + (state.uploadingKey || state.consentChecking || state.consentSaving ? ' disabled' : '') + '>' + (state.uploadingKey === entry.key ? '검토 요청 중...' : state.consentChecking ? '동의 상태 확인 중...' : '파일 선택 후 검토') + '</button>' : '') + (state.selectedFileName ? '<p class="review-detail__file">선택한 파일: ' + escapeHtml(state.selectedFileName) + '</p>' : '') + (external ? '<a class="bk-btn bk-btn--outline bk-btn--md" href="' + escapeHtml(external) + '" target="_blank" rel="noopener noreferrer">발급처 열기</a>' : '') + '<a class="bk-btn bk-btn--secondary bk-btn--md" href="' + window.BokdeongiApplication.assistantUrl(2, state.application.id) + '">서류 준비로 이동</a></div></section>';
     }
     function missingMarkup() {
         if (state.missing.allReady) return '<section class="review-summary-section"><h2 class="review-detail-title">미충족 서류 안내</h2><p class="review-summary-message">서버 기준으로 보완할 서류가 없습니다.</p></section>';
@@ -128,7 +128,9 @@
             if (select) { state.selectedKey = select.dataset.documentKey; state.error = ''; render(); return; }
             const rowAction = event.target.closest('[data-row-action]');
             if (rowAction && !state.uploadingKey) { state.selectedKey = rowAction.dataset.rowAction; const entry = selectedEntry(); if (entry?.item?.ocrSupported && isPrepared(entry)) $('#review-file-input').click(); else render(); return; }
-            if (event.target.closest('[data-upload]') && !state.uploadingKey) { $('#review-file-input').click(); return; }
+            if (event.target.closest('[data-upload]') && !state.uploadingKey) { void checkConsentThenChooseFile(); return; }
+            if (event.target.closest('[data-doc-process-cancel]')) { $('#doc-process-consent-dialog').close(); return; }
+            if (event.target.closest('[data-doc-process-agree]')) { void agreeDocProcess(); return; }
             if (event.target.closest('[data-previous]') && (state.uploadingKey || state.moving)) { event.preventDefault(); return; }
             if (event.target.closest('[data-next]')) moveNext();
         });
@@ -153,6 +155,7 @@
     async function upload(file) {
         const entry = selectedEntry();
         if (!entry?.item?.ocrSupported || !isPrepared(entry) || state.uploadingKey) return;
+        state.selectedFileName = file.name;
         state.error = '';
         state.uploadingKey = entry.key;
         render();
@@ -166,10 +169,56 @@
             }
         } catch (error) {
             state.error = errorMessage(error);
+            if (error?.code === 'CONSENT_REQUIRED') openDocProcessDialog();
         } finally {
             state.uploadingKey = null;
             render();
         }
+    }
+    function docProcessDocument() { return window.BokdeongiConsentDocuments?.get('DOC_PROCESS'); }
+    function openDocProcessDialog(message = '') {
+        const dialog = $('#doc-process-consent-dialog');
+        const doc = docProcessDocument();
+        if (!dialog || !doc) { state.error = '서류 처리 동의 문서를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.'; render(); return; }
+        $('#doc-process-consent-title').textContent = doc.title;
+        window.BokdeongiConsentDocuments.renderInto($('#doc-process-consent-content'), 'DOC_PROCESS');
+        const error = $('[data-doc-process-error]'); error.textContent = message; error.hidden = !message;
+        if (!dialog.open) dialog.showModal();
+    }
+    async function readDocProcessConsent() {
+        const auth = window.BokdeongiAuth;
+        if (!auth || typeof auth.getConsentStatus !== 'function') throw new Error('동의 상태 확인 기능을 사용할 수 없습니다.');
+        const response = await auth.getConsentStatus();
+        if (!response.ok) throw new Error('서류 처리 동의 상태를 확인하지 못했습니다. 다시 시도해 주세요.');
+        const payload = await response.json();
+        const item = Array.isArray(payload?.consents) ? payload.consents.find((consent) => consent?.consentType === 'DOC_PROCESS') : null;
+        return item?.agreed === true && item.docVersion === docProcessDocument()?.version;
+    }
+    async function checkConsentThenChooseFile() {
+        if (state.consentChecking || state.uploadingKey) return;
+        const entry = selectedEntry();
+        if (!entry?.item?.ocrSupported || !isPrepared(entry)) return;
+        state.consentChecking = true; state.error = ''; render();
+        try { if (await readDocProcessConsent()) $('#review-file-input').click(); else openDocProcessDialog(); }
+        catch (error) { state.error = error.message || '동의 상태를 확인하지 못했습니다.'; }
+        finally { state.consentChecking = false; render(); }
+    }
+    async function agreeDocProcess() {
+        if (state.consentSaving) return;
+        const auth = window.BokdeongiAuth;
+        const version = window.BokdeongiConsentDocuments?.versionFor('DOC_PROCESS');
+        const error = $('[data-doc-process-error]');
+        if (!auth || typeof auth.updateConsent !== 'function' || !version) { error.textContent = '동의 저장 기능을 사용할 수 없습니다.'; error.hidden = false; return; }
+        state.consentSaving = true; error.hidden = true;
+        const button = $('[data-doc-process-agree]'); button.disabled = true; button.textContent = '저장 중...';
+        try {
+            const response = await auth.updateConsent('DOC_PROCESS', version, true);
+            if (response.status !== 204 && !response.ok) throw new Error('동의를 저장하지 못했습니다. 다시 시도해 주세요.');
+            if (!await readDocProcessConsent()) throw new Error('저장된 동의 상태를 확인하지 못했습니다. 다시 확인해 주세요.');
+            $('#doc-process-consent-dialog').close();
+            $('#review-file-input').click();
+        } catch (saveError) { error.textContent = saveError.message || '동의를 저장하지 못했습니다.'; error.hidden = false; }
+        finally { state.consentSaving = false; button.disabled = false; button.textContent = '내용을 확인하고 동의'; }
     }
     async function moveNext() {
         if (state.uploadingKey || state.moving) return;

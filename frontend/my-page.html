@@ -91,6 +91,12 @@
         </div>
     </dialog>
 
+    <dialog id="document-consent-dialog" class="my-page__withdraw-dialog" aria-labelledby="document-consent-dialog-title" aria-describedby="document-consent-dialog-description">
+        <div class="my-page__withdraw-dialog-header"><h2 id="document-consent-dialog-title"></h2><button class="my-page__withdraw-dialog-close" type="button" data-document-consent-close aria-label="동의 문서 닫기">×</button></div>
+        <div id="document-consent-dialog-description" class="my-page__withdraw-dialog-content" data-document-consent-content></div>
+        <div class="my-page__withdraw-dialog-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-document-consent-close>닫기</button><button class="bk-btn bk-btn--md" type="button" data-document-consent-agree>내용을 확인하고 동의</button></div>
+    </dialog>
+
     <dialog id="sensitive-withdraw-dialog" class="my-page__withdraw-dialog" aria-labelledby="sensitive-withdraw-dialog-title" aria-describedby="sensitive-withdraw-dialog-description">
         <div class="my-page__withdraw-dialog-header">
             <h2 id="sensitive-withdraw-dialog-title">민감정보 동의 철회</h2>

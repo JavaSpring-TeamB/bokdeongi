@@ -80,7 +80,7 @@ const STATUS_GROUPS = [
     ['employment-status', '경제활동(고용 상태)', [['JA0326', '재직자'], ['JA0327', '구직자'], ['SELF_EMPLOYED', '자영업자']]],
     ['occupation-industry', '직업·산업 분야', [['JA0313', '농업 종사자'], ['JA0314', '어업 종사자'], ['JA0315', '축산업 종사자'], ['JA0316', '임업 종사자']]]
 ];
-const CONSENT_TYPES = ['OPTIONAL_INFO', 'SENSITIVE'];
+const CONSENT_TYPES = ['OPTIONAL_INFO', 'SENSITIVE', 'DOC_PROCESS', 'DOC_RECORD'];
 let consentLoadState = 'checking';
 let consentLoadErrorStatus = null;
 let consentSubmittingType = null;
@@ -89,7 +89,9 @@ let sensitiveWithdrawalOpener = null;
 let sensitiveConsentOpener = null;
 let consentState = {
     OPTIONAL_INFO: null,
-    SENSITIVE: null
+    SENSITIVE: null,
+    DOC_PROCESS: null,
+    DOC_RECORD: null
 };
 let sensitiveEditState = { codes: null };
 
@@ -344,12 +346,16 @@ function renderConsentManagement() {
                 ? '<button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-sensitive-withdraw-start' + (submitting ? ' disabled' : '') + '>' + (submitting ? '변경 중…' : '동의 철회') + '</button>'
                 : '<button class="bk-btn bk-btn--primary bk-btn--sm" type="button" data-sensitive-consent-start' + (submitting ? ' disabled' : '') + '>동의하기</button>'
             : '<button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-optional-consent-change="' + (agreed ? 'false' : 'true') + '"' + (submitting ? ' disabled' : '') + '>' + (submitting ? '변경 중…' : agreed ? '동의 철회' : '동의하기') + '</button>';
-        return '<section class="my-page__section my-page__consent-item"><div class="my-page__section-heading"><div><h3>' + title + '</h3><p>' + description + '</p><p class="my-page__form-help">' + status + '</p></div>' + action + '</div></section>';
+        const documentActions = ['DOC_PROCESS', 'DOC_RECORD'].includes(type)
+            ? '<div class="my-page__consent-actions"><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-document-consent-view="' + type + '">내용 보기</button><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-document-consent-change="' + type + ':' + (!agreed) + '"' + (submitting ? ' disabled' : '') + '>' + (submitting ? '변경 중…' : agreed ? '동의 철회' : '동의하기') + '</button></div>' : '';
+        return '<section class="my-page__section my-page__consent-item"><div class="my-page__section-heading"><div><h3>' + title + '</h3><p>' + description + '</p><p class="my-page__form-help">' + status + '</p></div>' + (documentActions || action) + '</div></section>';
     };
 
     return '<header class="my-page__content-header"><div><h2>개인정보 동의 관리</h2><p class="my-page__content-intro">서버에 저장된 최신 동의 상태를 기준으로 변경합니다.</p></div></header>' +
         item('OPTIONAL_INFO', '선택정보 수집·이용', '선택정보를 제공하면 맞춤 안내를 더 정확하게 받을 수 있어요.') +
         item('SENSITIVE', '민감정보 수집·이용', '민감정보는 선택 항목이며, 철회하면 관련 정보가 삭제될 수 있어요.') +
+        item('DOC_PROCESS', '서류 처리 및 자동 검토', '동의하면 OCR 서류 업로드와 자동 검토를 이용할 수 있어요.') +
+        item('DOC_RECORD', '서류 유효기간 기억', '동의하면 서류 발급일을 기억해 유효기간과 만료 여부를 확인해요.') +
         '<p class="my-page__form-help">민감정보 철회 뒤 맞춤 혜택 판정 결과가 달라질 수 있으며, 재판정 완료 시점은 즉시 확정되지 않아요.</p><div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-consent-back>돌아가기</button></div>';
 }
 
@@ -1059,6 +1065,29 @@ function closeSensitiveWithdrawalDialog() {
     if (dialog && dialog.open && !consentSubmittingType) dialog.close();
 }
 
+function openDocumentConsentDialog(type) {
+    if (consentSubmittingType || consentLoadState !== 'loaded' || !['DOC_PROCESS', 'DOC_RECORD'].includes(type)) return;
+    const info = window.BokdeongiConsentDocuments?.get(type);
+    const dialog = $('#document-consent-dialog');
+    if (!info || !dialog) { showToast('동의 문서를 불러오지 못했습니다. 동의는 변경하지 않습니다.'); return; }
+    dialog.dataset.consentType = type;
+    $('#document-consent-dialog-title').textContent = info.title;
+    window.BokdeongiConsentDocuments.renderInto(dialog.querySelector('[data-document-consent-content]'), type);
+    const agree = dialog.querySelector('[data-document-consent-agree]');
+    agree.hidden = consentState[type]?.agreed === true;
+    dialog.showModal();
+}
+
+function requestDocumentConsentChange(type, agreed) {
+    if (type === 'DOC_PROCESS' && !agreed) {
+        if (!window.confirm('동의를 철회하면 이후 서류 업로드 및 자동 검토 기능을 이용할 수 없습니다. 철회할까요?')) return;
+    }
+    if (type === 'DOC_RECORD' && !agreed) {
+        if (!window.confirm('동의를 철회하면 기존에 기억한 서류 발급일 기록이 삭제됩니다. 철회할까요?')) return;
+    }
+    void changeConsent(type, agreed);
+}
+
 async function changeConsent(type, agreed) {
     if (!CONSENT_TYPES.includes(type) || consentLoadState !== 'loaded' || consentSubmittingType) return;
     const docVersion = currentConsentDocumentVersion(type);
@@ -1075,12 +1104,7 @@ async function changeConsent(type, agreed) {
     consentSubmittingType = type;
     if (currentSection === 'profile') renderSection();
     try {
-        const csrf = await auth.getCsrfToken();
-        const response = await auth.authenticatedFetch('/api/auth/consents', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
-            body: JSON.stringify({ consentType: type, docVersion, agreed })
-        });
+        const response = await auth.updateConsent(type, docVersion, agreed);
 
         if (response.status === 204) {
             const refreshed = await loadConsentStatus({ render: false });
@@ -1564,6 +1588,23 @@ function setupInteractions() {
         });
     }
     document.addEventListener('click', (event) => {
+        if (event.target.closest('[data-document-consent-close]')) { $('#document-consent-dialog').close(); return; }
+        if (event.target.closest('[data-document-consent-view]')) { openDocumentConsentDialog(event.target.closest('[data-document-consent-view]').dataset.documentConsentView); return; }
+        const documentConsentChange = event.target.closest('[data-document-consent-change]');
+        if (documentConsentChange) {
+            const [type, agreed] = documentConsentChange.dataset.documentConsentChange.split(':');
+            if (agreed === 'true') openDocumentConsentDialog(type);
+            else requestDocumentConsentChange(type, false);
+            return;
+        }
+        const documentConsentAgree = event.target.closest('[data-document-consent-agree]');
+        if (documentConsentAgree) {
+            const dialog = $('#document-consent-dialog');
+            const type = dialog.dataset.consentType;
+            documentConsentAgree.disabled = true;
+            void changeConsent(type, true).finally(() => { documentConsentAgree.disabled = false; if (consentState[type]?.agreed === true) dialog.close(); });
+            return;
+        }
         if (event.target.closest('[data-withdrawal-close]')) { closeWithdrawalDialog(); return; }
         if (event.target.closest('[data-withdrawal-confirm]')) { submitWithdrawal(); return; }
         if (event.target.closest('[data-sensitive-withdraw-close]')) { closeSensitiveWithdrawalDialog(); return; }

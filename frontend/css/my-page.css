@@ -102,6 +102,7 @@
 .my-page__form-error { min-height: 1.3em; margin: calc(var(--space-sm) * -1) 0 0; color: var(--color-danger); font-size: var(--font-size-caption); }
 .my-page__profile-form-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); }
 .my-page__consent-item { margin-bottom: var(--space-md); }
+.my-page__consent-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-xs); }
 .my-page__password-form { display: grid; max-width: 560px; gap: var(--space-lg); }
 .my-page__password-form-status { margin: calc(var(--space-sm) * -1) 0 0; }
 .my-page__password-form input[aria-invalid="true"] { border-color: var(--color-danger); }

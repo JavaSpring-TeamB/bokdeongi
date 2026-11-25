@@ -322,7 +322,8 @@ function easyPanelContent(detail) {
     }
     if (easyState.screen === 'NOT_READY') {
         const notice = hasText(easyState.response?.notice) ? ' ' + easyState.response.notice.trim() : '';
-        return panelNotice('쉬운 말 안내가 아직 준비되지 않았어요.', '현재는 공고 원문을 확인해주세요.' + notice)
+        const loginHint = window.BokdeongiAuth?.getAuthenticationState?.() === 'unauthenticated' ? ' 로그인하면 쉬운 말로 볼 수 있어요.' : '';
+        return panelNotice('쉬운 말 안내가 아직 준비되지 않았어요.', '현재는 공고 원문을 확인해주세요.' + loginHint + notice)
             + '<div class="detail-actions"><button class="icon-button" type="button" data-open-original>원문 보기</button><button class="icon-button" type="button" data-retry-easy>다시 확인</button></div>';
     }
     if (easyState.screen === 'FAILED') {

@@ -4,6 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'assist-review.js'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'assist-review.html'), 'utf8');
 
 test('review stage loads its application, benefit, documents, and server missing-document state', () => {
   assert.match(source, /loadCurrentAssistantApplication\(\$\('#assist-content'\)\)/);
@@ -37,4 +38,24 @@ test('review stage does not retain files or use mock OCR data', () => {
   assert.match(source, /CONSENT_REQUIRED/);
   assert.match(source, /UNREADABLE/);
   assert.match(source, /AI_UNAVAILABLE/);
+});
+
+test('DOC_PROCESS consent is checked and explicitly saved before OCR file selection', () => {
+  assert.match(html, /js\/consent-documents\.js/);
+  assert.match(html, /doc-process-consent-dialog/);
+  assert.match(source, /getConsentStatus\(\)/);
+  assert.match(source, /consentType === 'DOC_PROCESS'/);
+  assert.match(source, /agreed === true && item\.docVersion === docProcessDocument\(\)\?\.version/);
+  assert.match(source, /updateConsent\('DOC_PROCESS', version, true\)/);
+  assert.match(source, /status !== 204/);
+  assert.match(source, /CONSENT_REQUIRED/);
+  assert.match(source, /renderInto\(\$\('#doc-process-consent-content'\), 'DOC_PROCESS'\)/);
+});
+
+test('OCR upload action is restricted to prepared, OCR-supported document entries and server allReady still gates next step', () => {
+  assert.match(source, /entry\.kind === 'document' && entry\.item\?\.ocrSupported && isPrepared\(entry\)/);
+  assert.match(source, /if \(!entry\?\.item\?\.ocrSupported \|\| !isPrepared\(entry\) \|\| state\.uploadingKey\) return/);
+  assert.match(html, /accept="\.pdf,\.jpg,\.jpeg,\.png"/);
+  assert.match(source, /state\.missing\.allReady/);
+  assert.match(source, /이 서류는 사진 OCR 검토 대상이 아닙니다/);
 });
