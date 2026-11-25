@@ -71,7 +71,7 @@ class ApplicationCalendarServiceTest {
     void shouldCreateCalendarWithOneDayReminder() {
         Benefit benefit = benefit(
                 LocalDate.of(2026, 12, 10),
-                "OPEN",
+                "PARSED",
                 "DAY"
         );
 
@@ -197,7 +197,7 @@ class ApplicationCalendarServiceTest {
     void shouldRejectImpreciseDeadline() {
         Benefit benefit = benefit(
                 LocalDate.of(2026, 12, 10),
-                "OPEN",
+                "PARSED",
                 "MONTH"
         );
 
@@ -258,7 +258,7 @@ class ApplicationCalendarServiceTest {
         // Benefit 객체를 먼저 생성
         Benefit favoriteBenefit = benefit(
                 LocalDate.of(2026, 12, 10),
-                "OPEN",
+                "PARSED",
                 "DAY"
         );
 
@@ -308,5 +308,121 @@ class ApplicationCalendarServiceTest {
                 "혜택 정보를 찾을 수 없습니다.",
                 exception.getMessage()
         );
+    }
+
+    /**
+     * 정상적으로 파싱되지 않은 마감일은
+     * ICS 파일로 생성하지 않는다.
+     */
+    @Test
+    void shouldRejectUnparsedDeadline() {
+        Benefit benefit = benefit(
+                LocalDate.of(2026, 12, 10),
+                "UNKNOWN",
+                "DAY"
+        );
+
+        mockApplication(benefit);
+
+        ApplicationCalendarException exception = assertThrows(
+                ApplicationCalendarException.class,
+                () -> service.createCalendar(
+                        USER_ID,
+                        APPLICATION_ID
+                )
+        );
+
+        assertEquals(400, exception.getStatus().value());
+        assertEquals("CALENDAR_UNAVAILABLE", exception.getCode());
+    }
+
+    /**
+     * 혜택 제목이 없으면 기본 제목을 사용한다.
+     */
+    @Test
+    void shouldUseDefaultTitleWhenMissing() {
+        Benefit benefit = benefit(
+                LocalDate.of(2026, 12, 10),
+                "PARSED",
+                "DAY"
+        );
+
+        when(benefit.getTitle()).thenReturn(null);
+
+        mockApplication(benefit);
+
+        String ics = service.createCalendar(
+                USER_ID,
+                APPLICATION_ID
+        );
+
+        assertTrue(ics.contains("SUMMARY:혜택 신청 마감"));
+    }
+
+    /**
+     * 제목에 포함된 쉼표, 세미콜론, 역슬래시 및
+     * 줄바꿈을 ICS 형식에 맞게 변환한다.
+     */
+    @Test
+    void shouldEscapeSpecialCharacters() {
+        Benefit benefit = benefit(
+                LocalDate.of(2026, 12, 10),
+                "PARSED",
+                "DAY"
+        );
+
+        when(benefit.getTitle())
+                .thenReturn("A,B;C\\D\nE");
+
+        mockApplication(benefit);
+
+        String ics = service.createCalendar(
+                USER_ID,
+                APPLICATION_ID
+        );
+
+        assertTrue(ics.contains(
+                "SUMMARY:A\\,B\\;C\\\\D\\nE 신청 마감"
+        ));
+    }
+
+    /**
+     * 긴 한글 제목도 UTF-8 기준 75바이트 이하로
+     * 줄을 접고 원래 내용을 유지한다.
+     */
+    @Test
+    void shouldFoldLongUtf8Lines() {
+        Benefit benefit = benefit(
+                LocalDate.of(2026, 12, 10),
+                "PARSED",
+                "DAY"
+        );
+
+        String title = "청년지원사업".repeat(20);
+
+        when(benefit.getTitle()).thenReturn(title);
+
+        mockApplication(benefit);
+
+        String ics = service.createCalendar(
+                USER_ID,
+                APPLICATION_ID
+        );
+
+        assertTrue(ics.contains("\r\n "));
+
+        for (String line : ics.split("\r\n")) {
+            assertTrue(
+                    line.getBytes(
+                            java.nio.charset.StandardCharsets.UTF_8
+                    ).length <= 75
+            );
+        }
+
+        String unfolded = ics.replace("\r\n ", "");
+
+        assertTrue(unfolded.contains(
+                "SUMMARY:" + title + " 신청 마감"
+        ));
     }
 }

@@ -15,7 +15,7 @@ class CalendarAvailabilityTest {
     void shouldAllowExactDeadline() {
         CalendarAvailability result =
                 CalendarAvailability.evaluate(
-                        "OPEN", "DAY", DEADLINE
+                        "PARSED", "DAY", DEADLINE
                 );
 
         assertTrue(result.available());
@@ -82,10 +82,11 @@ class CalendarAvailabilityTest {
     void shouldRejectMonthlyPrecision() {
         CalendarAvailability result =
                 CalendarAvailability.evaluate(
-                        "OPEN", "MONTH", DEADLINE
+                        "PARSED", "MONTH", DEADLINE
                 );
 
         assertFalse(result.available());
+
         assertEquals(
                 "신청 마감일이 일 단위로 확정되지 않았습니다.",
                 result.unavailableReason()
@@ -107,10 +108,60 @@ class CalendarAvailabilityTest {
     void shouldSupportCaseInsensitiveValues() {
         CalendarAvailability result =
                 CalendarAvailability.evaluate(
-                        "open", "day", DEADLINE
+                        "parsed", "day", DEADLINE
                 );
 
         assertTrue(result.available());
         assertNull(result.unavailableReason());
+    }
+
+    /**
+     * 파싱되지 않은 마감일은 날짜 값이 존재해도
+     * 캘린더에 등록할 수 없다.
+     */
+    @Test
+    void shouldRejectUnparsedDeadline() {
+        CalendarAvailability result =
+                CalendarAvailability.evaluate(
+                        "UNKNOWN", "DAY", DEADLINE
+                );
+
+        assertFalse(result.available());
+        assertEquals(
+                "정확한 신청 마감일을 확인할 수 없습니다.",
+                result.unavailableReason()
+        );
+    }
+
+    /**
+     * 날짜 상태가 없으면 캘린더에 등록할 수 없다.
+     */
+    @Test
+    void shouldRejectNullDateStatus() {
+        CalendarAvailability result =
+                CalendarAvailability.evaluate(
+                        null, "DAY", DEADLINE
+                );
+
+        assertFalse(result.available());
+        assertNotNull(result.unavailableReason());
+    }
+
+    /**
+     * 정상 파싱 상태라도 실제 마감일이 없으면
+     * 캘린더에 등록할 수 없다.
+     */
+    @Test
+    void shouldRejectParsedStatusWithoutDeadline() {
+        CalendarAvailability result =
+                CalendarAvailability.evaluate(
+                        "PARSED", "DAY", null
+                );
+
+        assertFalse(result.available());
+        assertEquals(
+                "정확한 신청 마감일을 확인할 수 없습니다.",
+                result.unavailableReason()
+        );
     }
 }

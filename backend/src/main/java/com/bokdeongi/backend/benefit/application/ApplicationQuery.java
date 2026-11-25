@@ -9,6 +9,14 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.List;
 
+/**
+ * 회원별 혜택 신청 정보를 관리하는 Repository.
+ *
+ * 신청 기록 조회, 신청 시작, 진행 상태 저장 및
+ * 신청 결과 상태 변경을 SQL로 처리한다.
+ *
+ * 기존 관심 저장 및 자격 판정 관련 정보는 유지한다.
+ */
 @Repository
 public class ApplicationQuery {
 
@@ -184,6 +192,9 @@ public class ApplicationQuery {
         return updated > 0;
     }
 
+    /**
+     * SQL 조회 결과를 신청 정보 객체로 변환한다.
+     */
     private ApplicationRow mapRow(ResultSet rs)
             throws SQLException {
         return new ApplicationRow(
@@ -201,6 +212,9 @@ public class ApplicationQuery {
         );
     }
 
+    /**
+     * DB에서 조회한 회원별 신청 기록을 담는 객체.
+     */
     public record ApplicationRow(
             long id,
             long userId,

@@ -12,6 +12,14 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
+/**
+ * 혜택 신청 마감일 캘린더 생성 서비스.
+ *
+ * 회원의 신청 또는 관심 혜택 기록을 조회하고
+ * 정확한 신청 마감일을 iCalendar 형식으로 제공한다.
+ *
+ * 종일 일정과 마감 하루 전 알림을 포함한다.
+ */
 @Service
 public class ApplicationCalendarService {
 
@@ -33,6 +41,12 @@ public class ApplicationCalendarService {
         this.benefitRepository = benefitRepository;
     }
 
+    /**
+     * 회원의 신청 또는 관심 혜택에 대한 캘린더를 생성한다.
+     *
+     * 본인의 기록인지 확인하고 신청 마감일을 검증한 후
+     * ICS 형식의 문자열을 반환한다.
+     */
     @Transactional(readOnly = true)
     public String createCalendar(long userId, long applicationId) {
 
