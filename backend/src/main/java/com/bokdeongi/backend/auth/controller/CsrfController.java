@@ -6,6 +6,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * CSRF 토큰 조회 API 컨트롤러.
+ *
+ * 클라이언트가 상태 변경 요청에 사용할
+ * CSRF 토큰과 헤더 이름을 반환한다.
+ */
 @RestController
 public class CsrfController {
 

@@ -34,6 +34,13 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
 import java.time.Duration;
 
+/**
+ * 회원 인증 및 계정 관리 API 컨트롤러.
+ *
+ * 일반 및 카카오 회원가입, 로그인, 토큰 재발급,
+ * 약관 동의 관리, 비밀번호 변경, 로그아웃,
+ * 회원 탈퇴 관련 요청을 처리한다.
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

@@ -9,7 +9,14 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
+/**
+ * 일반 이메일 로그인 시 인증 검증 및 실패 횟수를 관리하는 서비스.
+ *
+ * 비밀번호 검증, 계정 잠금 및 로그인 실패 기록 초기화를 처리하며,
+ * 독립적인 트랜잭션을 통해 로그인 실패 기록을 유지한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class LoginAttemptService {
@@ -59,7 +66,7 @@ public class LoginAttemptService {
             );
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
 
         // 계정 잠금 시간이 아직 지나지 않은 경우
         if (user.isLoginLocked(now)) {
