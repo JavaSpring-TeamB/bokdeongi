@@ -379,6 +379,18 @@
     gap: var(--space-sm);
 }
 
+.recommend-card__action-links {
+    display: flex;
+    width: 100%;
+    gap: var(--space-sm);
+}
+
+.recommend-card__action-links .bk-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+}
+
 .recommend-card--eligible {
     display: flex;
     min-width: 0;
@@ -470,10 +482,6 @@
 
 .recommend-card--eligible .recommend-card__actions {
     margin-top: auto;
-}
-
-.recommend-card--eligible .recommend-card__actions .bk-btn {
-    width: 100%;
 }
 
 .recommend-card--conditional {
@@ -743,10 +751,6 @@
 
 .recommend-card--near-miss .recommend-card__actions {
     margin-top: auto;
-}
-
-.recommend-card--near-miss .recommend-card__actions .bk-btn {
-    width: 100%;
 }
 
 .recommend-empty-state {

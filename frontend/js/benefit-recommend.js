@@ -595,42 +595,46 @@
         return wrapper;
     }
 
-    function httpsUrl(value) {
+    function safeSourceUrl(value) {
         try {
             const url = new URL(value);
-            return url.protocol === 'https:' ? url.href : null;
+            return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
         } catch {
             return null;
         }
     }
 
     function createAction(item) {
-        const externalUrl = httpsUrl(item.sourceUrl);
-        if (externalUrl) {
-            const link = document.createElement('a');
-            link.className = 'bk-btn bk-btn--primary bk-btn--md';
-            link.href = externalUrl;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = '공고 보기';
-            return link;
-        }
-
+        const externalUrl = safeSourceUrl(item.sourceUrl);
         const benefitId = Number(item.benefitId);
-        if (Number.isSafeInteger(benefitId) && benefitId > 0) {
-            const link = document.createElement('a');
-            link.className = 'bk-btn bk-btn--primary bk-btn--md';
-            link.href = 'benefit-detail.html?id=' + encodeURIComponent(String(benefitId));
-            link.textContent = '상세 보기';
-            return link;
+        const sourceLink = document.createElement(externalUrl ? 'a' : 'button');
+        sourceLink.className = 'bk-btn bk-btn--outline bk-btn--md';
+        sourceLink.textContent = '공고 보기';
+        if (externalUrl) {
+            sourceLink.href = externalUrl;
+            sourceLink.target = '_blank';
+            sourceLink.rel = 'noopener noreferrer';
+        } else {
+            sourceLink.type = 'button';
+            sourceLink.disabled = true;
+            sourceLink.setAttribute('aria-disabled', 'true');
         }
 
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'bk-btn bk-btn--primary bk-btn--md';
-        button.disabled = true;
-        button.textContent = '상세 정보 준비 중';
-        return button;
+        const detailLink = document.createElement(Number.isSafeInteger(benefitId) && benefitId > 0 ? 'a' : 'button');
+        detailLink.className = 'bk-btn bk-btn--primary bk-btn--md';
+        detailLink.textContent = '상세보기';
+        if (Number.isSafeInteger(benefitId) && benefitId > 0) {
+            detailLink.href = 'benefit-detail.html?id=' + encodeURIComponent(String(benefitId));
+        } else {
+            detailLink.type = 'button';
+            detailLink.disabled = true;
+            detailLink.setAttribute('aria-disabled', 'true');
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'recommend-card__action-links';
+        actions.append(sourceLink, detailLink);
+        return actions;
     }
 
     function createHeading(item, statusLabel) {
