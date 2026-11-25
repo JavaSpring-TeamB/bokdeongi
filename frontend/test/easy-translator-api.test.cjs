@@ -5,6 +5,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'easy-translator.js'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'easy-translator.html'), 'utf8');
 
 function node() {
   const value = {
@@ -165,6 +166,20 @@ test('shows an accessible indeterminate loading animation and prevents submissio
   resolveRequest(response(200, payload()));
   await pending;
   assert.equal(harness.elements['[data-translate]'].disabled, false);
+});
+
+test('shows the same personal information notice before file selection in both image and PDF panels', () => {
+  const notice = '개인정보가 포함된 문서는 가린 후 업로드해 주세요.';
+  const extraction = 'OCR로 추출한 텍스트는 Google Gemini를 통해 쉬운 말로 변환됩니다.';
+  const imagePanel = html.split('id="image-input-panel"')[1].split('</section>')[0];
+  const pdfPanel = html.split('id="pdf-input-panel"')[1].split('</section>')[0];
+  for (const panel of [imagePanel, pdfPanel]) {
+    assert.ok(panel.indexOf(notice) >= 0 && panel.indexOf(notice) < panel.indexOf('type="file"'));
+    assert.ok(panel.includes(extraction));
+    assert.ok(panel.includes('주민등록번호, 전화번호, 계좌번호 등 일부 개인정보는 마스킹되지만 주소 등의 정보는 포함될 수 있습니다.'));
+    assert.ok(panel.includes('OCR로 추출한 전체 텍스트는 복덩이 서버에 저장하지 않습니다.'));
+  }
+  assert.match(html, /개인정보는 지우고 붙여 넣어 주세요/);
 });
 
 test('posts one authenticated JPG, PNG, or PDF as multipart to the EASY-02 file endpoint and reuses the response flow', async () => {
