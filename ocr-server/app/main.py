@@ -4,14 +4,14 @@
 
 - GET  /health          서버 확인
 - POST /check           서류 검토: 종류·발급일·필수 항목 판정 (원본·텍스트 저장 안 함)
-- POST /text            마스킹된 텍스트만 돌려줌 (EASY-02 고지서 사진용)
+- POST /text            마스킹된 텍스트만 돌려줌 (EASY-02 고지서 사진용). 개인 서류(등본 등)는 422로 막는다
 
 서류 처리 동의(DOC_PROCESS) 확인과 doc_checks 저장은 백엔드가 한다.
 """
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from . import engine
-from .documents import SPEC_BY_CODE, Result, check
+from .documents import SPEC_BY_CODE, Result, check, personal_document
 from .masking import MaskingError, mask_lines
 
 MAX_BYTES = 10 * 1024 * 1024  # 10MB
@@ -77,6 +77,12 @@ async def masked_text(file: UploadFile = File(...)):
         del data
     if lines is None:
         raise HTTPException(422, detail={"code": "UNREADABLE", "message": why})
+    name = personal_document(lines)
+    if name:  # 서류 내용은 LLM에 보내지 않는다(D-78). 글자는 돌려주지 않는다
+        raise HTTPException(422, detail={
+            "code": "PERSONAL_DOCUMENT",
+            "message": f"{name} 같은 개인 서류는 쉬운 말 번역기에 올릴 수 없어요. 서류 확인은 신청 도우미에서 해 주세요.",
+        })
     return {"lines": lines}
 
 

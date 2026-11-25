@@ -1,6 +1,6 @@
 from datetime import date
 
-from app.documents import Result, check, find_issue_date
+from app.documents import Result, check, find_issue_date, personal_document
 
 TODAY = date(2026, 11, 16)
 
@@ -61,3 +61,9 @@ def test_글자가_거의_없으면_재촬영():
 def test_미래_발급일은_요건_미달():
     lines = 재학[:-1] + ["발급일자 2027. 1. 1."]
     assert check(lines, today=TODAY).result == Result.INVALID
+
+
+def test_번역기는_개인_서류를_알아본다():
+    assert personal_document(등본) == "주민등록등본"
+    assert personal_document(재학) == "재학증명서"
+    assert personal_document(["긴급복지 지원 결정 통지서", "지원 금액 월 1,833,000원"]) is None

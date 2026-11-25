@@ -40,7 +40,7 @@ public class EasyTextController {
     @Operation(summary = "고지서 사진·PDF 쉬운 말 변환",
             description = "multipart: file(JPG·PNG·PDF, 10MB). 로컬 OCR 서버가 글자를 읽고 주민번호·전화·계좌·상세주소를 가린 뒤 "
                     + "글 변환과 같은 길로 보낸다. 파일은 저장하지 않는다. 응답은 POST /api/easy-text와 같다. "
-                    + "로그인 필요(401). 흐린 사진 422 UNREADABLE, 형식 415, 크기 413, OCR 서버 꺼짐 502")
+                    + "로그인 필요(401). 흐린 사진 422 UNREADABLE, 등본·납부확인서 같은 개인 서류 422 PERSONAL_DOCUMENT(AI에 안 보냄), 형식 415, 크기 413, OCR 서버 꺼짐 502")
     @PostMapping(value = "/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<EasyTextDto.Response> translateFile(Authentication authentication, HttpServletRequest request,
                                                               @RequestPart("file") MultipartFile file) {

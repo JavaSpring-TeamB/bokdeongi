@@ -90,6 +90,12 @@ def detect_type(lines: list[str]) -> DocSpec | None:
     return None
 
 
+def personal_document(lines: list[str]) -> str | None:
+    """번역기(/text)용: 등본·납부확인서처럼 우리가 아는 개인 서류면 그 이름. 서류 내용은 LLM에 보내지 않는다(D-78)"""
+    spec = detect_type(lines)
+    return spec.name if spec else None
+
+
 def _to_date(m: re.Match) -> date | None:
     try:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))

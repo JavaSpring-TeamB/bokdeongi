@@ -12,11 +12,13 @@ public final class PersonalInfoMasker {
 
     public static final String MASK = "[가림]";
 
-    private static final Pattern RRN = Pattern.compile("\\d{6}\\s*-?\\s*[1-8]\\d{6}");
-    private static final Pattern PHONE = Pattern.compile("01[016789][-\\s]?\\d{3,4}[-\\s]?\\d{4}");
+    private static final Pattern RRN = Pattern.compile("(?<!\\d)\\d{6}\\s*-?\\s*[1-8]\\d{6}(?!\\d)"); // 더 긴 숫자(계좌) 안의 13자리는 안 본다
+    private static final Pattern PHONE = Pattern.compile("(?<!\\d)01[016789][-\\s]?\\d{3,4}[-\\s]?\\d{4}(?!\\d)");
     private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+");
     /** 계좌: 숫자 묶음 3~4개, 숫자 합계 10~16자리 (OCR 서버 masking.py와 같은 기준). 날짜(2026-11-20)는 8자리라 안 걸린다 */
     private static final Pattern ACCOUNT = Pattern.compile("(?<![\\d*])\\d{2,6}(?:-\\d{2,7}){2,3}(?![\\d*])");
+    /** 하이픈 없는 계좌(가상계좌 등): 10~16자리 연속 숫자. 쉼표 금액(1,833,000)·날짜는 안 걸린다 */
+    private static final Pattern ACCOUNT_PLAIN = Pattern.compile("(?<![\\d*])\\d{10,16}(?![\\d*])");
     /** 기관 일반전화(02-123-4567, 031-1234-5678)는 계좌로 보지 않는다 */
     private static final Pattern LANDLINE = Pattern.compile("0(?:2|[3-6]\\d)-\\d{3,4}-\\d{4}");
     /**
@@ -37,6 +39,7 @@ public final class PersonalInfoMasker {
         s = PHONE.matcher(s).replaceAll(MASK);
         s = EMAIL.matcher(s).replaceAll(MASK);
         s = maskAccounts(s);
+        s = ACCOUNT_PLAIN.matcher(s).replaceAll(MASK);
         return ADDRESS_DETAIL.matcher(s).replaceAll(MASK);
     }
 
