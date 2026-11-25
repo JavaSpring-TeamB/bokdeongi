@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Year;
+import java.time.ZoneId;
 
 /**
  * 가구 소득을 기준 중위소득 대비 비율로 환산하는 서비스.
@@ -43,10 +44,10 @@ public class IncomeCalculationService {
             );
         }
 
-        if (incomeAmount == null || incomeAmount.signum() <= 0) {
+        if (incomeAmount == null || incomeAmount.signum() < 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "소득 금액을 확인해 주세요."
+                    "소득 금액은 0 이상이어야 합니다."
             );
         }
 
@@ -61,9 +62,9 @@ public class IncomeCalculationService {
             );
         };
 
-        short baseYear = (short) Year.now().getValue();
-        BigDecimal standardAmount =
-                getMonthlyStandard(baseYear, householdSize);
+        short baseYear = (short) Year.now(ZoneId.of("Asia/Seoul")).getValue();
+
+        BigDecimal standardAmount = getMonthlyStandard(baseYear, householdSize);
 
         BigDecimal percentage = monthlyIncome
                 .multiply(BigDecimal.valueOf(100))
@@ -142,10 +143,10 @@ public class IncomeCalculationService {
             );
         }
 
-        if (incomeAmount == null || incomeAmount.signum() <= 0) {
+        if (incomeAmount == null || incomeAmount.signum() < 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "소득 금액을 확인해 주세요."
+                    "소득 금액은 0 이상이어야 합니다."
             );
         }
 
