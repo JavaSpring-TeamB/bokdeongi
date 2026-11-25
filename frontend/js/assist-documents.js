@@ -59,7 +59,7 @@
     }
     function isPending(key) { return (state.pending.get(key) || 0) > 0; }
     function selectedEntry() { return state.entries.find((entry) => entry.key === state.selectedKey) || state.entries[0] || null; }
-    function allPrepared() { return state.entries.length > 0 && state.entries.every((entry) => displayState(entry.key).prepared); }
+    function allPrepared() { return state.documents !== null && state.entries.every((entry) => displayState(entry.key).prepared); }
     function canMoveNext() { return allPrepared() && state.pending.size === 0 && state.failed.size === 0 && !state.moving; }
     function statusLabel(entry) {
         const documentState = displayState(entry.key);
@@ -132,7 +132,7 @@
         const changedNotice = state.application.announcementChanged ? '<p class="assist-answer-summary" role="status">공고 정보가 신청을 시작한 뒤 변경되었습니다. 최신 공고 내용을 확인해 주세요.</p>' : '';
         $('#assist-content').innerHTML = stepsMarkup()
             + '<div class="assist-info"><strong aria-hidden="true">i</strong><span><strong>' + escapeHtml(text(state.benefit.title, '혜택 정보')) + '</strong>의 제출 서류와 준비 상태입니다.</span></div>'
-            + '<div class="assist-documents-layout"><section class="assist-document-list"><div class="document-list-heading"><h2>제출 서류</h2><div class="document-counts"><span>' + state.entries.filter((item) => displayState(item.key).prepared).length + ' / ' + state.entries.length + ' 준비</span></div></div>' + changedNotice + (state.entries.length ? listMarkup() : '<p class="assist-answer-summary">서버에서 준비할 서류를 찾지 못했습니다.</p>') + '</section><aside class="assist-documents-summary">' + detailMarkup(entry) + progressMarkup() + contactsMarkup() + '</aside></div>'
+            + '<div class="assist-documents-layout"><section class="assist-document-list"><div class="document-list-heading"><h2>제출 서류</h2><div class="document-counts"><span>' + state.entries.filter((item) => displayState(item.key).prepared).length + ' / ' + state.entries.length + ' 준비</span></div></div>' + changedNotice + (state.entries.length ? listMarkup() : '<p class="assist-answer-summary">준비할 서류가 없습니다. 다음 단계로 이동할 수 있어요.</p>') + '</section><aside class="assist-documents-summary">' + detailMarkup(entry) + progressMarkup() + contactsMarkup() + '</aside></div>'
             + '<p class="assist-answer-summary" role="status">' + moveHint() + '</p>' + (state.failed.get('_next') ? '<p class="assist-answer-summary" role="alert">' + escapeHtml(state.failed.get('_next').message) + '</p>' : '') + '<div class="assist-actions"><a class="bk-btn bk-btn--outline bk-btn--md"' + (state.pending.size || state.moving ? ' aria-disabled="true" tabindex="-1"' : '') + ' href="' + window.BokdeongiApplication.assistantUrl(1, state.application.id) + '">이전 단계</a><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-next-step' + (canMoveNext() ? '' : ' disabled') + '>서류 검토로 이동</button></div>';
         bindEvents();
     }

@@ -28,6 +28,12 @@ test('documents stage saves only server document keys and protects unsaved chang
   assert.doesNotMatch(source, /docChecks/);
 });
 
+test('allows a successfully loaded empty document list and explains the zero-document case', () => {
+  assert.match(source, /function allPrepared\(\) \{ return state\.documents !== null && state\.entries\.every/);
+  assert.match(source, /준비할 서류가 없습니다\. 다음 단계로 이동할 수 있어요\./);
+  assert.match(source, /function canMoveNext\(\) \{ return allPrepared\(\) && state\.pending\.size === 0 && state\.failed\.size === 0/);
+});
+
 test('documents stage moves to review only after preparation is saved and uses the common application update', () => {
   assert.match(source, /function canMoveNext\(\) \{ return allPrepared\(\) && state\.pending\.size === 0 && state\.failed\.size === 0/);
   assert.match(source, /updateApplication\(state\.application\.id, \{ step: 3 \}\)/);
