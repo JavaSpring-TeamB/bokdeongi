@@ -175,6 +175,37 @@ test('loads documents and patches a URL-encoded server document key with CSRF', 
   await assert.rejects(api.updateDocumentPrepared(274, '31', 'true'), (error) => error.kind === 'INPUT');
 });
 
+test('loads and validates saved document records through the authenticated shared API', async () => {
+  const record = { documentTypeId: 31, documentName: '주민등록등본', issueDate: '2026-11-24', validityDays: 90, expiresAt: '2027-02-22', valid: true };
+  const { api, requests } = harness(() => response(200, { records: [record] }));
+  assert.deepEqual({ ...((await api.getDocumentRecords()).records[0]) }, record);
+  assert.equal(requests[0].url, '/api/me/document-records');
+  assert.equal(requests[0].options.method, 'GET');
+  assert.equal(requests[0].options.body, undefined);
+  await assert.rejects(harness(() => response(200, { records: [{ ...record, valid: 'yes' }] })).api.getDocumentRecords(), (error) => error.kind === 'INVALID');
+  await assert.rejects(harness(() => response(403, { code: 'CONSENT_REQUIRED', message: '동의가 필요합니다.' })).api.getDocumentRecords(), (error) => error.kind === 'FORBIDDEN' && error.code === 'CONSENT_REQUIRED');
+});
+
+test('registers a document issue date with authenticated CSRF JSON and accepts only HTTP 204', async () => {
+  const { api, requests } = harness(() => response(204, null));
+  assert.equal(await api.registerDocumentRecord(31, '2000-01-01'), true);
+  assert.equal(requests[0].url, '/api/me/document-records');
+  assert.equal(requests[0].options.method, 'POST');
+  assert.deepEqual({ ...requests[0].options.headers }, { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': 'csrf-token' });
+  assert.equal(requests[0].options.body, JSON.stringify({ documentTypeId: 31, issueDate: '2000-01-01' }));
+  await assert.rejects(api.registerDocumentRecord('bad-id', '2000-01-01'), (error) => error.kind === 'INPUT');
+  await assert.rejects(api.registerDocumentRecord(31, '2025-02-30'), (error) => error.kind === 'INPUT');
+  await assert.rejects(api.registerDocumentRecord(31, '2999-01-01'), (error) => error.kind === 'INPUT');
+  assert.equal(requests.length, 1);
+});
+
+test('preserves DOC_RECORD consent errors and rejects successful responses other than 204', async () => {
+  const required = harness(() => response(403, { code: 'CONSENT_REQUIRED', message: '서류 유효기간 기억에 동의해야 합니다.' }));
+  await assert.rejects(required.api.registerDocumentRecord(31, '2000-01-01'), (error) => error.kind === 'FORBIDDEN' && error.code === 'CONSENT_REQUIRED');
+  const unexpected = harness(() => response(200, {}));
+  await assert.rejects(unexpected.api.registerDocumentRecord(31, '2000-01-01'), (error) => error.kind === 'INVALID');
+});
+
 test('serializes document and application PATCH requests for the same application', async () => {
   const pending = [];
   const { api } = harness(() => new Promise((resolve) => pending.push(resolve)));

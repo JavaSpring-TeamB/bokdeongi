@@ -211,6 +211,69 @@
         return value;
     }
 
+    function isDocumentRecordsResponse(value) {
+        return isObject(value) && Array.isArray(value.records)
+            && value.records.every((record) => isObject(record)
+                && parseApplicationId(record.documentTypeId) !== null
+                && typeof record.documentName === 'string'
+                && /^\d{4}-\d{2}-\d{2}$/.test(record.issueDate)
+                && (record.validityDays === null || (Number.isInteger(record.validityDays) && record.validityDays >= 0))
+                && (record.expiresAt === null || /^\d{4}-\d{2}-\d{2}$/.test(record.expiresAt))
+                && (record.valid === null || typeof record.valid === 'boolean'));
+    }
+
+    async function getDocumentRecords() {
+        const value = await fetchJson('GET', '/api/me/document-records');
+        if (!isDocumentRecordsResponse(value)) {
+            throw new ApplicationApiError('INVALID', '기억한 서류 기록 응답 형식이 올바르지 않습니다.');
+        }
+        return value;
+    }
+
+    function todaySeoul() {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(new Date());
+        const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+        return values.year + '-' + values.month + '-' + values.day;
+    }
+
+    function isValidDocumentIssueDate(value) {
+        if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(0);
+        date.setUTCHours(0, 0, 0, 0);
+        date.setUTCFullYear(year, month - 1, day);
+        return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1
+            && date.getUTCDate() === day && value <= todaySeoul();
+    }
+
+    async function registerDocumentRecord(documentTypeId, issueDate) {
+        const id = parseApplicationId(documentTypeId);
+        if (id === null) throw new ApplicationApiError('INPUT', '서류 종류 ID가 올바르지 않습니다.');
+        if (!isValidDocumentIssueDate(issueDate)) {
+            throw new ApplicationApiError('INPUT', '발급일은 올바른 날짜이며 오늘 또는 이전 날짜여야 합니다.');
+        }
+        const auth = await requireAuth();
+        if (typeof auth.getCsrfToken !== 'function') {
+            throw new ApplicationApiError('CONFIGURATION', '보안 토큰을 준비하지 못했습니다.');
+        }
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch('/api/me/document-records', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+            body: JSON.stringify({ documentTypeId: id, issueDate })
+        });
+        if (!response.ok) {
+            const error = await readError(response);
+            throw new ApplicationApiError(errorKind(response.status), error.message, response.status, error.code);
+        }
+        if (response.status !== 204) {
+            throw new ApplicationApiError('INVALID', '서류 발급일 저장 응답을 확인하지 못했습니다.', response.status);
+        }
+        return true;
+    }
+
     const OCR_RESULTS = new Set(['READY', 'MISSING', 'INVALID', 'RETRY']);
 
     function isReviewResponse(value) {
@@ -495,15 +558,20 @@
         getApplicationGuide,
         getApplicationList,
         getDocuments,
+        getDocumentRecords,
         getMissingDocuments,
         isApplicationResponse,
         isApplicationListResponse,
         isDocumentsResponse,
+        isValidDocumentIssueDate,
+        isDocumentRecordsResponse,
+        currentSeoulDate: todaySeoul,
         isMissingDocumentsResponse,
         isReviewResponse,
         loadCurrentAssistantApplication,
         messageFor,
         parseApplicationId,
+        registerDocumentRecord,
         reviewDocument,
         startApplication,
         updateApplication,

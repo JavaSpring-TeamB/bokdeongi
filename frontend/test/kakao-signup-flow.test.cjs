@@ -8,6 +8,7 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '../js/signup-account.js'),
   'utf8'
 );
+const homeSource = fs.readFileSync(path.resolve(__dirname, '../js/home.js'), 'utf8');
 
 class FakeElement {
   constructor() {
@@ -24,7 +25,7 @@ class FakeElement {
   querySelector() { return null; }
 }
 
-function createHarness(responses) {
+function createHarness(responses, locationSearch = '?kakaoSignup=true', refreshedStatus = 'authenticated') {
   const elements = new Map();
   const completeStep = new FakeElement();
   const getElement = (selector) => {
@@ -57,7 +58,7 @@ function createHarness(responses) {
       return response;
     },
     window: {
-      location: { search: '?kakaoSignup=true', pathname: '/signup-account.html', hash: '', assign() {} },
+      location: { search: locationSearch, pathname: '/signup-account.html', hash: '', assign() {}, replace(url) { this.replaced = url; } },
       history: { replaceState() {} },
       addEventListener() {}
     },
@@ -65,15 +66,19 @@ function createHarness(responses) {
   };
   context.window.BokdeongiAuth = {
     getApiUrl: (requestPath) => `http://backend.test${requestPath}`,
-    getAuthenticationState: () => 'unauthenticated'
+    getAuthenticationState: () => 'unauthenticated',
+    async refreshAuthentication() { return refreshedStatus; }
   };
   context.globalThis = context;
 
   vm.createContext(context);
   vm.runInContext(
-    `${source}\n;globalThis.__testHooks={kakaoSignup,signupState,submitKakaoSignup};`,
+    `${source}\n;globalThis.__testHooks={kakaoSignup,kakaoReconsent,signupState,submitKakaoSignup,submitKakaoReconsent};`,
     context
   );
+
+  document.querySelector('[data-signup-step="consent"] [data-consent-type="TERMS"]').checked = true;
+  document.querySelector('[data-signup-step="consent"] [data-consent-type="PRIVACY"]').checked = true;
 
   context.__testHooks.kakaoSignup.active = true;
   context.__testHooks.signupState.consents = [
@@ -146,4 +151,78 @@ test('does not retry a signup POST whose network outcome is unknown', async () =
 
   assert.equal(harness.requests.length, 2);
   assert.equal(harness.context.__testHooks.kakaoSignup.outcomeUnknown, true);
+});
+
+test('posts only required consent DTOs to the separate reconsent API with CSRF and refreshes authentication', async () => {
+  const harness = createHarness([
+    jsonResponse(200, { headerName: 'X-XSRF-TOKEN', token: 'reconsent-csrf' }),
+    jsonResponse(200, { userId: 42, profileOnboarding: false, message: 'ok' })
+  ], '?kakaoReconsent=true');
+  harness.context.__testHooks.kakaoReconsent.active = true;
+  await harness.context.__testHooks.submitKakaoReconsent();
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.requests[0].url, 'http://backend.test/api/auth/kakao/csrf');
+  assert.equal(harness.requests[0].options.credentials, 'include');
+  assert.equal(harness.requests[1].url, 'http://backend.test/api/auth/kakao/reconsent');
+  assert.equal(harness.requests[1].options.method, 'POST');
+  assert.equal(harness.requests[1].options.credentials, 'include');
+  assert.equal(harness.requests[1].options.headers['X-XSRF-TOKEN'], 'reconsent-csrf');
+  assert.deepEqual(JSON.parse(harness.requests[1].options.body), { consents: [
+    { consentType: 'TERMS', docVersion: '1.0', agreed: true },
+    { consentType: 'PRIVACY', docVersion: '1.0', agreed: true }
+  ] });
+  assert.equal(harness.context.__testHooks.kakaoReconsent.completed, true);
+  assert.equal(harness.context.window.location.replaced, 'index.html');
+});
+
+test('blocks reconsent when required terms are unchecked and does not send network requests on session expiry', async () => {
+  const incomplete = createHarness([], '?kakaoReconsent=true');
+  incomplete.context.__testHooks.kakaoReconsent.active = true;
+  const terms = incomplete.context.document.querySelector('[data-signup-step="consent"] [data-consent-type="TERMS"]');
+  const privacy = incomplete.context.document.querySelector('[data-signup-step="consent"] [data-consent-type="PRIVACY"]');
+  terms.checked = false; privacy.checked = true;
+  await incomplete.context.__testHooks.submitKakaoReconsent();
+  assert.equal(incomplete.requests.length, 0);
+
+  const expired = createHarness([
+    jsonResponse(200, { headerName: 'X-XSRF-TOKEN', token: 'reconsent-csrf' }),
+    jsonResponse(401, { message: 'expired' })
+  ], '?kakaoReconsent=true');
+  expired.context.__testHooks.kakaoReconsent.active = true;
+  await expired.context.__testHooks.submitKakaoReconsent();
+  assert.equal(expired.context.__testHooks.kakaoReconsent.retryRequired, true);
+  assert.equal(expired.context.__testHooks.kakaoReconsent.completed, false);
+});
+
+test('routes reconsent success to profile onboarding only when backend says profileOnboarding true', async () => {
+  const harness = createHarness([
+    jsonResponse(200, { headerName: 'X-XSRF-TOKEN', token: 'csrf' }),
+    jsonResponse(200, { userId: 42, profileOnboarding: true, message: 'ok' })
+  ], '?kakaoReconsent=true');
+  harness.context.__testHooks.kakaoReconsent.active = true;
+  await harness.context.__testHooks.submitKakaoReconsent();
+  assert.equal(harness.context.window.location.replaced, 'signup-account.html?profileOnboarding=true');
+});
+
+test('routes kakaoReconsent OAuth callback to the shared account consent page without changing new signup routing', () => {
+  assert.match(homeSource, /kakaoReconsentRequested:.*get\('kakaoReconsent'\) === 'true'/);
+  assert.match(homeSource, /function handleKakaoReconsentRedirect\(\)/);
+  assert.match(homeSource, /signup-account\.html\?kakaoReconsent=true/);
+  assert.match(homeSource, /handleKakaoSignupRedirect\(\);[\s\S]*handleKakaoReconsentRedirect\(\);/);
+  assert.match(source, /api\/auth\/kakao\/signup/);
+  assert.match(source, /api\/auth\/kakao\/reconsent/);
+  assert.match(source, /input\.closest\('\.signup-consent__item'\)\.hidden=true/);
+  assert.match(source, /REQUIRED_CONSENTS\.includes\(input\.dataset\.consentType\)/);
+});
+
+test('does not duplicate a reconsent request after a server failure', async () => {
+  const harness = createHarness([
+    jsonResponse(200, { headerName: 'X-XSRF-TOKEN', token: 'csrf' }),
+    jsonResponse(500, { message: 'failure' })
+  ], '?kakaoReconsent=true');
+  harness.context.__testHooks.kakaoReconsent.active = true;
+  await harness.context.__testHooks.submitKakaoReconsent();
+  await harness.context.__testHooks.submitKakaoReconsent();
+  assert.equal(harness.requests.length, 2);
+  assert.equal(harness.context.__testHooks.kakaoReconsent.retryRequired, true);
 });
