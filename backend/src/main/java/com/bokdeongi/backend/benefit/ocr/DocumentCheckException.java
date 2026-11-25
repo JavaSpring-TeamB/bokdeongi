@@ -21,6 +21,13 @@ public class DocumentCheckException extends RuntimeException {
                 message == null || message.isBlank() ? "사진에서 글자를 읽지 못했어요. 다시 찍어 주세요." : message);
     }
 
+    /** 번역기에 등본 같은 개인 서류를 올림 (OCR /text 422 PERSONAL_DOCUMENT). 서류 내용은 LLM에 보내지 않는다(D-78) */
+    public static DocumentCheckException personalDocument(String message) {
+        return new DocumentCheckException(422, "PERSONAL_DOCUMENT",
+                message == null || message.isBlank()
+                        ? "개인 서류는 쉬운 말 번역기에 올릴 수 없어요. 서류 확인은 신청 도우미에서 해 주세요." : message);
+    }
+
     /** 서류 처리 동의(DOC_PROCESS, D-76)가 없음 */
     public static DocumentCheckException consentRequired() {
         return new DocumentCheckException(403, "CONSENT_REQUIRED", "서류 처리에 동의해야 서류를 올릴 수 있어요.");

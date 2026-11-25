@@ -26,6 +26,9 @@ ACCOUNT = re.compile(r"(?<![\d*])\d{2,6}(?:-\d{2,7}){2,3}(?![\d*])")
 # 상세주소: "101동 1203호", "3층 301호", "101호". 앞이 한글·숫자면 안 본다("광진1동", "제3호"), "2호선"도 안 본다
 ADDRESS_DETAIL = re.compile(r"(?<![가-힣\d])(?:\d{1,4}\s*동\s*)?(?:\d{1,3}\s*층\s*)?\d{1,5}\s*호(?!선)")
 
+# 하이픈 없는 계좌(가상계좌 등): 10~16자리 연속 숫자. 쉼표 금액(1,833,000)·날짜(20261231)는 안 걸린다
+ACCOUNT_PLAIN = re.compile(r"(?<![\d*])\d{10,16}(?![\d*])")
+
 # 마스킹 뒤에 남으면 안 되는 모양
 _RESIDUE = re.compile(r"\d{6}" + _DASH + r"\d{7}")
 
@@ -52,6 +55,7 @@ def mask(text: str) -> str:
     out = MOBILE.sub(lambda m: f"{m.group(1)}-{'*' * len(m.group(2))}-{m.group(3)}", out)
     out = LANDLINE.sub(lambda m: f"{m.group(1)}-{'*' * len(m.group(2))}-{m.group(3)}", out)
     out = ACCOUNT.sub(_mask_account, out)
+    out = ACCOUNT_PLAIN.sub(lambda m: "*" * (len(m.group(0)) - 4) + m.group(0)[-4:], out)
     out = ADDRESS_DETAIL.sub(lambda m: re.sub(r"\d", "*", m.group(0)), out)
     if _RESIDUE.search(out):
         raise MaskingError("주민등록번호 마스킹 실패")

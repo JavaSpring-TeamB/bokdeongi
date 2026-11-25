@@ -124,6 +124,17 @@ class EasyTranslatorServiceTest {
     }
 
     @Test
+    void 한도를_다_썼으면_OCR도_안_돌린다() {
+        for (int i = 0; i < EasyTextLimiter.DAILY_LIMIT; i++) {
+            limiter.tryUse("user:7");
+        }
+        MockMultipartFile file = new MockMultipartFile("file", "bill.png", "image/png", new byte[] {1});
+        assertEquals("TOO_MANY_REQUESTS", assertThrows(EasyTextException.class,
+                () -> service.translateFile("user:7", file)).getCode());
+        verify(ocrClient, never()).text(org.mockito.ArgumentMatchers.any(), anyString());
+    }
+
+    @Test
     void 사진에서_글자를_못_찾으면_INVALID_INPUT() {
         MockMultipartFile file = new MockMultipartFile("file", "bill.png", "image/png", new byte[] {1});
         when(ocrClient.text(org.mockito.ArgumentMatchers.any(), anyString())).thenReturn(List.of());

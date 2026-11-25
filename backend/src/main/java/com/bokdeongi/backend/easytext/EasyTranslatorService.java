@@ -60,6 +60,9 @@ public class EasyTranslatorService {
         if (chatModel.getIfAvailable() == null) {
             throw EasyTextException.disabled(); // AI가 꺼져 있으면 OCR도 돌리지 않는다
         }
+        if (limiter.remaining(clientKey) <= 0) {
+            throw EasyTextException.tooMany(); // 한도를 다 쓴 사람은 OCR 서버도 쓰지 않게
+        }
         byte[] data;
         try {
             data = file.getBytes();
