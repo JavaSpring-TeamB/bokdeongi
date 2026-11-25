@@ -47,7 +47,7 @@ function guide(overrides = {}) {
 }
 
 function applicationList(overrides = {}) {
-  const item = { id: 1, benefitId: 2, benefitName: '청년 지원', appStatus: 'IN_PROGRESS', stage: '준비 중', step: 1, completedItems: 0, totalItems: 4, progressPercent: 0, deadline: null, deadlineLabel: null, dDay: null };
+  const item = { id: 1, benefitId: 2, benefitName: '청년 지원', appStatus: 'IN_PROGRESS', stage: '준비 중', step: 1, completedItems: 0, totalItems: 4, progressPercent: 0, deadline: null, deadlineLabel: null, dDay: null, calendarAvailable: true, calendarUnavailableReason: null };
   return { summary: { totalCount: 1, inProgressCount: 1, completedCount: 0, expiredCount: 0 }, inProgress: [item], completed: [], expired: [], ...overrides };
 }
 
@@ -292,6 +292,16 @@ test('loads and validates the server-classified application lists without client
   assert.equal(requests[0].options.method, 'GET');
   const malformed = harness(() => response(200, { summary: {}, inProgress: [], completed: [], expired: [] }));
   await assert.rejects(malformed.api.getApplicationList(), (error) => error.kind === 'INVALID');
+});
+
+test('requires server calendar availability and unavailable-reason fields in application items', async () => {
+  assert.equal(harness(() => response(200, applicationList())).api.isApplicationListResponse(applicationList()), true);
+  const missingAvailability = applicationList();
+  delete missingAvailability.inProgress[0].calendarAvailable;
+  assert.equal(harness(() => response(200, applicationList())).api.isApplicationListResponse(missingAvailability), false);
+  const malformedReason = applicationList();
+  malformedReason.inProgress[0].calendarUnavailableReason = 42;
+  assert.equal(harness(() => response(200, applicationList())).api.isApplicationListResponse(malformedReason), false);
 });
 
 test('forces a fresh list request after a status mutation instead of sharing an older list response', async () => {

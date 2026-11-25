@@ -338,7 +338,9 @@
             && Number.isInteger(value.totalItems) && Number.isInteger(value.progressPercent)
             && (value.deadline === null || typeof value.deadline === 'string')
             && (value.deadlineLabel === null || typeof value.deadlineLabel === 'string')
-            && (value.dDay === null || Number.isInteger(value.dDay));
+            && (value.dDay === null || Number.isInteger(value.dDay))
+            && typeof value.calendarAvailable === 'boolean'
+            && (value.calendarUnavailableReason === null || typeof value.calendarUnavailableReason === 'string');
     }
 
     function isApplicationListResponse(value) {
