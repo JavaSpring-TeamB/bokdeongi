@@ -23,9 +23,17 @@ import com.bokdeongi.backend.profile.repository.RegionRepository;
 
 import java.math.BigDecimal;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 회원 프로필 관리 서비스.
+ *
+ * 단계별 프로필 정보 검증 및 저장, 소득 환산,
+ * 민감정보 동의 처리 및 프로필 완료를 담당한다.
+ * 프로필 변경 시 재매칭을 위한 이벤트를 발행한다.
+ */
 @Service
 public class ProfileService {
 
@@ -62,7 +70,7 @@ public class ProfileService {
     @Transactional
     public ProfileResponse getProfile(Long userId) {
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
@@ -70,7 +78,7 @@ public class ProfileService {
 
         // PROF-03: 연도가 변경되면 최신 기준 중위소득으로 재계산
         String incomeType = user.getIncomeInputType();
-        short currentYear = (short) Year.now().getValue();
+        short currentYear = (short) Year.now(ZoneId.of("Asia/Seoul")).getValue();
 
         boolean needsRecalculation =
                 ("ANNUAL".equals(incomeType) || "MONTHLY".equals(incomeType))
@@ -137,7 +145,7 @@ public class ProfileService {
             Long userId,
             ProfileStep1Request request
     ) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
@@ -198,7 +206,7 @@ public class ProfileService {
             Long userId,
             ProfileStep2Request request
     ) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
@@ -289,7 +297,7 @@ public class ProfileService {
         // 소득을 모르는 경우에는 기준 연도를 기록하지 않는다.
         Short incomeBaseYear = "UNKNOWN".equals(incomeType)
                 ? null
-                : (short) Year.now().getValue();
+                : (short) Year.now(ZoneId.of("Asia/Seoul")).getValue();
 
         user.updateProfileStep2(
                 request.householdSize(),
@@ -316,7 +324,7 @@ public class ProfileService {
     @Transactional
     public void recalculateIncomeForYear(Long userId, short targetYear) {
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
@@ -368,7 +376,7 @@ public class ProfileService {
             Long userId,
             ProfileStep3Request request
     ) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
@@ -396,7 +404,7 @@ public class ProfileService {
 
             if (birthYear == null
                     || birthYear < 1900
-                    || birthYear > Year.now().getValue()) {
+                    || birthYear > Year.now(ZoneId.of("Asia/Seoul")).getValue()) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "막내 자녀의 출생 연도를 확인해 주세요."
@@ -632,7 +640,7 @@ public class ProfileService {
     @Transactional
     public ProfileResponse completeProfile(Long userId) {
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "회원을 찾을 수 없습니다."
@@ -646,7 +654,17 @@ public class ProfileService {
             );
         }
 
+        // 최초 프로필 완료 여부 확인
+        boolean firstCompletion = user.getProfileCompletedAt() == null;
+
         user.completeProfile();
+
+        // 최초 프로필 완료 시 재매칭 이벤트 발행
+        if (firstCompletion) {
+            applicationEventPublisher.publishEvent(
+                    new ProfileChangedEvent(userId)
+            );
+        }
 
         return getProfile(userId);
     }

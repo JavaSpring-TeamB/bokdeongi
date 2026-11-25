@@ -19,6 +19,7 @@ import com.bokdeongi.backend.profile.entity.Region;
 import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -89,7 +90,7 @@ class ProfileServiceTest {
                 "[]"
         );
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         when(incomeCalculationService.recalculateMedianIncomePct(
@@ -144,7 +145,7 @@ class ProfileServiceTest {
 
         int originalVersion = user.getProfileVersion();
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         // When: 동일한 2026년 기준으로 재계산 요청
@@ -189,7 +190,7 @@ class ProfileServiceTest {
 
         int originalVersion = user.getProfileVersion();
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         // When: 2027년 기준으로 재계산 요청
@@ -234,7 +235,7 @@ class ProfileServiceTest {
 
         int originalVersion = user.getProfileVersion();
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         // When: 2027년 기준으로 재계산 요청
@@ -279,7 +280,7 @@ class ProfileServiceTest {
 
         int originalVersion = user.getProfileVersion();
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         // 2027년 기준표가 준비되지 않은 상황
@@ -317,7 +318,7 @@ class ProfileServiceTest {
     void shouldRecalculateIncomeWhenGettingProfile() {
         // Given: 이전 연도 기준으로 소득이 계산된 사용자
         Long userId = 1L;
-        short currentYear = (short) Year.now().getValue();
+        short currentYear = (short) Year.now(ZoneId.of("Asia/Seoul")).getValue();
         short previousYear = (short) (currentYear - 1);
 
         User user = new User(
@@ -339,7 +340,7 @@ class ProfileServiceTest {
                 "[]"
         );
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         when(incomeCalculationService.recalculateMedianIncomePct(
@@ -387,8 +388,6 @@ class ProfileServiceTest {
         );
 
         when(userRepository.findByIdForUpdate(userId))
-                .thenReturn(Optional.of(user));
-        when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
 
         ProfileStep4Request request = new ProfileStep4Request(
@@ -447,8 +446,6 @@ class ProfileServiceTest {
 
         when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(user));
 
         // 빈 목록을 JSON 문자열로 변환하도록 설정한다.
         when(objectMapper.writeValueAsString(List.of()))
@@ -503,8 +500,6 @@ class ProfileServiceTest {
         );
 
         when(userRepository.findByIdForUpdate(userId))
-                .thenReturn(Optional.of(user));
-        when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
 
         // 선택한 민감정보 코드를 JSON 문자열로 변환한다.
@@ -563,8 +558,6 @@ class ProfileServiceTest {
         user.updateProfileStep4("[\"JA0301\"]");
 
         when(userRepository.findByIdForUpdate(userId))
-                .thenReturn(Optional.of(user));
-        when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
 
         ProfileStep4Request request = new ProfileStep4Request(
@@ -643,9 +636,6 @@ class ProfileServiceTest {
 
         user.updateProfileStep4(null);
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(user));
-
         int originalVersion = user.getProfileVersion();
         short originalStep = user.getProfileStep();
 
@@ -685,7 +675,7 @@ class ProfileServiceTest {
                 null
         );
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         ProfileStep1Request request = new ProfileStep1Request(
@@ -730,7 +720,7 @@ class ProfileServiceTest {
                 "kakao@example.com"
         );
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         Region region = mock(Region.class);
@@ -778,7 +768,7 @@ class ProfileServiceTest {
                 "kakao201@example.com"
         );
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         ProfileStep1Request request = new ProfileStep1Request(
@@ -812,7 +802,7 @@ class ProfileServiceTest {
                 "kakao202@example.com"
         );
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         ProfileStep1Request request = new ProfileStep1Request(
@@ -849,7 +839,7 @@ class ProfileServiceTest {
                 null
         );
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         Region region = mock(Region.class);

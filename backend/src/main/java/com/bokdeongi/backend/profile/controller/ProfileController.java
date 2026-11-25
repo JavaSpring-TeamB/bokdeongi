@@ -18,6 +18,12 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+/**
+ * 회원 프로필 관리 API 컨트롤러.
+ *
+ * 로그인한 회원의 프로필 조회, 단계별 정보 저장 및
+ * 프로필 최종 완료 요청을 처리한다.
+ */
 @RestController
 @RequestMapping("/api/me/profile")
 public class ProfileController {
@@ -103,11 +109,14 @@ public class ProfileController {
     }
 
     /**
-     * PROF-01: 프로필 4단계 특수 상황 정보 저장.
+     * PROF-01,04: 프로필 4단계 특수 상황 정보 저장.
      *
      * 민감정보 수집 동의 여부를 확인하고,
      * 동의한 경우 특수 상황 정보를 암호화하여 저장한다.
-     * 미동의 시 기존 민감정보를 삭제하고 동의 이력을 기록한다.
+     *
+     * null은 입력 건너뛰기, 빈 목록([])은 해당 없음을 의미한다.
+     * 최초 동의 이력이 없는 경우에만 동의 상태를 기록한다.
+     * 이후 동의 변경 및 철회는 약관 동의 변경 API에서 처리한다.
      */
     @SecurityRequirement(name = "bearerAuth")
     @PutMapping("/step4")
