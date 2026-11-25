@@ -176,6 +176,11 @@
     font-size: var(--font-size-description);
 }
 
+.translator-file-privacy { max-width: 520px; margin: 0 0 var(--space-sm); text-align: left; line-height: 1.55; }
+.translator-file-privacy strong { display: block; margin-bottom: var(--space-xs); color: var(--color-text); }
+.translator-file-privacy p { margin: 0 0 var(--space-xs); font-weight: 400; }
+.translator-file-privacy p:last-child { margin-bottom: 0; }
+
 .translator-file-panel.is-dragover {
     border-color: var(--color-primary);
     background: var(--color-primary-light);
