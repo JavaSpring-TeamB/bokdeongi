@@ -132,9 +132,6 @@ class HomeServiceTest {
         mockProfile(true);
         mockRecommendation(true);
 
-        when(homeQueryRepository.findEligibleBenefits(USER_ID))
-                .thenReturn(List.of());
-
         when(homeQueryRepository.findBenefitDataUpdatedAt())
                 .thenReturn(UPDATED_AT);
 
@@ -156,7 +153,12 @@ class HomeServiceTest {
                 .isEqualTo(ZoneOffset.UTC);
 
         verify(homeQueryRepository, never())
-                .findEligibilityCounts(USER_ID);
+                .findEligibleBenefits(USER_ID);
+
+        assertThat(response.amountSummary().annualizedAmount())
+                .isNull();
+
+        assertThat(response.closingSoon()).isEmpty();
     }
 
     @Test

@@ -99,8 +99,9 @@ public class HomeCalendarService {
                 continue;
             }
 
-            // 월 단위 등 날짜가 불명확한 경우 제외
-            if (!"DAY".equalsIgnoreCase(benefit.datePrecision())) {
+            // 정상적으로 파싱된 일 단위 날짜만 캘린더에 표시한다.
+            if (!"PARSED".equalsIgnoreCase(dateStatus)
+                    || !"DAY".equalsIgnoreCase(benefit.datePrecision())) {
                 continue;
             }
 

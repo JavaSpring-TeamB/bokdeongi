@@ -43,6 +43,9 @@ public record HomeSummaryResponse(
     ) {
     }
 
+    /**
+     * 마감 임박 혜택의 공고 정보와 남은 일수를 전달하는 DTO.
+     */
     public record ClosingSoonItem(
             Long benefitId,
             String title,
@@ -52,6 +55,9 @@ public record HomeSummaryResponse(
     ) {
     }
 
+    /**
+     * 신청 진행 및 완료 건수와 신청 목록을 전달하는 DTO.
+     */
     public record ApplicationSummary(
             int inProgressCount,
             int completedCount,
@@ -59,6 +65,9 @@ public record HomeSummaryResponse(
     ) {
     }
 
+    /**
+     * 개별 혜택의 신청 상태, 진행 단계 및 진행률을 전달하는 DTO.
+     */
     public record ApplicationItem(
             Long benefitId,
             String title,
@@ -68,6 +77,9 @@ public record HomeSummaryResponse(
     ) {
     }
 
+    /**
+     * 맞춤 추천 및 아깝게 탈락한 혜택의 정보를 전달하는 DTO.
+     */
     public record RecommendationItem(
             Long benefitId,
             String title,

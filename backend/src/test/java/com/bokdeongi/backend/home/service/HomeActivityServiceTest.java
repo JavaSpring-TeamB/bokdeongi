@@ -67,14 +67,22 @@ class HomeActivityServiceTest {
         // given
         long userId = 137L;
 
+        LocalDateTime previousWeekAt =
+                LocalDate.now(ZoneId.of("Asia/Seoul"))
+                        .with(TemporalAdjusters.previousOrSame(
+                                DayOfWeek.MONDAY
+                        ))
+                        .minusWeeks(1)
+                        .atTime(10, 0);
+
         HomeActivityRepository.EligibleActivityRow row =
                 new HomeActivityRepository.EligibleActivityRow(
                         3L,
                         "테스트 혜택",
                         "ELIGIBLE",
-                        LocalDateTime.of(2026, 1, 1, 10, 0),
+                        previousWeekAt,
                         null,
-                        LocalDateTime.of(2026, 1, 1, 10, 0),
+                        previousWeekAt,
                         null,
                         null
                 );
@@ -116,6 +124,9 @@ class HomeActivityServiceTest {
                 TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)
         );
 
+        LocalDateTime previousWeekAt =
+                weekStart.minusWeeks(1).atTime(10, 0);
+
         LocalDateTime changedAt = weekStart.atTime(10, 0);
 
         HomeActivityRepository.EligibleActivityRow row =
@@ -123,9 +134,9 @@ class HomeActivityServiceTest {
                         3L,
                         "변경 공고 테스트",
                         "ELIGIBLE",
-                        LocalDateTime.of(2026, 1, 1, 10, 0),
+                        previousWeekAt,
                         null,
-                        LocalDateTime.of(2026, 1, 1, 10, 0),
+                        previousWeekAt,
                         null,
                         changedAt
                 );
@@ -149,5 +160,51 @@ class HomeActivityServiceTest {
         assertEquals(1, summary.changedBenefitCount());
 
         assertEquals(1, response.newEligibleBenefits().size());
+    }
+
+    /**
+     * 미확인 적격 혜택을 확인 처리하면 true를 반환한다.
+     */
+    @Test
+    void shouldMarkBenefitAsSeen() {
+        // given
+        long userId = 137L;
+        long benefitId = 3L;
+
+        when(repository.markBenefitAsSeen(userId, benefitId))
+                .thenReturn(1);
+
+        // when
+        boolean updated =
+                service.markBenefitAsSeen(userId, benefitId);
+
+        // then
+        assertTrue(updated);
+
+        verify(repository)
+                .markBenefitAsSeen(userId, benefitId);
+    }
+
+    /**
+     * 확인할 대상이 없으면 false를 반환한다.
+     */
+    @Test
+    void shouldReturnFalseWhenBenefitIsNotUpdated() {
+        // given
+        long userId = 137L;
+        long benefitId = 3L;
+
+        when(repository.markBenefitAsSeen(userId, benefitId))
+                .thenReturn(0);
+
+        // when
+        boolean updated =
+                service.markBenefitAsSeen(userId, benefitId);
+
+        // then
+        assertFalse(updated);
+
+        verify(repository)
+                .markBenefitAsSeen(userId, benefitId);
     }
 }

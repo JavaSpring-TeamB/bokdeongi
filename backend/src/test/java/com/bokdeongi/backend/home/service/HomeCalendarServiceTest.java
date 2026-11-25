@@ -269,4 +269,67 @@ class HomeCalendarServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("올바른 연도를 입력해주세요.");
     }
+
+    /**
+     * 정상적으로 파싱되지 않은 날짜는 캘린더에 표시하지 않는다.
+     */
+    @Test
+    void unparsedDateShouldNotCreateEvents() {
+        // given
+        long userId = 137L;
+
+        CalendarBenefitRow benefit = new CalendarBenefitRow(
+                40L,
+                "날짜 미확정 테스트 혜택",
+                LocalDate.of(2026, 11, 5),
+                LocalDate.of(2026, 11, 20),
+                null,
+                null,
+                "DAY"
+        );
+
+        when(repository.findUserBenefits(userId))
+                .thenReturn(List.of(benefit));
+
+        // when
+        HomeCalendarResponse response =
+                service.getCalendar(userId, 2026, 11);
+
+        // then
+        assertThat(response.events()).isEmpty();
+        assertThat(response.alwaysCount()).isZero();
+        assertThat(response.fallbackUsed()).isFalse();
+    }
+
+    /**
+     * 미래 월을 조회하면 해당 월의 전체 기간을 기준으로
+     * 대체 마감 일정을 조회한다.
+     */
+    @Test
+    void shouldUseFullMonthForFutureFallback() {
+        // given
+        long userId = 137L;
+
+        LocalDate startDate = LocalDate.of(2026, 12, 1);
+        LocalDate endDate = LocalDate.of(2026, 12, 31);
+
+        when(repository.findUserBenefits(userId))
+                .thenReturn(List.of());
+
+        when(repository.findUpcomingDeadlines(startDate, endDate))
+                .thenReturn(List.of());
+
+        // when
+        HomeCalendarResponse response =
+                service.getCalendar(userId, 2026, 12);
+
+        // then
+        assertThat(response.year()).isEqualTo(2026);
+        assertThat(response.month()).isEqualTo(12);
+        assertThat(response.fallbackUsed()).isTrue();
+        assertThat(response.events()).isEmpty();
+
+        verify(repository)
+                .findUpcomingDeadlines(startDate, endDate);
+    }
 }
