@@ -533,4 +533,270 @@ class ApplicationServiceTest {
                 item.calendarUnavailableReason()
         );
     }
+
+    /**
+     * 신청 기록이 없으면 모든 집계 및 목록이 비어 있다.
+     */
+    @Test
+    void shouldReturnEmptyApplicationList() {
+        when(query.findAllByUserId(USER_ID))
+                .thenReturn(List.of());
+
+        var response = service.getList(USER_ID);
+
+        assertEquals(0, response.summary().totalCount());
+        assertEquals(0, response.summary().inProgressCount());
+        assertEquals(0, response.summary().completedCount());
+        assertEquals(0, response.summary().expiredCount());
+
+        assertTrue(response.inProgress().isEmpty());
+        assertTrue(response.completed().isEmpty());
+        assertTrue(response.expired().isEmpty());
+
+        verifyNoInteractions(
+                benefitRepository,
+                documentService
+        );
+    }
+
+    /**
+     * 정상적으로 파싱되지 않은 날짜는 D-Day를 계산하지 않는다.
+     */
+    @Test
+    void shouldNotCalculateUnparsedDeadline() {
+        mockApplication(
+                "IN_PROGRESS",
+                today.minusDays(7),
+                "UNKNOWN",
+                "DAY"
+        );
+
+        var response = service.getList(USER_ID);
+        var item = response.inProgress().get(0);
+
+        assertNull(item.deadline());
+        assertNull(item.dDay());
+        assertEquals("공고 확인 필요", item.deadlineLabel());
+
+        assertTrue(response.expired().isEmpty());
+        assertEquals(1, response.summary().inProgressCount());
+
+        assertFalse(item.calendarAvailable());
+
+        assertEquals(
+                "정확한 신청 마감일을 확인할 수 없습니다.",
+                item.calendarUnavailableReason()
+        );
+    }
+
+    /**
+     * 진행 중인 신청을 신청 완료 상태로 변경한다.
+     */
+    @Test
+    void shouldUpdateStatusToSubmitted() {
+        mockStartableBenefit();
+
+        var before = new ApplicationQuery.ApplicationRow(
+                APPLICATION_ID,
+                USER_ID,
+                BENEFIT_ID,
+                "IN_PROGRESS",
+                4,
+                "{}",
+                "{}",
+                null
+        );
+
+        var after = new ApplicationQuery.ApplicationRow(
+                APPLICATION_ID,
+                USER_ID,
+                BENEFIT_ID,
+                "SUBMITTED",
+                4,
+                "{}",
+                "{}",
+                null
+        );
+
+        when(query.findById(APPLICATION_ID, USER_ID))
+                .thenReturn(Optional.of(before))
+                .thenReturn(Optional.of(after));
+
+        when(query.updateStatus(
+                APPLICATION_ID,
+                USER_ID,
+                "IN_PROGRESS",
+                "SUBMITTED"
+        )).thenReturn(true);
+
+        var request = new ApplicationStatusUpdateRequest(
+                ApplicationStatusUpdateRequest.Status.SUBMITTED
+        );
+
+        var response = service.updateStatus(
+                USER_ID,
+                APPLICATION_ID,
+                request
+        );
+
+        assertEquals("SUBMITTED", response.appStatus());
+
+        verify(query).updateStatus(
+                APPLICATION_ID,
+                USER_ID,
+                "IN_PROGRESS",
+                "SUBMITTED"
+        );
+    }
+
+    /**
+     * 신청 완료 상태에서 선정 결과를 기록할 수 있다.
+     */
+    @Test
+    void shouldUpdateStatusToSelected() {
+        mockStartableBenefit();
+
+        var before = new ApplicationQuery.ApplicationRow(
+                APPLICATION_ID,
+                USER_ID,
+                BENEFIT_ID,
+                "SUBMITTED",
+                4,
+                "{}",
+                "{}",
+                null
+        );
+
+        var after = new ApplicationQuery.ApplicationRow(
+                APPLICATION_ID,
+                USER_ID,
+                BENEFIT_ID,
+                "SELECTED",
+                4,
+                "{}",
+                "{}",
+                null
+        );
+
+        when(query.findById(APPLICATION_ID, USER_ID))
+                .thenReturn(Optional.of(before))
+                .thenReturn(Optional.of(after));
+
+        when(query.updateStatus(
+                APPLICATION_ID,
+                USER_ID,
+                "SUBMITTED",
+                "SELECTED"
+        )).thenReturn(true);
+
+        var request = new ApplicationStatusUpdateRequest(
+                ApplicationStatusUpdateRequest.Status.SELECTED
+        );
+
+        var response = service.updateStatus(
+                USER_ID,
+                APPLICATION_ID,
+                request
+        );
+
+        assertEquals("SELECTED", response.appStatus());
+
+        verify(query).updateStatus(
+                APPLICATION_ID,
+                USER_ID,
+                "SUBMITTED",
+                "SELECTED"
+        );
+    }
+
+    /**
+     * 진행 중인 신청을 바로 선정 상태로 변경할 수 없다.
+     */
+    @Test
+    void shouldRejectInvalidStatusTransition() {
+        var row = new ApplicationQuery.ApplicationRow(
+                APPLICATION_ID,
+                USER_ID,
+                BENEFIT_ID,
+                "IN_PROGRESS",
+                1,
+                null,
+                null,
+                null
+        );
+
+        when(query.findById(APPLICATION_ID, USER_ID))
+                .thenReturn(Optional.of(row));
+
+        var request = new ApplicationStatusUpdateRequest(
+                ApplicationStatusUpdateRequest.Status.SELECTED
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.updateStatus(
+                        USER_ID,
+                        APPLICATION_ID,
+                        request
+                )
+        );
+
+        assertEquals(
+                HttpStatus.CONFLICT,
+                exception.getStatusCode()
+        );
+
+        verify(query, never()).updateStatus(
+                anyLong(),
+                anyLong(),
+                anyString(),
+                anyString()
+        );
+    }
+
+    /**
+     * 다른 요청에서 신청 상태가 먼저 변경된 경우
+     * 상태 변경 요청을 거부한다.
+     */
+    @Test
+    void shouldRejectConcurrentStatusUpdate() {
+        var row = new ApplicationQuery.ApplicationRow(
+                APPLICATION_ID,
+                USER_ID,
+                BENEFIT_ID,
+                "IN_PROGRESS",
+                4,
+                null,
+                null,
+                null
+        );
+
+        when(query.findById(APPLICATION_ID, USER_ID))
+                .thenReturn(Optional.of(row));
+
+        when(query.updateStatus(
+                APPLICATION_ID,
+                USER_ID,
+                "IN_PROGRESS",
+                "SUBMITTED"
+        )).thenReturn(false);
+
+        var request = new ApplicationStatusUpdateRequest(
+                ApplicationStatusUpdateRequest.Status.SUBMITTED
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.updateStatus(
+                        USER_ID,
+                        APPLICATION_ID,
+                        request
+                )
+        );
+
+        assertEquals(
+                HttpStatus.CONFLICT,
+                exception.getStatusCode()
+        );
+    }
 }

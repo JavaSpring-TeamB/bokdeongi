@@ -2,6 +2,12 @@ package com.bokdeongi.backend.benefit.application;
 
 import java.util.List;
 
+/**
+ * 회원의 신청 현황 목록 응답 DTO.
+ *
+ * 전체 신청 건수 및 상태별 집계 정보를 제공하며,
+ * 진행 중, 완료, 마감된 신청 목록을 구분하여 반환한다.
+ */
 public record ApplicationListResponse(
         Summary summary,
         List<Item> inProgress,

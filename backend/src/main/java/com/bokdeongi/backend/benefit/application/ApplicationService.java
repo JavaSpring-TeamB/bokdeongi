@@ -156,11 +156,12 @@ public class ApplicationService {
                 deadline = null;
                 deadlineLabel = "신청 불필요";
 
-            } else if (deadline != null
-                    && "DAY".equalsIgnoreCase(
-                    benefit.getDatePrecision())) {
+            } else if ("PARSED".equalsIgnoreCase(dateStatus)
+                && deadline != null
+                && "DAY".equalsIgnoreCase(
+                benefit.getDatePrecision())) {
 
-                // 일 단위로 확정된 마감일만 D-Day 계산
+                // 정상적으로 파싱된 일 단위 마감일만 D-Day 계산
                 long remaining =
                         ChronoUnit.DAYS.between(today, deadline);
 
