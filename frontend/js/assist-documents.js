@@ -6,7 +6,7 @@
         ['서류 검토', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M3 15v4a2 2 0 0 0 2 2h4M21 15v4a2 2 0 0 1-2 2h-4"></path><path d="m8 12 2.5 2.5L16 9"></path></svg>'],
         ['신청 안내', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 7-7 3-3 6z"></path><path d="m13 14 3-3"></path></svg>']
     ];
-    const state = { application: null, benefit: null, documents: null, entries: [], selectedKey: null, localPrepared: new Map(), pending: new Map(), failed: new Map(), moving: false, version: 0 };
+    const state = { application: null, benefit: null, documents: null, entries: [], selectedKey: null, records: [], recordsStatus: 'checking', recordsError: '', recordConsentStatus: 'checking', recordRequest: null, recordRefreshRequested: false, recordSavingKey: null, recordFormError: '', recordNotice: '', recordIssueDates: new Map(), localPrepared: new Map(), pending: new Map(), failed: new Map(), moving: false, version: 0 };
 
     function escapeHtml(value) {
         return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;')
@@ -59,6 +59,37 @@
     }
     function isPending(key) { return (state.pending.get(key) || 0) > 0; }
     function selectedEntry() { return state.entries.find((entry) => entry.key === state.selectedKey) || state.entries[0] || null; }
+    function recordDate(value) { return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '확인할 수 없음'; }
+    function recordValidity(record) {
+        if (record.validityDays === null || record.valid === null) return '유효기간 기준 없음';
+        return record.valid ? '유효' : '만료';
+    }
+    function documentRecordsMarkup() {
+        if (state.recordsStatus === 'checking') return '<section class="remembered-records" aria-live="polite"><h3>기억한 서류 기록</h3><p>동의 상태를 확인하고 있습니다.</p></section>';
+        if (state.recordsStatus === 'consent-required') return '<section class="remembered-records"><h3>기억한 서류 기록</h3><p>서류 유효기간 기억에 동의하면 저장된 발급일과 유효기간을 확인할 수 있어요.</p><a class="bk-btn bk-btn--outline bk-btn--sm" href="./my-page.html">마이페이지 동의 관리로 이동</a></section>';
+        if (state.recordsStatus === 'error') return '<section class="remembered-records"><h3>기억한 서류 기록</h3><p role="alert">' + escapeHtml(state.recordsError || '서류 기록을 불러오지 못했습니다.') + '</p><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-record-retry>다시 불러오기</button></section>';
+        if (!state.records.length) return '<section class="remembered-records"><h3>기억한 서류 기록</h3><p>저장된 서류 기록이 없습니다.</p></section>';
+        return '<section class="remembered-records"><h3>기억한 서류 기록</h3><ul>' + state.records.map((record) => {
+            const matched = state.entries.some((entry) => entry.kind === 'document' && Number(entry.item.documentTypeId) === Number(record.documentTypeId));
+            const validity = record.validityDays === null ? '기준 없음' : '발급 후 ' + record.validityDays + '일';
+            return '<li><strong>' + escapeHtml(record.documentName) + '</strong>' + (matched ? '<span class="remembered-records__match">현재 신청 서류</span>' : '')
+                + '<dl><div><dt>발급일</dt><dd>' + escapeHtml(recordDate(record.issueDate)) + '</dd></div>'
+                + '<div><dt>유효기간</dt><dd>' + escapeHtml(validity) + '</dd></div>'
+                + '<div><dt>만료일</dt><dd>' + escapeHtml(record.expiresAt ? recordDate(record.expiresAt) : '없음') + '</dd></div>'
+                + '<div><dt>상태</dt><dd>' + escapeHtml(recordValidity(record)) + '</dd></div></dl></li>';
+        }).join('') + '</ul></section>';
+    }
+    function recordRegistrationMarkup(entry) {
+        if (entry.kind !== 'document' || state.recordConsentStatus !== 'agreed') return '';
+        const id = Number(entry.item.documentTypeId);
+        const key = String(id);
+        const saving = state.recordSavingKey === key;
+        const disabled = saving || state.recordsStatus === 'checking';
+        const value = state.recordIssueDates.get(key) || '';
+        const error = state.recordFormError ? '<p class="remembered-records__error" role="alert">' + escapeHtml(state.recordFormError) + '</p>' : '';
+        const notice = state.recordNotice ? '<p class="remembered-records__notice" role="status">' + escapeHtml(state.recordNotice) + '</p>' : '';
+        return '<section class="record-registration"><h3>발급일 기억하기</h3><label for="record-issue-date">서류 발급일</label><input id="record-issue-date" type="date" data-record-issue-date="' + key + '" max="' + window.BokdeongiApplication.currentSeoulDate() + '" value="' + escapeHtml(value) + '"' + (disabled ? ' disabled' : '') + '><p class="record-registration__help">저장된 기록은 신청 준비 완료나 OCR 검토 상태를 바꾸지 않습니다.</p>' + error + notice + '<button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-record-submit="' + key + '"' + (disabled ? ' disabled' : '') + '>' + (saving ? '저장 중...' : '발급일 등록') + '</button></section>';
+    }
     function allPrepared() { return state.documents !== null && state.entries.every((entry) => displayState(entry.key).prepared); }
     function canMoveNext() { return allPrepared() && state.pending.size === 0 && state.failed.size === 0 && !state.moving; }
     function statusLabel(entry) {
@@ -109,7 +140,7 @@
         const external = groupUrl ? '<a class="bk-btn bk-btn--outline bk-btn--sm" href="' + escapeHtml(groupUrl) + '" target="_blank" rel="noopener noreferrer">발급처 열기</a>' : '';
         const review = documentState.reviewed ? '<p class="document-complete">검토 완료 상태입니다.</p>' : '';
         const error = failed ? '<p class="assist-answer-summary" role="alert">' + escapeHtml(failed.message) + '</p><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-retry-document="' + escapeHtml(entry.key) + '">저장 다시 시도</button>' : '';
-        return '<section class="assist-document-detail"><h2>서류 상세</h2><h3>' + escapeHtml(entry.name) + '</h3><dl class="selected-info">' + rows + '</dl><label class="document-complete"><input type="checkbox" data-document-prepared="' + escapeHtml(entry.key) + '"' + checked + disabled + '> 준비 완료</label>' + external + review + error + '</section>';
+        return '<section class="assist-document-detail"><h2>서류 상세</h2><h3>' + escapeHtml(entry.name) + '</h3><dl class="selected-info">' + rows + '</dl><label class="document-complete"><input type="checkbox" data-document-prepared="' + escapeHtml(entry.key) + '"' + checked + disabled + '> 준비 완료</label>' + external + review + recordRegistrationMarkup(entry) + error + '</section>';
     }
     function progressMarkup() {
         const percent = Math.max(0, Math.min(100, Number(state.application.progressPercent) || 0));
@@ -132,15 +163,115 @@
         const changedNotice = state.application.announcementChanged ? '<p class="assist-answer-summary" role="status">공고 정보가 신청을 시작한 뒤 변경되었습니다. 최신 공고 내용을 확인해 주세요.</p>' : '';
         $('#assist-content').innerHTML = stepsMarkup()
             + '<div class="assist-info"><strong aria-hidden="true">i</strong><span><strong>' + escapeHtml(text(state.benefit.title, '혜택 정보')) + '</strong>의 제출 서류와 준비 상태입니다.</span></div>'
-            + '<div class="assist-documents-layout"><section class="assist-document-list"><div class="document-list-heading"><h2>제출 서류</h2><div class="document-counts"><span>' + state.entries.filter((item) => displayState(item.key).prepared).length + ' / ' + state.entries.length + ' 준비</span></div></div>' + changedNotice + (state.entries.length ? listMarkup() : '<p class="assist-answer-summary">준비할 서류가 없습니다. 다음 단계로 이동할 수 있어요.</p>') + '</section><aside class="assist-documents-summary">' + detailMarkup(entry) + progressMarkup() + contactsMarkup() + '</aside></div>'
+            + '<div class="assist-documents-layout"><section class="assist-document-list"><div class="document-list-heading"><h2>제출 서류</h2><div class="document-counts"><span>' + state.entries.filter((item) => displayState(item.key).prepared).length + ' / ' + state.entries.length + ' 준비</span></div></div>' + changedNotice + (state.entries.length ? listMarkup() : '<p class="assist-answer-summary">준비할 서류가 없습니다. 다음 단계로 이동할 수 있어요.</p>') + documentRecordsMarkup() + '</section><aside class="assist-documents-summary">' + detailMarkup(entry) + progressMarkup() + contactsMarkup() + '</aside></div>'
             + '<p class="assist-answer-summary" role="status">' + moveHint() + '</p>' + (state.failed.get('_next') ? '<p class="assist-answer-summary" role="alert">' + escapeHtml(state.failed.get('_next').message) + '</p>' : '') + '<div class="assist-actions"><a class="bk-btn bk-btn--outline bk-btn--md"' + (state.pending.size || state.moving ? ' aria-disabled="true" tabindex="-1"' : '') + ' href="' + window.BokdeongiApplication.assistantUrl(1, state.application.id) + '">이전 단계</a><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-next-step' + (canMoveNext() ? '' : ' disabled') + '>서류 검토로 이동</button></div>';
         bindEvents();
     }
     function bindEvents() {
-        document.querySelectorAll('[data-document-key]').forEach((button) => button.addEventListener('click', () => { state.selectedKey = button.dataset.documentKey; render(); }));
+        document.querySelectorAll('[data-document-key]').forEach((button) => button.addEventListener('click', () => { state.selectedKey = button.dataset.documentKey; state.recordFormError = ''; state.recordNotice = ''; render(); }));
         document.querySelector('[data-document-prepared]')?.addEventListener('change', (event) => savePrepared(event.target.dataset.documentPrepared, event.target.checked));
         document.querySelector('[data-retry-document]')?.addEventListener('click', (event) => savePrepared(event.currentTarget.dataset.retryDocument, state.localPrepared.get(event.currentTarget.dataset.retryDocument)));
         document.querySelector('[data-next-step]')?.addEventListener('click', moveNext);
+        document.querySelector('[data-record-retry]')?.addEventListener('click', loadDocumentRecords);
+        document.querySelector('[data-record-issue-date]')?.addEventListener('input', (event) => {
+            state.recordIssueDates.set(event.currentTarget.dataset.recordIssueDate, event.currentTarget.value);
+        });
+        document.querySelector('[data-record-submit]')?.addEventListener('click', (event) => {
+            void saveDocumentRecord(event.currentTarget.dataset.recordSubmit);
+        });
+    }
+    async function loadDocumentRecords({ force = false } = {}) {
+        if (state.recordRequest) {
+            if (!force) return state.recordRequest;
+            await state.recordRequest;
+        }
+        if (state.recordRequest) return state.recordRequest;
+        const request = (async () => {
+            state.records = [];
+            state.recordsError = '';
+            state.recordsStatus = 'checking';
+            state.recordConsentStatus = 'checking';
+            render();
+            try {
+                const auth = window.BokdeongiAuth;
+                const version = window.BokdeongiConsentDocuments?.versionFor('DOC_RECORD');
+                if (!auth || typeof auth.getConsentStatus !== 'function' || !version) throw new Error('동의 상태 확인 기능을 사용할 수 없습니다.');
+                const consentResponse = await auth.getConsentStatus();
+                if (!consentResponse.ok) throw new Error('동의 상태를 확인하지 못했습니다.');
+                const consentPayload = await consentResponse.json();
+                const consent = Array.isArray(consentPayload?.consents)
+                    ? consentPayload.consents.find((item) => item?.consentType === 'DOC_RECORD') : null;
+                if (consent?.agreed !== true || consent.docVersion !== version) {
+                    state.recordsStatus = 'consent-required';
+                    state.recordConsentStatus = 'required';
+                    return;
+                }
+                state.recordConsentStatus = 'agreed';
+                const payload = await window.BokdeongiApplication.getDocumentRecords();
+                state.records = payload.records;
+                state.recordsStatus = 'ready';
+            } catch (error) {
+                state.records = [];
+                if (error?.code === 'CONSENT_REQUIRED') {
+                    state.recordsStatus = 'consent-required';
+                    state.recordConsentStatus = 'required';
+                } else {
+                    state.recordsStatus = 'error';
+                    if (state.recordConsentStatus !== 'agreed') state.recordConsentStatus = 'error';
+                    state.recordsError = error?.message || window.BokdeongiApplication.messageFor(error);
+                }
+            } finally {
+                state.recordRequest = null;
+                render();
+                if (state.recordRefreshRequested && document.visibilityState === 'visible') {
+                    state.recordRefreshRequested = false;
+                    void loadDocumentRecords();
+                }
+            }
+        })();
+        state.recordRequest = request;
+        return request;
+    }
+    async function saveDocumentRecord(documentTypeId) {
+        const key = String(documentTypeId || '');
+        const entry = state.entries.find((item) => item.kind === 'document' && String(item.item.documentTypeId) === key);
+        if (!entry || state.recordConsentStatus !== 'agreed' || state.recordSavingKey !== null) return;
+        const issueDate = state.recordIssueDates.get(key) || '';
+        if (!window.BokdeongiApplication.isValidDocumentIssueDate(issueDate)) {
+            state.recordFormError = issueDate ? '발급일은 올바른 날짜이며 오늘 또는 이전 날짜여야 합니다.' : '서류 발급일을 입력해 주세요.';
+            state.recordNotice = '';
+            render();
+            return;
+        }
+        state.recordSavingKey = key;
+        state.recordFormError = '';
+        state.recordNotice = '';
+        render();
+        try {
+            await window.BokdeongiApplication.registerDocumentRecord(Number(key), issueDate);
+            state.recordIssueDates.delete(key);
+            await loadDocumentRecords({ force: true });
+            if (state.recordConsentStatus === 'required') {
+                state.recordNotice = '';
+            } else if (state.recordsStatus === 'ready') {
+                state.recordNotice = '발급일을 저장하고 최신 기록을 불러왔어요.';
+            } else {
+                state.recordNotice = '발급일은 저장했지만 최신 기록을 불러오지 못했습니다. 기록 영역에서 다시 시도해 주세요.';
+            }
+        } catch (error) {
+            if (error?.code === 'CONSENT_REQUIRED') {
+                state.records = [];
+                state.recordsStatus = 'consent-required';
+                state.recordConsentStatus = 'required';
+                state.recordFormError = '';
+                state.recordNotice = '';
+            } else {
+                state.recordFormError = window.BokdeongiApplication.messageFor(error);
+            }
+        } finally {
+            state.recordSavingKey = null;
+            render();
+        }
     }
     async function refreshApplication(version) {
         try {
@@ -194,6 +325,7 @@
             state.entries = entriesFrom(documents.documents);
             state.selectedKey = state.entries[0]?.key || null;
             render();
+            void loadDocumentRecords();
         } catch (error) { showLoadError(error); }
     }
     async function setup() {
@@ -204,6 +336,15 @@
         loadDocuments();
     }
     document.addEventListener('DOMContentLoaded', setup);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && state.application) {
+            state.records = [];
+            state.recordsStatus = 'checking';
+        } else if (document.visibilityState === 'visible' && state.application) {
+            if (state.recordRequest) state.recordRefreshRequested = true;
+            else { state.recordRefreshRequested = false; void loadDocumentRecords(); }
+        }
+    });
 })();
 
 document.addEventListener('DOMContentLoaded', () => {

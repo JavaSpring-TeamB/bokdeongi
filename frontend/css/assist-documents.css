@@ -31,6 +31,26 @@
 .document-complete { display: inline-flex; margin: var(--space-md) 0 0; padding: var(--space-sm); border-radius: var(--radius-md); background: var(--color-primary-light); font-size: var(--font-size-description); }
 .progress-card { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
 .progress-card p { margin: 0; font-size: var(--font-size-caption); }
+.remembered-records { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
+.remembered-records h3 { margin: 0 0 var(--space-sm); font-size: var(--font-size-card-title); }
+.remembered-records p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-description); }
+.remembered-records ul { display: grid; gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
+.remembered-records li { padding: var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.remembered-records li > strong { display: inline-block; margin-right: var(--space-sm); }
+.remembered-records__match { color: var(--color-primary); font-size: var(--font-size-caption); font-weight: 700; }
+.remembered-records dl { display: grid; gap: var(--space-xs); margin: var(--space-sm) 0 0; font-size: var(--font-size-caption); }
+.remembered-records dl div { display: flex; justify-content: space-between; gap: var(--space-sm); }
+.remembered-records dt { color: var(--color-text-secondary); }
+.remembered-records dd { margin: 0; text-align: right; }
+.remembered-records > a { margin-top: var(--space-sm); }
+.record-registration { display: grid; gap: var(--space-sm); margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
+.record-registration h3 { margin: 0; font-size: var(--font-size-description); }
+.record-registration label { font-size: var(--font-size-caption); font-weight: 700; }
+.record-registration input[type="date"] { width: 100%; min-height: 42px; padding: 0 var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); font: inherit; }
+.record-registration__help, .remembered-records__error, .remembered-records__notice { margin: 0; font-size: var(--font-size-caption); }
+.record-registration__help { color: var(--color-text-secondary); }
+.remembered-records__error { color: var(--color-danger); }
+.remembered-records__notice { color: var(--color-primary); }
 .progress-track { height: 10px; margin: var(--space-sm) 0; overflow: hidden; border-radius: 999px; background: var(--color-surface); }
 .progress-track span { display: block; height: 100%; background: var(--color-primary); }
 

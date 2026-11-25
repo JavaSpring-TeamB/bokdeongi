@@ -17,6 +17,8 @@ const oauthParameters = new URLSearchParams(window.location.search);
 const oauthResult = {
   kakaoSignupRequested: oauthParameters.get('login') !== 'failed' && oauthParameters.get('kakaoSignup') === 'true',
   kakaoSignupHandled: false,
+  kakaoReconsentRequested: oauthParameters.get('login') !== 'failed' && oauthParameters.get('kakaoReconsent') === 'true',
+  kakaoReconsentHandled: false,
   profileOnboardingRequested: oauthParameters.get('profileOnboarding') === 'true',
   profileOnboardingHandled: false
 };
@@ -481,6 +483,20 @@ function handleKakaoSignupRedirect() {
   window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.hash}`);
 }
 
+function handleKakaoReconsentRedirect() {
+  if (!oauthResult.kakaoReconsentRequested || oauthResult.kakaoReconsentHandled) return;
+  if (authState.status === 'checking') return;
+  oauthResult.kakaoReconsentHandled = true;
+  if (authState.status === 'unauthenticated') {
+    window.location.replace('signup-account.html?kakaoReconsent=true');
+    return;
+  }
+  showToast(authState.status === 'authenticated'
+    ? '현재 로그인된 계정이 있어 필수 약관 재동의 절차를 시작하지 않았습니다.'
+    : '재동의 인증 상태를 확인하지 못했습니다. 카카오 로그인을 다시 시도해 주세요.');
+  clearOAuthQuery();
+}
+
 function clearOAuthQuery() {
   window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.hash}`);
 }
@@ -598,6 +614,7 @@ function setAuthenticationStatus(status) {
   }
   renderHome();
   handleKakaoSignupRedirect();
+  handleKakaoReconsentRedirect();
   void handleProfileOnboardingRedirect();
   if (status === 'authenticated' && previousStatus !== 'authenticated') {
     void loadHomeSummary();

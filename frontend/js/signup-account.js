@@ -11,6 +11,14 @@ const kakaoSignup = {
  outcomeUnknown: false,
  redirecting: false
 };
+const kakaoReconsent = {
+ requested: new URLSearchParams(window.location.search).get('kakaoReconsent') === 'true',
+ active: false,
+ submitting: false,
+ completed: false,
+ retryRequired: false,
+ outcomeUnknown: false
+};
 const profileOnboarding = {
  requested: new URLSearchParams(window.location.search).get('profileOnboarding') === 'true',
  active: false,
@@ -77,12 +85,12 @@ function setupAccount(){const form=$('#signup-account-form'),next=$('#signup-sub
  document.querySelector('[data-signup-step="consent"] [data-signup-prev="account"]')?.addEventListener('click',()=>showStep('account'));
 }
 function consentInputs(){return [...document.querySelectorAll('[data-signup-step="consent"] [data-consent-type]')];}
-function captureConsents(){signupState.consents=consentInputs().map(input=>({consentType:input.dataset.consentType,docVersion:window.BokdeongiConsentDocuments?.versionFor(input.dataset.consentType)||null,agreed:input.checked}));}
+function captureConsents(){signupState.consents=consentInputs().filter(input=>!kakaoReconsent.active||REQUIRED_CONSENTS.includes(input.dataset.consentType)).map(input=>({consentType:input.dataset.consentType,docVersion:window.BokdeongiConsentDocuments?.versionFor(input.dataset.consentType)||null,agreed:input.checked}));}
 function syncAllConsent(){const inputs=consentInputs(),all=$('#consent-all');if(!all)return;const allChecked=inputs.length>0&&inputs.every(input=>input.checked);all.checked=allChecked;all.indeterminate=!allChecked&&inputs.some(input=>input.checked);}
 function setAllConsents(checked){consentInputs().forEach(input=>{input.checked=checked;});const all=$('#consent-all');if(all){all.checked=checked;all.indeterminate=false;}clearConsentError();captureConsents();syncSensitiveProfile();}
 function clearConsentError(){const error=$('#consent-error');if(error)error.textContent='';consentInputs().forEach(input=>input.removeAttribute('aria-invalid'));}
 function validateRequiredConsents(){const missing=REQUIRED_CONSENTS.filter(type=>!document.querySelector(`[data-signup-step="consent"] [data-consent-type="${type}"]`)?.checked);if(!missing.length){clearConsentError();return true;}const error=$('#consent-error');const labels=missing.map(type=>consentDocument(type)?.title||'필수 약관').join(', ');if(error){error.textContent=`필수 약관에 동의해 주세요: ${labels}.`;error.focus();}missing.forEach(type=>document.querySelector(`[data-signup-step="consent"] [data-consent-type="${type}"]`)?.setAttribute('aria-invalid','true'));return false;}
-function setupConsent(){const form=$('#signup-consent-form'),all=$('#consent-all'),next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]'),inputs=consentInputs();if(!form||!all||!next)return;const syncAndCapture=()=>{syncAllConsent();clearConsentError();captureConsents();};all.addEventListener('change',()=>setAllConsents(all.checked));inputs.forEach(input=>input.addEventListener('change',syncAndCapture));const proceed=()=>{if(!validateRequiredConsents())return;captureConsents();if(kakaoSignup.active){submitKakaoSignup();return;}showStep('profile');};next.addEventListener('click',proceed);form.addEventListener('submit',event=>{event.preventDefault();proceed();});document.querySelector('[data-signup-step="profile"] [data-signup-prev="consent"]')?.addEventListener('click',()=>showStep('consent'));syncAllConsent();captureConsents();}
+function setupConsent(){const form=$('#signup-consent-form'),all=$('#consent-all'),next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]'),inputs=consentInputs();if(!form||!all||!next)return;const syncAndCapture=()=>{syncAllConsent();clearConsentError();captureConsents();};all.addEventListener('change',()=>setAllConsents(all.checked));inputs.forEach(input=>input.addEventListener('change',syncAndCapture));const proceed=()=>{if(!validateRequiredConsents())return;captureConsents();if(kakaoReconsent.active){submitKakaoReconsent();return;}if(kakaoSignup.active){submitKakaoSignup();return;}showStep('profile');};next.addEventListener('click',proceed);form.addEventListener('submit',event=>{event.preventDefault();proceed();});document.querySelector('[data-signup-step="profile"] [data-signup-prev="consent"]')?.addEventListener('click',()=>showStep('consent'));syncAllConsent();captureConsents();}
 
 function clearKakaoSignupQuery(){window.history.replaceState(null,document.title,`${window.location.pathname}${window.location.hash}`);}
 function clearProfileOnboardingQuery(){window.history.replaceState(null,document.title,`${window.location.pathname}${window.location.hash}`);}
@@ -189,6 +197,51 @@ function setupKakaoSignup(){
  handleKakaoSignupAuthenticationState(window.BokdeongiAuth.getAuthenticationState());
  window.addEventListener('bokdeongi:auth-state-change',event=>handleKakaoSignupAuthenticationState(event.detail?.status));
 }
+
+function activateKakaoReconsentMode(){
+ if(kakaoReconsent.active)return;
+ kakaoReconsent.active=true;
+ const accountSection=document.querySelector('[data-signup-step="account"]');if(accountSection)accountSection.hidden=true;
+ const title=$('#consent-form-title');if(title)title.textContent='카카오 필수 약관 재동의';
+ const all=$('#consent-all')?.closest('.signup-consent__all');if(all)all.hidden=true;
+ document.querySelectorAll('[data-consent-type]').forEach(input=>{if(!REQUIRED_CONSENTS.includes(input.dataset.consentType)){input.checked=false;input.closest('.signup-consent__item').hidden=true;}});
+ const previous=document.querySelector('[data-signup-step="consent"] [data-signup-prev="account"]');if(previous)previous.hidden=true;
+ const next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]');if(next)next.textContent='필수 약관에 동의하고 로그인 ›';
+ showStep('consent');captureConsents();
+}
+function clearKakaoReconsentQuery(){window.history.replaceState(null,document.title,`${window.location.pathname}${window.location.hash}`);}
+function kakaoReconsentFailure(message,sessionExpired=false,unknown=false){kakaoReconsent.retryRequired=true;kakaoReconsent.outcomeUnknown=unknown;const next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]');if(next){next.disabled=true;next.textContent='재동의 요청을 다시 시작해 주세요';}const restart=$('#kakao-signup-restart');if(restart)restart.hidden=false;notice('#consent-error',message);if(sessionExpired)clearKakaoReconsentQuery();}
+async function submitKakaoReconsent(){
+ if(!kakaoReconsent.active||kakaoReconsent.submitting||kakaoReconsent.completed||kakaoReconsent.retryRequired||kakaoReconsent.outcomeUnknown)return;
+ if(!validateRequiredConsents())return;
+ const auth=window.BokdeongiAuth;
+ if(!auth||typeof auth.refreshAuthentication!=='function'){kakaoReconsentFailure('인증 서버 설정을 확인하지 못했습니다. 카카오 로그인을 다시 시작해 주세요.');return;}
+ const consents=signupState.consents.filter(item=>REQUIRED_CONSENTS.includes(item.consentType));
+ if(consents.length!==2||consents.some(item=>item.agreed!==true||!item.docVersion)){notice('#consent-error','필수 약관 두 항목에 모두 동의해 주세요.');return;}
+ kakaoReconsent.submitting=true;
+ const next=document.querySelector('[data-signup-step="consent"] [data-signup-next="profile"]');
+ const controls=[...consentInputs(),$('#consent-all')].filter(Boolean);controls.forEach(control=>{control.disabled=true;});
+ if(next){next.disabled=true;next.textContent='재동의 처리 중…';}
+ let response;
+ try{
+  const csrf=await requestKakaoCsrf(auth);
+  response=await fetch(auth.getApiUrl('/api/auth/kakao/reconsent'),{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',[csrf.headerName]:csrf.token},body:JSON.stringify({consents})});
+ }catch(error){kakaoReconsentFailure(error?.message||'재동의 요청 결과를 확인하지 못했습니다. 카카오 로그인을 다시 시작해 주세요.',false,true);return;}
+ const payload=await readJson(response);
+ if(response.status!==200){kakaoReconsentFailure(response.status===401?'카카오 인증 세션이 만료되었습니다. 카카오 로그인을 다시 시작해 주세요.':kakaoSignupErrorMessage(response.status),response.status===401);return;}
+ if(!payload||!Number.isFinite(payload.userId)||typeof payload.profileOnboarding!=='boolean'){
+  kakaoReconsentFailure('재동의 결과를 확인하지 못했습니다. 카카오 로그인을 다시 시작해 주세요.',false,true);return;
+ }
+ let authStatus;
+ try{authStatus=await auth.refreshAuthentication();}
+ catch{kakaoReconsentFailure('재동의는 처리되었지만 로그인 상태를 확인하지 못했습니다. 다시 로그인해 주세요.',true);return;}
+ if(authStatus!=='authenticated'){
+  kakaoReconsentFailure('재동의는 처리되었지만 로그인 상태를 확인하지 못했습니다. 다시 로그인해 주세요.',true);return;
+ }
+ kakaoReconsent.completed=true;clearKakaoReconsentQuery();
+ window.location.replace(payload.profileOnboarding?'signup-account.html?profileOnboarding=true':'index.html');
+}
+function setupKakaoReconsent(){if(!kakaoReconsent.requested)return;activateKakaoReconsentMode();}
 function profileOnboardingPayloadIsValid(profile){return profile&&typeof profile.profileCompleted==='boolean'&&Number.isInteger(Number(profile.profileStep))&&Number(profile.profileStep)>=0&&Number(profile.profileStep)<=3;}
 function setChecked(name,value){const input=document.querySelector(`[name="${name}"][value="${value}"]`);if(input)input.checked=true;}
 function setCodes(group,values){if(!Array.isArray(values))return;const selected=new Set(values);document.querySelectorAll(`[data-exclusive-group="${group}"] input`).forEach(input=>{input.checked=input.dataset.none!==undefined?selected.length===0:selected.has(input.value);});}
@@ -433,4 +486,4 @@ function setupProfileForm(){
  updateIncome();updateChildren();setWorkflowSubmitting(false);
 }
 
-document.addEventListener('DOMContentLoaded',()=>{setupAccount();setupConsent();setupConsentDialog();setupProfileRegions();setupSensitiveProfile();setupProfileForm();setupKakaoSignup();setupProfileOnboarding();void ensureSignupRegions();});
+document.addEventListener('DOMContentLoaded',()=>{setupAccount();setupConsent();setupConsentDialog();setupProfileRegions();setupSensitiveProfile();setupProfileForm();setupKakaoSignup();setupKakaoReconsent();setupProfileOnboarding();void ensureSignupRegions();});
