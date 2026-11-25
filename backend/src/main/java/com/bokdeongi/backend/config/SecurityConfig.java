@@ -39,7 +39,8 @@ public class SecurityConfig {
         http
                 .securityMatcher(
                         "/api/auth/kakao/signup",
-                        "/api/auth/kakao/csrf"
+                        "/api/auth/kakao/csrf",
+                        "/api/auth/kakao/reconsent"
                 )
 
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -64,7 +65,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/auth/kakao/signup"
+                                "/api/auth/kakao/signup",
+                                "/api/auth/kakao/reconsent"
                         ).permitAll()
                         .anyRequest().denyAll()
                 );

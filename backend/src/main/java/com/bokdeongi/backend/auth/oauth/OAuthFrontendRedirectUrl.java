@@ -52,6 +52,13 @@ public class OAuthFrontendRedirectUrl {
         return frontendHomeUrl + "?kakaoSignup=true";
     }
 
+    /**
+     * 기존 카카오 회원의 필수 약관 재동의 화면으로 이동한다.
+     */
+    public String kakaoReconsentRequired() {
+        return frontendHomeUrl + "?kakaoReconsent=true";
+    }
+
     private static URI parseHomeUrl(String value) {
         try {
             URI uri = new URI(value);

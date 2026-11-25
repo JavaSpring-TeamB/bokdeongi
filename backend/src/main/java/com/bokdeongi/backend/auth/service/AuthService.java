@@ -15,6 +15,7 @@ import com.bokdeongi.backend.auth.jwt.JwtTokenProvider;
 import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
 import com.bokdeongi.backend.benefit.application.DocumentRecordRepository;
+import com.bokdeongi.backend.auth.dto.request.KakaoReconsentRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +66,9 @@ public class AuthService {
 
     // 카카오 임시 가입 정보 유효기간: 10분
     private static final long KAKAO_SIGNUP_TIMEOUT = 10 * 60 * 1000L;
+
+    // 카카오 필수 약관 재동의 정보 유효기간: 10분
+    private static final long KAKAO_RECONSENT_TIMEOUT = 10 * 60 * 1000L;
 
     // 기존 Access Token 응답 유효기간: 1800초
     private static final long ACCESS_TOKEN_EXPIRES_IN = 1800L;
@@ -262,6 +266,93 @@ public class AuthService {
                 savedUser.getEmail(),
                 "카카오 회원가입이 완료되었습니다."
         );
+    }
+
+    /**
+     * 기존 카카오 회원의 필수 약관 재동의를 처리한다.
+     */
+    @Transactional
+    public User kakaoReconsent(
+            KakaoReconsentRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        // 1. 카카오 재동의 세션 확인
+        HttpSession session = httpRequest.getSession(false);
+
+        if (session == null) {
+            throw new BadCredentialsException(
+                    "카카오 재동의 인증 정보가 없습니다."
+            );
+        }
+
+        String kakaoId =
+                (String) session.getAttribute("KAKAO_RECONSENT_ID");
+
+        Long createdAt =
+                (Long) session.getAttribute("KAKAO_RECONSENT_CREATED_AT");
+
+        if (kakaoId == null || createdAt == null) {
+            throw new BadCredentialsException(
+                    "카카오 재동의 인증 정보가 없습니다."
+            );
+        }
+
+        // 2. 재동의 세션 유효기간 확인
+        long elapsed = System.currentTimeMillis() - createdAt;
+
+        if (elapsed < 0 || elapsed > KAKAO_RECONSENT_TIMEOUT) {
+
+            session.removeAttribute("KAKAO_RECONSENT_ID");
+            session.removeAttribute("KAKAO_RECONSENT_CREATED_AT");
+
+            throw new BadCredentialsException(
+                    "카카오 인증 시간이 만료되었습니다."
+            );
+        }
+
+        // 3. 기존 카카오 회원 조회
+        User existingUser = userRepository.findByKakaoId(kakaoId)
+                .orElseThrow(() ->
+                        new BadCredentialsException(
+                                "존재하지 않는 카카오 회원입니다."
+                        )
+                );
+
+        // 동시 재동의 요청 처리를 위한 회원 쓰기 잠금
+        User user = userRepository.findByIdForUpdate(existingUser.getId())
+                .orElseThrow(() ->
+                        new BadCredentialsException(
+                                "존재하지 않는 카카오 회원입니다."
+                        )
+                );
+
+        // 4. 필수 약관 이외의 동의 유형 제한
+        for (ConsentRequest consent : request.consents()) {
+
+            if (!REQUIRED_CONSENTS.contains(consent.consentType())) {
+                throw new IllegalArgumentException(
+                        "필수 약관만 재동의할 수 있습니다."
+                );
+            }
+        }
+
+        // 5. 필수 약관 동의 및 중복 검사
+        validateConsents(request.consents(), true);
+
+        // 6. 약관 문서 버전 검증
+        for (ConsentRequest consent : request.consents()) {
+            validateConsentVersion(
+                    consent.consentType(),
+                    consent.docVersion()
+            );
+        }
+
+        // 7. 필수 약관 동의 이력 저장
+        if (!hasRequiredConsents(user.getId())) {
+            saveConsents(user, request.consents());
+        }
+
+        return user;
     }
 
     /* ==================== 로그인 ==================== */
@@ -534,6 +625,29 @@ public class AuthService {
                         .toList();
 
         return new ConsentStatusResponse(consents);
+    }
+
+    /**
+     * 회원의 필수 약관 최신 동의 상태를 확인한다.
+     *
+     * TERMS와 PRIVACY 모두 동의한 경우에만 true를 반환한다.
+     * 동의 이력이 없거나 최신 동의 상태가 false이면
+     * 필수 약관 미동의 상태로 판단한다.
+     *
+     * @param userId 회원 ID
+     * @return 필수 약관 동의 완료 여부
+     */
+    @Transactional(readOnly = true)
+    public boolean hasRequiredConsents(Long userId) {
+        return REQUIRED_CONSENTS.stream()
+                .allMatch(consentType -> userConsentRepository
+                        .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                                userId,
+                                consentType
+                        )
+                        .map(consent -> Boolean.TRUE.equals(consent.getAgreed()))
+                        .orElse(false)
+                );
     }
 
     /**

@@ -88,6 +88,10 @@ class OAuth2LoginSuccessHandlerTest {
         when(userRepository.findByKakaoId("12345"))
                 .thenReturn(Optional.of(user));
 
+        // 기존 회원의 필수 약관 동의 완료 상태 설정
+        when(authService.hasRequiredConsents(user.getId()))
+                .thenReturn(true);
+
         mockTokenIssuance();
 
         MockHttpServletRequest request =
@@ -122,6 +126,10 @@ class OAuth2LoginSuccessHandlerTest {
 
         when(userRepository.findByKakaoId("12345"))
                 .thenReturn(Optional.of(user));
+
+        // 기존 회원의 필수 약관 동의 완료 상태 설정
+        when(authService.hasRequiredConsents(user.getId()))
+                .thenReturn(true);
 
         mockTokenIssuance();
 
@@ -184,5 +192,76 @@ class OAuth2LoginSuccessHandlerTest {
         assertTrue(
                 response.getHeaders(HttpHeaders.SET_COOKIE).isEmpty()
         );
+    }
+
+    @Test
+    void 필수_약관_미동의_기존_회원은_재동의_화면으로_이동한다()
+            throws Exception {
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(3L);
+
+        when(userRepository.findByKakaoId("12345"))
+                .thenReturn(Optional.of(user));
+
+        when(authService.hasRequiredConsents(3L))
+                .thenReturn(false);
+
+        MockHttpServletRequest request =
+                new MockHttpServletRequest();
+
+        MockHttpServletResponse response =
+                new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(
+                request,
+                response,
+                authentication()
+        );
+
+        // 재동의 화면 이동 확인
+        assertEquals(
+                homeUrl + "?kakaoReconsent=true",
+                response.getRedirectedUrl()
+        );
+
+        // 재동의용 임시 세션 확인
+        HttpSession session = request.getSession(false);
+
+        assertNotNull(session);
+
+        assertEquals(
+                "12345",
+                session.getAttribute("KAKAO_RECONSENT_ID")
+        );
+
+        assertNotNull(
+                session.getAttribute("KAKAO_RECONSENT_CREATED_AT")
+        );
+
+        // 필수 약관 동의 여부 확인
+        verify(authService).hasRequiredConsents(3L);
+
+        // 필수 약관 동의 전 JWT 발급 방지 확인
+        verify(authService, never()).issueTokens(anyLong());
+
+        // 기존 인증 토큰 무효화 확인
+        verify(authService).logout(3L);
+
+        // 기존 인증 쿠키 만료 확인
+        var cookies = response.getHeaders(HttpHeaders.SET_COOKIE);
+
+        assertEquals(2, cookies.size());
+
+        assertTrue(cookies.stream().anyMatch(
+                cookie -> cookie.startsWith("accessToken=;")
+                        && cookie.contains("Max-Age=0")
+        ));
+
+        assertTrue(cookies.stream().anyMatch(
+                cookie -> cookie.startsWith("refreshToken=;")
+                        && cookie.contains("Max-Age=0")
+        ));
     }
 }

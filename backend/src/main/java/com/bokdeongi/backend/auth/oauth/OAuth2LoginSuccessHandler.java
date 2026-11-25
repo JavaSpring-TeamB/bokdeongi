@@ -70,6 +70,19 @@ public class OAuth2LoginSuccessHandler
 
         String kakaoId = String.valueOf(kakaoIdValue);
 
+        // 이전 카카오 임시 인증 정보 제거
+        HttpSession previousSession = request.getSession(false);
+
+        if (previousSession != null) {
+            previousSession.removeAttribute("KAKAO_SIGNUP_ID");
+            previousSession.removeAttribute("KAKAO_SIGNUP_NICKNAME");
+            previousSession.removeAttribute("KAKAO_SIGNUP_EMAIL");
+            previousSession.removeAttribute("KAKAO_SIGNUP_CREATED_AT");
+
+            previousSession.removeAttribute("KAKAO_RECONSENT_ID");
+            previousSession.removeAttribute("KAKAO_RECONSENT_CREATED_AT");
+        }
+
         // 카카오 ID를 기준으로 가입 여부 확인
         Optional<User> existingUser =
                 userRepository.findByKakaoId(kakaoId);
@@ -84,8 +97,38 @@ public class OAuth2LoginSuccessHandler
             return;
         }
 
-        // 기존 회원: JWT 발급 및 인증 쿠키 설정
+        // 기존 회원 확인
         User user = existingUser.get();
+
+        // 필수 약관 동의 여부 확인
+        if (!authService.hasRequiredConsents(user.getId())) {
+
+            // 기존 Access Token 및 Refresh Token 무효화
+            authService.logout(user.getId());
+
+            // 브라우저에 남아 있는 인증 쿠키 만료
+            clearTokenCookies(response);
+
+            // 필수 약관 재동의용 임시 세션 저장
+            HttpSession session = request.getSession(true);
+
+            session.setAttribute("KAKAO_RECONSENT_ID", kakaoId);
+            session.setAttribute(
+                    "KAKAO_RECONSENT_CREATED_AT",
+                    System.currentTimeMillis()
+            );
+
+            // 필수 약관 동의 전 OAuth2 인증 컨텍스트 제거
+            SecurityContextHolder.clearContext();
+            session.removeAttribute("SPRING_SECURITY_CONTEXT");
+
+            response.sendRedirect(
+                    frontendRedirectUrl.kakaoReconsentRequired()
+            );
+            return;
+        }
+
+        // 필수 약관 동의 완료 회원: JWT 발급 및 인증 쿠키 설정
         LoginResult loginResult = authService.issueTokens(user.getId());
 
         setTokenCookies(response, loginResult);
@@ -203,6 +246,40 @@ public class OAuth2LoginSuccessHandler
                         .path("/api/auth")
                         .maxAge(Duration.ofDays(7))
                         .build();
+
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                refreshCookie.toString()
+        );
+    }
+
+    /**
+     * 필수 약관 재동의 전 기존 인증 쿠키를 만료시킨다.
+     */
+    private void clearTokenCookies(HttpServletResponse response) {
+
+        ResponseCookie accessCookie =
+                ResponseCookie.from("accessToken", "")
+                        .httpOnly(true)
+                        .secure(false)
+                        .sameSite("Lax")
+                        .path("/")
+                        .maxAge(0)
+                        .build();
+
+        ResponseCookie refreshCookie =
+                ResponseCookie.from("refreshToken", "")
+                        .httpOnly(true)
+                        .secure(false)
+                        .sameSite("Lax")
+                        .path("/api/auth")
+                        .maxAge(0)
+                        .build();
+
+        response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                accessCookie.toString()
+        );
 
         response.addHeader(
                 HttpHeaders.SET_COOKIE,

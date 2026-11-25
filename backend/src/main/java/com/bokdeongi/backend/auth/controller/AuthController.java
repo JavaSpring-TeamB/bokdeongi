@@ -27,6 +27,12 @@ import org.springframework.web.server.ResponseStatusException;
 import com.bokdeongi.backend.auth.dto.request.PasswordChangeRequest;
 import com.bokdeongi.backend.auth.dto.response.EmailAvailabilityResponse;
 import org.springframework.web.bind.annotation.RequestParam;
+import com.bokdeongi.backend.auth.dto.request.KakaoReconsentRequest;
+import com.bokdeongi.backend.auth.dto.response.KakaoReconsentResponse;
+import com.bokdeongi.backend.auth.entity.User;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -171,6 +177,61 @@ public class AuthController {
     }
 
     /**
+     * 기존 카카오 회원의 필수 약관 재동의.
+     *
+     * 필수 약관 동의 완료 후 JWT를 발급하고
+     * 프로필 작성 필요 여부를 반환한다.
+     */
+    @PostMapping("/kakao/reconsent")
+    public ResponseEntity<KakaoReconsentResponse> kakaoReconsent(
+            @Valid @RequestBody KakaoReconsentRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        // 1. 필수 약관 재동의 처리
+        User user = authService.kakaoReconsent(
+                request, httpRequest
+        );
+
+        // 2. JWT 발급
+        LoginResult result = authService.issueTokens(user.getId());
+
+        // 3. 인증 쿠키 생성
+        ResponseCookie accessCookie =
+                createAccessTokenCookie(
+                        result.loginResponse().accessToken()
+                );
+
+        ResponseCookie refreshCookie =
+                createRefreshTokenCookie(result.refreshToken());
+
+        // 4. 임시 인증 세션 제거
+        HttpSession session = httpRequest.getSession(false);
+
+        if (session != null) {
+            session.invalidate();
+        }
+
+        // 5. OAuth2 인증 컨텍스트 정리
+        SecurityContextHolder.clearContext();
+
+        // 6. 재동의 완료 응답 생성
+        KakaoReconsentResponse response =
+                new KakaoReconsentResponse(
+                        user.getId(),
+                        user.getProfileCompletedAt() == null,
+                        "필수 약관 동의가 완료되었습니다."
+                );
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        accessCookie.toString(),
+                        refreshCookie.toString()
+                )
+                .body(response);
+    }
+
+    /**
      * 카카오 회원가입 과정에서 사용하는 CSRF 토큰을 반환한다.
      */
     @GetMapping("/kakao/csrf")
@@ -299,6 +360,19 @@ public class AuthController {
                 .sameSite("Lax")
                 .path("/api/auth")
                 .maxAge(refreshTokenExpiration / 1000)
+                .build();
+    }
+
+    /**
+     * 카카오 재동의 완료 후 Access Token 쿠키를 생성한다.
+     */
+    private ResponseCookie createAccessTokenCookie(String accessToken) {
+        return ResponseCookie.from("accessToken", accessToken)
+                .httpOnly(true)
+                .secure(false) // 로컬 HTTP 개발 환경용
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(Duration.ofMinutes(30))
                 .build();
     }
 

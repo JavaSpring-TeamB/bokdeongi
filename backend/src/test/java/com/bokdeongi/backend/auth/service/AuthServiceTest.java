@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.Optional;
 
@@ -38,6 +40,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+
+import com.bokdeongi.backend.auth.dto.request.KakaoReconsentRequest;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.authentication.BadCredentialsException;
 
 class AuthServiceTest {
 
@@ -667,5 +674,333 @@ class AuthServiceTest {
 
         verify(documentRecordRepository, never())
                 .deleteRecords(userId);
+    }
+
+    @Test
+    void 필수_약관에_모두_동의하면_true를_반환한다() {
+        Long userId = 1L;
+
+        UserConsent terms = mock(UserConsent.class);
+        UserConsent privacy = mock(UserConsent.class);
+
+        when(terms.getAgreed()).thenReturn(true);
+        when(privacy.getAgreed()).thenReturn(true);
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "TERMS"))
+                .thenReturn(Optional.of(terms));
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "PRIVACY"))
+                .thenReturn(Optional.of(privacy));
+
+        assertTrue(authService.hasRequiredConsents(userId));
+    }
+
+    @Test
+    void 개인정보_약관_동의_이력이_없으면_false를_반환한다() {
+        Long userId = 1L;
+
+        UserConsent terms = mock(UserConsent.class);
+
+        when(terms.getAgreed()).thenReturn(true);
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "TERMS"))
+                .thenReturn(Optional.of(terms));
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        userId, "PRIVACY"))
+                .thenReturn(Optional.empty());
+
+        assertFalse(authService.hasRequiredConsents(userId));
+    }
+
+    @Test
+    void 필수_약관의_최신_동의_상태가_false이면_false를_반환한다() {
+        Long userId = 1L;
+
+        UserConsent consent = mock(UserConsent.class);
+
+        when(consent.getAgreed()).thenReturn(false);
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        eq(userId), anyString()))
+                .thenReturn(Optional.of(consent));
+
+        assertFalse(authService.hasRequiredConsents(userId));
+    }
+
+    @Test
+    void 필수_약관_동의_이력이_없으면_false를_반환한다() {
+        Long userId = 1L;
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        eq(userId), anyString()))
+                .thenReturn(Optional.empty());
+
+        assertFalse(authService.hasRequiredConsents(userId));
+    }
+
+    @Test
+    void 카카오_재동의_인증_세션이_없으면_예외가_발생한다() {
+        KakaoReconsentRequest request =
+                mock(KakaoReconsentRequest.class);
+
+        MockHttpServletRequest httpRequest =
+                new MockHttpServletRequest();
+
+        assertThrows(
+                BadCredentialsException.class,
+                () -> authService.kakaoReconsent(
+                        request, httpRequest
+                )
+        );
+    }
+
+    @Test
+    void 카카오_재동의_인증_시간이_만료되면_예외가_발생한다() {
+        KakaoReconsentRequest request =
+                mock(KakaoReconsentRequest.class);
+
+        MockHttpServletRequest httpRequest =
+                new MockHttpServletRequest();
+
+        MockHttpSession session = new MockHttpSession();
+
+        session.setAttribute(
+                "KAKAO_RECONSENT_ID",
+                "12345"
+        );
+
+        session.setAttribute(
+                "KAKAO_RECONSENT_CREATED_AT",
+                System.currentTimeMillis() - (11 * 60 * 1000L)
+        );
+
+        httpRequest.setSession(session);
+
+        assertThrows(
+                BadCredentialsException.class,
+                () -> authService.kakaoReconsent(
+                        request, httpRequest
+                )
+        );
+
+        assertNull(
+                session.getAttribute("KAKAO_RECONSENT_ID")
+        );
+
+        assertNull(
+                session.getAttribute("KAKAO_RECONSENT_CREATED_AT")
+        );
+    }
+
+    @Test
+    void 기존_카카오_회원의_필수_약관_재동의에_성공한다() {
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(1L);
+
+        when(userRepository.findByKakaoId("12345"))
+                .thenReturn(Optional.of(user));
+
+        when(userRepository.findByIdForUpdate(1L))
+                .thenReturn(Optional.of(user));
+
+        MockHttpServletRequest httpRequest =
+                new MockHttpServletRequest();
+
+        MockHttpSession session = new MockHttpSession();
+
+        session.setAttribute(
+                "KAKAO_RECONSENT_ID",
+                "12345"
+        );
+
+        session.setAttribute(
+                "KAKAO_RECONSENT_CREATED_AT",
+                System.currentTimeMillis()
+        );
+
+        httpRequest.setSession(session);
+
+        ConsentRequest terms =
+                new ConsentRequest("TERMS", "v1.0", true);
+
+        ConsentRequest privacy =
+                new ConsentRequest("PRIVACY", "v1.0", true);
+
+        KakaoReconsentRequest request =
+                new KakaoReconsentRequest(
+                        List.of(terms, privacy)
+                );
+
+        when(userConsentRepository
+                .findTopByUserIdAndConsentTypeOrderByActedAtDescIdDesc(
+                        eq(1L), anyString()))
+                .thenReturn(Optional.empty());
+
+        User result = authService.kakaoReconsent(
+                request, httpRequest
+        );
+
+        // 기존 회원 유지 확인
+        assertEquals(1L, result.getId());
+
+        // 필수 약관 동의 이력 저장 확인
+        verify(userConsentRepository, times(2))
+                .save(any(UserConsent.class));
+
+        // 신규 회원 생성 방지 확인
+        verify(userRepository, never())
+                .save(any(User.class));
+    }
+
+    @Test
+    void 필수_약관이_누락된_재동의_요청은_실패한다() {
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(1L);
+
+        when(userRepository.findByKakaoId("12345"))
+                .thenReturn(Optional.of(user));
+
+        when(userRepository.findByIdForUpdate(1L))
+                .thenReturn(Optional.of(user));
+
+        MockHttpServletRequest httpRequest =
+                new MockHttpServletRequest();
+
+        MockHttpSession session = new MockHttpSession();
+
+        session.setAttribute("KAKAO_RECONSENT_ID", "12345");
+        session.setAttribute(
+                "KAKAO_RECONSENT_CREATED_AT",
+                System.currentTimeMillis()
+        );
+
+        httpRequest.setSession(session);
+
+        KakaoReconsentRequest request =
+                new KakaoReconsentRequest(
+                        List.of(
+                                new ConsentRequest(
+                                        "TERMS", "v1.0", true
+                                )
+                        )
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> authService.kakaoReconsent(
+                        request, httpRequest
+                )
+        );
+
+        verify(userConsentRepository, never())
+                .save(any(UserConsent.class));
+    }
+
+    @Test
+    void 잘못된_약관_버전의_재동의_요청은_실패한다() {
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(1L);
+
+        when(userRepository.findByKakaoId("12345"))
+                .thenReturn(Optional.of(user));
+
+        when(userRepository.findByIdForUpdate(1L))
+                .thenReturn(Optional.of(user));
+
+        MockHttpServletRequest httpRequest =
+                new MockHttpServletRequest();
+
+        MockHttpSession session = new MockHttpSession();
+
+        session.setAttribute("KAKAO_RECONSENT_ID", "12345");
+        session.setAttribute(
+                "KAKAO_RECONSENT_CREATED_AT",
+                System.currentTimeMillis()
+        );
+
+        httpRequest.setSession(session);
+
+        KakaoReconsentRequest request =
+                new KakaoReconsentRequest(
+                        List.of(
+                                new ConsentRequest(
+                                        "TERMS", "v0.0", true
+                                ),
+                                new ConsentRequest(
+                                        "PRIVACY", "v1.0", true
+                                )
+                        )
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> authService.kakaoReconsent(
+                        request, httpRequest
+                )
+        );
+
+        verify(userConsentRepository, never())
+                .save(any(UserConsent.class));
+    }
+
+    @Test
+    void 필수_약관에_동의하지_않은_재동의_요청은_실패한다() {
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(1L);
+
+        when(userRepository.findByKakaoId("12345"))
+                .thenReturn(Optional.of(user));
+
+        when(userRepository.findByIdForUpdate(1L))
+                .thenReturn(Optional.of(user));
+
+        MockHttpServletRequest httpRequest =
+                new MockHttpServletRequest();
+
+        MockHttpSession session = new MockHttpSession();
+
+        session.setAttribute("KAKAO_RECONSENT_ID", "12345");
+        session.setAttribute(
+                "KAKAO_RECONSENT_CREATED_AT",
+                System.currentTimeMillis()
+        );
+
+        httpRequest.setSession(session);
+
+        KakaoReconsentRequest request =
+                new KakaoReconsentRequest(
+                        List.of(
+                                new ConsentRequest(
+                                        "TERMS", "v1.0", false
+                                ),
+                                new ConsentRequest(
+                                        "PRIVACY", "v1.0", true
+                                )
+                        )
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> authService.kakaoReconsent(
+                        request, httpRequest
+                )
+        );
+
+        verify(userConsentRepository, never())
+                .save(any(UserConsent.class));
     }
 }
