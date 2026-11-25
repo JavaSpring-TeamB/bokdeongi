@@ -115,8 +115,15 @@ public class AuthService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
-        // 2. 약관 동의 검증
+        // 2. 약관 동의 및 문서 버전 검증
         validateConsents(request.consents(), false);
+
+        for (ConsentRequest consent : request.consents()) {
+            validateConsentVersion(
+                    consent.consentType(),
+                    consent.docVersion()
+            );
+        }
 
         // 3. 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.password());
@@ -511,10 +518,15 @@ public class AuthService {
     /* ==================== 약관 동의 변경 ==================== */
 
     /**
-     * 선택 약관 동의 변경 및 철회.
+     * 선택 약관 동의 변경 및 철회를 처리한다.
      *
-     * OPTIONAL_INFO와 SENSITIVE만 변경할 수 있으며,
+     * OPTIONAL_INFO, SENSITIVE, DOC_RECORD, DOC_PROCESS의
+     * 동의 상태를 변경할 수 있다.
      * 기존 이력을 수정하지 않고 새로운 기록을 추가한다.
+     *
+     * 민감정보 동의 철회 시 저장된 민감정보를 삭제하고
+     * 재매칭을 요청한다.
+     * 서류 기억 동의 철회 시 저장된 서류 기록을 삭제한다.
      */
     @Transactional
     public void updateConsent(
@@ -701,7 +713,7 @@ public class AuthService {
         // 2. JWT에서 회원 ID 추출 후 조회
         Long userId = jwtTokenProvider.getUserId(refreshToken);
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
                         new BadCredentialsException(
                                 "사용자를 찾을 수 없습니다."
@@ -748,7 +760,7 @@ public class AuthService {
     @Transactional
     public void logout(Long userId) {
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
                         new BadCredentialsException(
                                 "사용자를 찾을 수 없습니다."
@@ -770,8 +782,8 @@ public class AuthService {
     @Transactional
     public void withdraw(Long userId) {
 
-        // 1. 탈퇴할 회원 조회
-        User user = userRepository.findById(userId)
+        // 1. 탈퇴할 회원을 쓰기 잠금으로 조회
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
                                 "존재하지 않는 회원입니다."
