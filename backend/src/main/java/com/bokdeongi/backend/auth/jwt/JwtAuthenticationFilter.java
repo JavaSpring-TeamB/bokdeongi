@@ -34,10 +34,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 토큰 재발급 API는 Access Token 인증 필터를 적용하지 않는다.
      * Refresh Token 검증은 AuthService에서 별도로 수행한다.
      */
+    /**
+     * 토큰 재발급 및 비밀번호 재설정 API는
+     * Access Token 인증 필터를 적용하지 않는다.
+     *
+     * 각 API에서 필요한 인증 정보를 별도로 검증한다.
+     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return "POST".equalsIgnoreCase(request.getMethod())
-                && "/api/auth/refresh".equals(request.getServletPath());
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+
+        String path = request.getServletPath();
+
+        return "/api/auth/refresh".equals(path)
+                || "/api/auth/password-reset/send-code".equals(path)
+                || "/api/auth/password-reset/verify-code".equals(path)
+                || "/api/auth/password-reset/reset".equals(path);
     }
 
     /**

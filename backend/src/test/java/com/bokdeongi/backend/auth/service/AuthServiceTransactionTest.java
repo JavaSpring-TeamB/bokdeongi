@@ -11,10 +11,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.jdbc.core.JdbcTemplate;
-
 import com.bokdeongi.backend.benefit.application.DocumentRecordRepository;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 
@@ -43,6 +44,10 @@ class AuthServiceTransactionTest {
 
     @MockitoSpyBean
     private DocumentRecordRepository documentRecordRepository;
+
+    // 테스트 환경에서는 실제 이메일을 발송하지 않는다.
+    @MockitoBean
+    private JavaMailSender javaMailSender;
 
     @Test
     void shouldRollbackDocumentDeletionWhenConsentSaveFails() throws JsonProcessingException {

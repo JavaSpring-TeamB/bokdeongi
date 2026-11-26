@@ -16,6 +16,7 @@ import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
 import com.bokdeongi.backend.benefit.application.DocumentRecordRepository;
 import com.bokdeongi.backend.auth.dto.request.KakaoReconsentRequest;
+import com.bokdeongi.backend.auth.repository.PasswordResetTokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -80,6 +81,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final LoginAttemptService loginAttemptService;
     private final ApplicationEventPublisher eventPublisher;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Value("${app.consent.terms-version}")
     private String termsConsentVersion;
@@ -459,22 +461,22 @@ public class AuthService {
      * 로그인한 이메일 회원의 비밀번호를 변경한다.
      *
      * 현재 비밀번호 검증 후 새 비밀번호를 암호화하여 저장한다.
-     * 변경 성공 시 기존 인증 토큰을 무효화하도록 처리한다.
+     * 기존 로그인 토큰 및 비밀번호 재설정 인증 정보를 무효화한다.
      */
     @Transactional
     public void changePassword(
             Long userId,
             PasswordChangeRequest request
     ) {
-        // 1. 회원 조회
-        User user = userRepository.findById(userId)
+        // 1. 회원 조회 및 쓰기 잠금
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
                         new BadCredentialsException(
                                 "사용자를 찾을 수 없습니다."
                         )
                 );
 
-        // 2. 카카오 전용 계정 등 비밀번호가 없는 회원 제한
+        // 2. 비밀번호가 없는 계정 제한
         if (user.getPasswordHash() == null) {
             throw new IllegalArgumentException(
                     "비밀번호 변경을 지원하지 않는 계정입니다."
@@ -513,6 +515,11 @@ public class AuthService {
 
         // 8. 토큰 버전 증가
         user.increaseTokenVersion();
+
+        // 9. 기존 비밀번호 재설정 인증 기록 삭제
+        passwordResetTokenRepository
+                .findByUserIdForUpdate(userId)
+                .ifPresent(passwordResetTokenRepository::delete);
     }
 
     /* ==================== 약관 동의 변경 ==================== */
