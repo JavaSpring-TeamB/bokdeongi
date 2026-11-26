@@ -97,6 +97,9 @@ public class EasyTranslatorService {
         if (t.length() > MAX_TEXT) {
             throw EasyTextException.invalidInput("글은 " + MAX_TEXT + "자 이내로 붙여 넣어 주세요.");
         }
+        if (PersonalDocumentGuard.looksPersonal(t)) {
+            throw EasyTextException.personalDocument(); // 제목이 개인 서류면 AI로 보내지 않고 횟수도 안 쓴다 (D-78)
+        }
         if (chatModel.getIfAvailable() == null) {
             throw EasyTextException.disabled(); // 키가 없으면 횟수를 쓰지 않는다
         }

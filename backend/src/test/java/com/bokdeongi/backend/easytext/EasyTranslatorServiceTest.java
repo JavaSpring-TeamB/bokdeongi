@@ -135,6 +135,24 @@ class EasyTranslatorServiceTest {
     }
 
     @Test
+    void 개인_서류는_AI로_안_보내고_횟수도_안_쓴다() {
+        assertEquals("PERSONAL_DOCUMENT", assertThrows(EasyTextException.class,
+                () -> service.translate("user:7", "가족관계증명서\n본인 김복덩")).getCode());
+        verify(generator, never()).generate(anyString(), anyString());
+        assertEquals(EasyTextLimiter.DAILY_LIMIT, limiter.remaining("user:7"));
+    }
+
+    @Test
+    void 사진도_OCR이_모르는_개인_서류면_막는다() {
+        MockMultipartFile file = new MockMultipartFile("file", "doc.png", "image/png", new byte[] {1});
+        when(ocrClient.text(org.mockito.ArgumentMatchers.any(), anyString()))
+                .thenReturn(List.of("가 족 관 계 증 명 서", "본인 김복덩"));
+        assertEquals("PERSONAL_DOCUMENT", assertThrows(EasyTextException.class,
+                () -> service.translateFile("user:7", file)).getCode());
+        verify(generator, never()).generate(anyString(), anyString());
+    }
+
+    @Test
     void 사진에서_글자를_못_찾으면_INVALID_INPUT() {
         MockMultipartFile file = new MockMultipartFile("file", "bill.png", "image/png", new byte[] {1});
         when(ocrClient.text(org.mockito.ArgumentMatchers.any(), anyString())).thenReturn(List.of());

@@ -30,7 +30,7 @@ public class EasyTextController {
 
     @Operation(summary = "안내문 쉬운 말 변환",
             description = "고지서·안내문 글(5,000자 이내)을 쉬운 말 묶음으로 바꾼다. 주민번호·휴대전화·이메일·계좌·상세주소는 가리고 AI에 보내며 "
-                    + "글과 결과는 저장하지 않는다. 묶음의 original은 원문에 그대로 있는 문장만. 로그인 필요(401), 회원별 하루 20번. AI 호출이 실패하면 횟수를 쓰지 않는다")
+                    + "글과 결과는 저장하지 않는다. 묶음의 original은 원문에 그대로 있는 문장만. 로그인 필요(401), 회원별 하루 20번. 제목이 등본·증명서 같은 개인 서류면 422 PERSONAL_DOCUMENT(AI에 안 보냄, 횟수 안 씀). AI 호출이 실패하면 횟수를 쓰지 않는다")
     @PostMapping
     public ResponseEntity<EasyTextDto.Response> translate(Authentication authentication, HttpServletRequest request,
                                                           @RequestBody EasyTextDto.Request body) {
