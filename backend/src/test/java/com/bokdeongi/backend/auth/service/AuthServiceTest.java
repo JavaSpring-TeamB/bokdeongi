@@ -8,6 +8,7 @@ import com.bokdeongi.backend.auth.repository.UserConsentRepository;
 import com.bokdeongi.backend.auth.repository.UserRepository;
 import com.bokdeongi.backend.eligibility.service.ProfileChangedEvent;
 import com.bokdeongi.backend.benefit.application.DocumentRecordRepository;
+import com.bokdeongi.backend.auth.repository.PasswordResetTokenRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,7 @@ class AuthServiceTest {
     private ApplicationEventPublisher eventPublisher;
     private AuthService authService;
     private DocumentRecordRepository documentRecordRepository;
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @BeforeEach
     void setUp() {
@@ -60,6 +62,7 @@ class AuthServiceTest {
         userConsentRepository = mock(UserConsentRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         documentRecordRepository = mock(DocumentRecordRepository.class);
+        passwordResetTokenRepository = mock(PasswordResetTokenRepository.class);
 
         authService = new AuthService(
                 userRepository,
@@ -68,7 +71,8 @@ class AuthServiceTest {
                 mock(PasswordEncoder.class),
                 mock(JwtTokenProvider.class),
                 mock(LoginAttemptService.class),
-                eventPublisher
+                eventPublisher,
+                passwordResetTokenRepository
         );
 
         // Mockito로 직접 생성한 서비스에는

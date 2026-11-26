@@ -52,6 +52,9 @@ dependencies {
 
 	// Spring AI - Gemini (EASY-01 쉬운 말, DATA-03 조건 추출). 키가 없으면 LLM 기능만 꺼진다
 	implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
+
+	// 비밀번호 재설정 인증번호 이메일 발송
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
 }
 
 dependencyManagement {
