@@ -30,6 +30,7 @@
 .guide-banner__copy {
     position: relative;
     z-index: 1;
+    min-width: 0;
     padding-left: 12px;
 }
 
@@ -398,7 +399,7 @@
 @media (max-width: 767px) {
     .assist-guide-page .guide-banner {
         min-height: 152px;
-        padding-right: 116px;
+        padding-right: 136px;
     }
 
     .guide-banner::before {

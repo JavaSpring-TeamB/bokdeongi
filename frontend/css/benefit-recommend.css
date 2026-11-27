@@ -58,6 +58,8 @@
     transition: background-color .18s ease;
 }
 
+.recommend-banner > div { max-width: 60%; }
+
 .recommend-banner h1 {
     margin: 0;
     font-size: var(--font-size-page-title);

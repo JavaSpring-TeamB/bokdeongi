@@ -2,17 +2,55 @@
 (function () {
     const FONT_SCALE_KEY = 'bokdeongi-font-scale';
     const THEME_KEY = 'bokdeongi-theme';
-    const MIN_FONT_SCALE = 0.9;
-    const MAX_FONT_SCALE = 1.2;
+    const MIN_FONT_SCALE = 0.8;
+    const MAX_FONT_SCALE = 1.3;
     const FONT_STEP = 0.1;
 
     function getFontScale() {
-        const saved = Number(localStorage.getItem(FONT_SCALE_KEY));
-        return Number.isFinite(saved) ? Math.min(MAX_FONT_SCALE, Math.max(MIN_FONT_SCALE, saved)) : 1;
+        const savedValue = localStorage.getItem(FONT_SCALE_KEY);
+        if (savedValue === null) return 1;
+        const saved = Number(savedValue);
+        const scale = savedValue !== '' && Number.isFinite(saved)
+            ? Math.min(MAX_FONT_SCALE, Math.max(MIN_FONT_SCALE, saved)) : 1;
+        if (scale !== saved) localStorage.setItem(FONT_SCALE_KEY, scale);
+        return scale;
     }
 
     function applyFontScale(scale) {
         document.documentElement.style.setProperty('--font-scale', scale);
+        document.querySelectorAll('[data-font-size="decrease"]').forEach((button) => { button.disabled = scale <= MIN_FONT_SCALE; });
+        document.querySelectorAll('[data-font-size="increase"]').forEach((button) => { button.disabled = scale >= MAX_FONT_SCALE; });
+        updateHeaderLayout();
+    }
+
+    function updateHeaderLayout() {
+        document.querySelectorAll('.site-header').forEach((header) => {
+            const inner = header.querySelector('.site-header__inner');
+            const brand = inner?.querySelector('.site-brand');
+            const nav = inner?.querySelector('.site-nav');
+            const tools = inner?.querySelector('.header-tools');
+            if (!brand || !nav || !tools) return;
+
+            header.classList.remove('is-nav-collapsed', 'is-nav-compact');
+            const links = [...nav.querySelectorAll('.site-nav__link:not([hidden])')];
+            header.classList.toggle('has-account-nav', links.length > 5);
+            const requiredWidth = () => {
+                const navGap = parseFloat(getComputedStyle(nav).columnGap) || 0;
+                const headerGap = parseFloat(getComputedStyle(inner).columnGap) || 0;
+                const linkWidth = links.reduce((width, link) => width + link.getBoundingClientRect().width, 0);
+                return brand.getBoundingClientRect().width + linkWidth
+                    + Math.max(0, links.length - 1) * navGap + tools.getBoundingClientRect().width + 2 * headerGap;
+            };
+            if (requiredWidth() > inner.clientWidth) header.classList.add('is-nav-compact');
+            const collapsed = requiredWidth() > inner.clientWidth;
+            header.classList.toggle('is-nav-collapsed', collapsed);
+            if (!collapsed) {
+                nav.classList.remove('is-open');
+                const button = inner.querySelector('.menu-toggle');
+                button?.setAttribute('aria-expanded', 'false');
+                button?.setAttribute('aria-label', '메뉴 열기');
+            }
+        });
     }
 
     function getTheme() {
@@ -84,12 +122,24 @@
     configureFontButtons();
     applyFontScale(getFontScale());
     applyTheme(getTheme());
+    window.addEventListener('resize', updateHeaderLayout);
+    document.fonts?.ready.then(updateHeaderLayout);
+    document.querySelectorAll('.site-header').forEach((header) => {
+        const nav = header.querySelector('.site-nav');
+        const auth = header.querySelector('.auth-links');
+        const observer = new MutationObserver(updateHeaderLayout);
+        if (nav) observer.observe(nav, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
+        if (auth) observer.observe(auth, { subtree: true, childList: true, characterData: true });
+    });
 
     document.addEventListener('click', (event) => {
         const fontButton = event.target.closest('[data-font-size]');
         if (fontButton) {
-            const adjustment = fontButton.dataset.fontSize === 'increase' ? FONT_STEP : -FONT_STEP;
-            const nextScale = Math.min(MAX_FONT_SCALE, Math.max(MIN_FONT_SCALE, Number((getFontScale() + adjustment).toFixed(2))));
+            if (fontButton.disabled) { event.stopImmediatePropagation(); return; }
+            const current = getFontScale();
+            const nextScale = fontButton.dataset.fontSize === 'increase'
+                ? Math.min(MAX_FONT_SCALE, Number((Math.floor(current / FONT_STEP + 0.000001) * FONT_STEP + FONT_STEP).toFixed(1)))
+                : Math.max(MIN_FONT_SCALE, Number((Math.ceil(current / FONT_STEP - 0.000001) * FONT_STEP - FONT_STEP).toFixed(1)));
             localStorage.setItem(FONT_SCALE_KEY, nextScale);
             applyFontScale(nextScale);
             showFontScaleFeedback(nextScale);
