@@ -168,18 +168,37 @@ test('shows an accessible indeterminate loading animation and prevents submissio
   assert.equal(harness.elements['[data-translate]'].disabled, false);
 });
 
-test('shows the same personal information notice before file selection in both image and PDF panels', () => {
-  const notice = '개인정보가 포함된 문서는 가린 후 업로드해 주세요.';
+test('shows supported public notice scope and personal document restriction before image and PDF selection', () => {
+  const notice = '공공기관 고지서·안내문만 번역할 수 있어요. 등본·증명서 같은 개인 서류는 번역할 수 없습니다.';
   const extraction = 'OCR로 추출한 텍스트는 Google Gemini를 통해 쉬운 말로 변환됩니다.';
   const imagePanel = html.split('id="image-input-panel"')[1].split('</section>')[0];
   const pdfPanel = html.split('id="pdf-input-panel"')[1].split('</section>')[0];
   for (const panel of [imagePanel, pdfPanel]) {
     assert.ok(panel.indexOf(notice) >= 0 && panel.indexOf(notice) < panel.indexOf('type="file"'));
     assert.ok(panel.includes(extraction));
-    assert.ok(panel.includes('주민등록번호, 전화번호, 계좌번호 등 일부 개인정보는 마스킹되지만 주소 등의 정보는 포함될 수 있습니다.'));
+    assert.ok(panel.includes('주민등록번호, 전화번호, 계좌번호 등 일부 개인정보는 마스킹되지만 주소 등의 정보는 포함될 수 있으니 업로드 전에 가려 주세요.'));
     assert.ok(panel.includes('OCR로 추출한 전체 텍스트는 복덩이 서버에 저장하지 않습니다.'));
   }
-  assert.match(html, /개인정보는 지우고 붙여 넣어 주세요/);
+  assert.match(html, /공공기관 고지서·안내문을 붙여 넣어 주세요\. 등본·증명서 같은 개인 서류는 번역할 수 없으며, 개인정보는 지우고 입력해 주세요\./);
+});
+
+test('distinguishes PERSONAL_DOCUMENT, shows the current server message, and does not offer same-request retry', async () => {
+  const message = '등본 같은 개인 서류는 쉬운 말 번역기에 올릴 수 없어요. 서류 확인은 신청 도우미에서 해 주세요.';
+  const harness = createHarness({ request: () => response(422, { code: 'PERSONAL_DOCUMENT', message }) });
+  harness.elements['#source-text'].value = '주민등록등본';
+
+  await harness.hooks.translateText();
+
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.hooks.translatorState.screen, 'ERROR');
+  assert.equal(harness.hooks.translatorState.response, null);
+  assert.equal(harness.hooks.translatorState.errorKind, 'PERSONAL_DOCUMENT');
+  assert.equal(harness.hooks.translatorState.errorCode, 'PERSONAL_DOCUMENT');
+  const result = allText(harness.elements['#translation-result']);
+  assert.match(result, new RegExp(message));
+  assert.match(result, /공공기관 고지서나 안내문으로 바꿔 다시 시도해 주세요/);
+  assert.doesNotMatch(result, /data-retry-translation/);
+  assert.equal(harness.elements['#source-text'].value, '주민등록등본');
 });
 
 test('posts one authenticated JPG, PNG, or PDF as multipart to the EASY-02 file endpoint and reuses the response flow', async () => {
@@ -200,6 +219,7 @@ test('posts one authenticated JPG, PNG, or PDF as multipart to the EASY-02 file 
 test('validates the one-file contract and preserves a 422 UNREADABLE server code and message', async () => {
   const invalid = createHarness({ request: () => { throw new Error('must not request'); } });
   await invalid.hooks.translateFile({ name: 'notice.webp', type: 'image/webp', size: 1 });
+  await invalid.hooks.translateFile({ name: 'notice.pdf', type: 'image/png', size: 1 });
   await invalid.hooks.translateFile({ name: 'notice.pdf', type: 'application/pdf', size: 10 * 1024 * 1024 + 1 });
   assert.equal(invalid.calls.length, 0);
 
@@ -208,6 +228,26 @@ test('validates the one-file contract and preserves a 422 UNREADABLE server code
   assert.equal(unreadable.hooks.translatorState.screen, 'ERROR');
   assert.equal(unreadable.hooks.translatorState.errorCode, 'UNREADABLE');
   assert.equal(unreadable.hooks.translatorState.errorMessage, '글자를 읽지 못했어요.');
+});
+
+test('handles the OCR-mapped PERSONAL_DOCUMENT error for a file without displaying stale results or resending', async () => {
+  const message = '재학증명서 같은 개인 서류는 쉬운 말 번역기에 올릴 수 없어요. 서류 확인은 신청 도우미에서 해 주세요.';
+  const file = { name: 'private.pdf', type: 'application/pdf', size: 1024 };
+  const harness = createHarness({ request: () => response(422, { code: 'PERSONAL_DOCUMENT', message }) });
+  harness.hooks.selectInputMode('pdf');
+  harness.hooks.selectFiles('pdf', [file]);
+
+  await harness.hooks.translateSelectedFile();
+
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.calls[0].requestPath, '/api/easy-text/file');
+  assert.equal(harness.hooks.translatorState.screen, 'ERROR');
+  assert.equal(harness.hooks.translatorState.response, null);
+  assert.equal(harness.hooks.translatorState.errorCode, 'PERSONAL_DOCUMENT');
+  assert.match(allText(harness.elements['#translation-result']), /재학증명서 같은 개인 서류는 쉬운 말 번역기에 올릴 수 없어요/);
+  assert.equal(harness.elements['[data-file-name="pdf"]'].textContent, 'private.pdf (1KB)');
+  assert.equal(harness.elements['[data-translate]'].disabled, false);
+  assert.doesNotMatch(allText(harness.elements['#translation-result']), /data-retry-translation/);
 });
 
 test('activates image and PDF tabs only after one valid file is selected, and clears the file for reselection', () => {
