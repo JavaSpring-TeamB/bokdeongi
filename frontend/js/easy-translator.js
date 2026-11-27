@@ -128,6 +128,9 @@ function renderResult() {
         result.append(loading);
     } else if (translatorState.screen === 'ERROR') {
         result.append(resultMessage('translator-empty-state', translatorState.errorMessage || '쉬운 말로 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.', 'alert'));
+        if (translatorState.errorCode === 'PERSONAL_DOCUMENT') {
+            result.append(resultMessage('translator-error-hint', '개인 서류는 번역할 수 없어요. 공공기관 고지서나 안내문으로 바꿔 다시 시도해 주세요.'));
+        }
         if (translatorState.errorKind === 'NETWORK' || translatorState.errorCode === 'AI_UNAVAILABLE') {
             const retry = element('button', 'bk-btn bk-btn--secondary bk-btn--md', '다시 시도');
             retry.type = 'button';
@@ -310,9 +313,10 @@ function validateEasyTextFile(file) {
         return '바꿀 JPG, PNG 또는 PDF 파일을 선택해 주세요.';
     }
     if (file.size > 10 * 1024 * 1024) return '파일은 10MB 이하만 올릴 수 있어요.';
-    const allowedTypes = new Set(['image/jpeg', 'image/png', 'application/pdf']);
-    const allowedExtension = /\.(?:jpe?g|png|pdf)$/i.test(file.name);
-    if ((file.type && !allowedTypes.has(file.type)) || (!file.type && !allowedExtension)) {
+    const mimeByExtension = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', pdf: 'application/pdf' };
+    const extension = file.name.match(/\.([^.]+)$/)?.[1]?.toLowerCase();
+    const expectedType = mimeByExtension[extension];
+    if (!expectedType || (file.type && file.type !== expectedType)) {
         return 'JPG, PNG, PDF 파일만 올릴 수 있어요.';
     }
     return '';
@@ -369,8 +373,9 @@ async function runTranslation(request, lastSubmittedText) {
         if ((error && error.name === 'AbortError') || requestId !== translateRequestId) return;
         translatorState.screen = 'ERROR';
         translatorState.response = null;
-        translatorState.errorKind = error instanceof EasyTextRequestError ? error.kind : 'NETWORK';
         translatorState.errorCode = error instanceof EasyTextRequestError ? error.code : null;
+        translatorState.errorKind = translatorState.errorCode === 'PERSONAL_DOCUMENT' ? 'PERSONAL_DOCUMENT'
+            : error instanceof EasyTextRequestError ? error.kind : 'NETWORK';
         translatorState.errorMessage = error instanceof EasyTextRequestError ? error.message : '네트워크 연결을 확인한 뒤 다시 시도해 주세요.';
         if (translatorState.errorKind === 'UNAUTHENTICATED') translatorAccessState = 'unauthenticated';
         renderResult();
