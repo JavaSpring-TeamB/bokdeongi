@@ -38,8 +38,8 @@
                 const navGap = parseFloat(getComputedStyle(nav).columnGap) || 0;
                 const headerGap = parseFloat(getComputedStyle(inner).columnGap) || 0;
                 const linkWidth = links.reduce((width, link) => width + link.getBoundingClientRect().width, 0);
-                return brand.getBoundingClientRect().width + linkWidth
-                    + Math.max(0, links.length - 1) * navGap + tools.getBoundingClientRect().width + 2 * headerGap;
+                return 2 * Math.max(brand.getBoundingClientRect().width, tools.getBoundingClientRect().width)
+                    + linkWidth + Math.max(0, links.length - 1) * navGap + 2 * headerGap;
             };
             if (requiredWidth() > inner.clientWidth) header.classList.add('is-nav-compact');
             const collapsed = requiredWidth() > inner.clientWidth;

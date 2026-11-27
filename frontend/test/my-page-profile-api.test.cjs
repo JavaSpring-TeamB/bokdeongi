@@ -167,6 +167,112 @@ test('ignores a late profile response after the authenticated account has logged
   assert.deepEqual(JSON.parse(JSON.stringify(hooks.myPageData.profile)), { basics: [], settings: [] });
 });
 
+test('temporary authentication checking preserves a loaded profile without another request', async () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  let profileRequests = 0;
+  hooks.window.BokdeongiAuth = {
+    async refreshAuthentication() { return 'authenticated'; },
+    getAuthenticationState() { return 'authenticated'; },
+    async authenticatedFetch(url) {
+      if (url === '/api/me/profile') { profileRequests += 1; return apiResponse(200, profile()); }
+      return apiResponse(200, { consents: [] });
+    }
+  };
+  await hooks.loadProfile();
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'checking' } });
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  hooks.setCurrentSection('bookmarks');
+  hooks.setCurrentSection('profile');
+
+  assert.equal(hooks.profileLoadState, 'loaded');
+  assert.match(hooks.renderProfile(), /프로필 수정하기/);
+  assert.equal(profileRequests, 1);
+});
+
+test('authenticated event starts one initial profile request when none is active', async () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  let profileRequests = 0;
+  hooks.window.BokdeongiAuth = {
+    async refreshAuthentication() { return 'authenticated'; },
+    getAuthenticationState() { return 'authenticated'; },
+    async authenticatedFetch(url) {
+      if (url === '/api/me/profile') { profileRequests += 1; return apiResponse(200, profile()); }
+      return apiResponse(200, { consents: [] });
+    }
+  };
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  await new Promise(setImmediate);
+
+  assert.equal(profileRequests, 1);
+  assert.equal(hooks.profileLoadState, 'loaded');
+});
+
+test('temporary checking keeps an in-flight profile response valid', async () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  let resolveProfile;
+  let profileRequests = 0;
+  hooks.window.BokdeongiAuth = {
+    async refreshAuthentication() { return 'authenticated'; },
+    getAuthenticationState() { return 'authenticated'; },
+    authenticatedFetch(url) {
+      if (url === '/api/me/profile') {
+        profileRequests += 1;
+        return new Promise((resolve) => { resolveProfile = resolve; });
+      }
+      return Promise.resolve(apiResponse(200, { consents: [] }));
+    }
+  };
+  const pending = hooks.loadProfile();
+  await new Promise(setImmediate);
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'checking' } });
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  resolveProfile(apiResponse(200, profile({ name: '진행 중인 사용자' })));
+  await pending;
+
+  assert.equal(profileRequests, 1);
+  assert.equal(hooks.profileLoadState, 'loaded');
+  assert.match(hooks.renderProfileView(), /진행 중인 사용자/);
+});
+
+test('authentication after logout starts one new profile load and rejects the old response', async () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  let resolveOldProfile;
+  let profileRequests = 0;
+  hooks.window.BokdeongiAuth = {
+    async refreshAuthentication() { return 'authenticated'; },
+    getAuthenticationState() { return 'authenticated'; },
+    authenticatedFetch(url) {
+      if (url !== '/api/me/profile') return Promise.resolve(apiResponse(200, { consents: [] }));
+      profileRequests += 1;
+      return profileRequests === 1
+        ? new Promise((resolve) => { resolveOldProfile = resolve; })
+        : Promise.resolve(apiResponse(200, profile({ name: '새 계정' })));
+    }
+  };
+  const oldLoad = hooks.loadProfile();
+  await new Promise(setImmediate);
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'unauthenticated' } });
+  assert.equal(hooks.profileResponse, null);
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  await new Promise(setImmediate);
+  resolveOldProfile(apiResponse(200, profile({ name: '이전 계정' })));
+  await oldLoad;
+  await new Promise(setImmediate);
+
+  assert.equal(profileRequests, 2);
+  assert.equal(hooks.profileLoadState, 'loaded');
+  assert.match(hooks.renderProfileView(), /새 계정/);
+  assert.doesNotMatch(hooks.renderProfileView(), /이전 계정/);
+});
+
 function draft(overrides = {}) {
   return {
     birthDate: '2000-01-01',
