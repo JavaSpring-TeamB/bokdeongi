@@ -37,20 +37,25 @@
 .my-page__content { min-width: 0; padding: 28px; }
 .my-page__content-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); margin-bottom: var(--space-lg); }
 .my-page__content-header h2 { font-size: var(--font-size-section-title); }
+.my-page__favorites-controls { display: flex; align-items: center; gap: var(--space-md); }
+.my-page__favorite-sort { display: inline-flex; align-items: center; gap: var(--space-xs); color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.my-page__favorite-sort select { min-height: 40px; padding: 0 32px 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); font: inherit; font-size: var(--font-size-description); }
+.my-page__favorite-sort select:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.my-page__favorites-message { margin: 0 0 var(--space-md); color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.my-page__favorites-message[role="alert"] { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--color-surface); }
 .my-page__content-intro { margin: 4px 0 0; color: var(--color-text-secondary); font-size: var(--font-size-description); }
 .my-page__section + .my-page__section { margin-top: var(--space-xl); padding-top: var(--space-xl); border-top: 1px solid var(--color-border); }
 .my-page__section h3 { margin: 0 0 var(--space-md); font-size: var(--font-size-card-title); }
 .my-page__section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
 
-.my-page__status, .my-page__benefit-status, .my-page__topic-tag, .my-page__keyword { display: inline-flex; align-items: center; border-radius: 999px; font-size: var(--font-size-caption); font-weight: 600; }
+.my-page__status, .my-page__benefit-status, .my-page__keyword { display: inline-flex; align-items: center; border-radius: 999px; font-size: var(--font-size-caption); font-weight: 600; }
 .my-page__status { padding: 4px 10px; background: var(--color-primary-light); color: var(--color-primary); white-space: nowrap; }
 .my-page__status::before { margin-right: 5px; content: "●"; font-size: .65rem; }
 .my-page__info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
 .my-page__info-item { display: grid; grid-template-columns: minmax(88px, .7fr) minmax(0, 1fr); align-items: center; gap: var(--space-sm); min-height: 48px; padding: 8px 12px; border-bottom: 1px solid var(--color-border); background: var(--color-white); }
 .my-page__info-label { color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .my-page__info-value { min-width: 0; font-size: var(--font-size-description); font-weight: 600; overflow-wrap: anywhere; }
-.my-page__topic-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.my-page__topic-tag, .my-page__keyword { padding: 4px 9px; background: var(--color-primary-light); color: var(--color-primary); }
+.my-page__keyword { padding: 4px 9px; background: var(--color-primary-light); color: var(--color-primary); }
 .my-page__profile-action { display: flex; justify-content: flex-end; margin-top: var(--space-md); }
 .my-page .btn { border: 1px solid var(--color-primary); background: var(--color-primary); color: var(--color-white); }
 .my-page .btn:hover { background: var(--color-primary-hover); }
@@ -70,15 +75,14 @@
 .my-page__profile-form-section .my-page__section-heading h3 { margin-bottom: 0; }
 .my-page__profile-form-section .my-page__section-heading p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .my-page__profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
-.my-page__form-control, .my-page__interest-field, .my-page__choice-field, .my-page__multi-choice { display: grid; gap: 7px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.my-page__form-control > span, .my-page__interest-field legend, .my-page__choice-field legend, .my-page__multi-choice legend { color: var(--color-text); font-size: var(--font-size-description); font-weight: 600; }
+.my-page__form-control, .my-page__choice-field, .my-page__multi-choice { display: grid; gap: 7px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.my-page__form-control > span, .my-page__choice-field legend, .my-page__multi-choice legend { color: var(--color-text); font-size: var(--font-size-description); font-weight: 600; }
 .my-page__form-control em { color: var(--color-danger); font-style: normal; }
 .my-page__form-control input, .my-page__form-control select { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); font: inherit; font-size: var(--font-size-description); }
 .my-page__form-control input:focus, .my-page__form-control select:focus { outline: 2px solid var(--color-primary); outline-offset: 1px; border-color: var(--color-primary); }
 .my-page__form-control input:disabled, .my-page__form-control select:disabled { cursor: not-allowed; background: var(--color-surface); color: var(--color-text-secondary); }
-.my-page__interest-field > div { display: flex; flex-wrap: wrap; gap: var(--space-sm); min-height: 44px; align-items: center; }
-.my-page__interest-field label, .my-page__choice-field label, .my-page__multi-choice label { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text); font-size: var(--font-size-description); }
-.my-page__interest-field input, .my-page__choice-field input, .my-page__multi-choice input { width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); }
+.my-page__choice-field label, .my-page__multi-choice label { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text); font-size: var(--font-size-description); }
+.my-page__choice-field input, .my-page__multi-choice input { width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); }
 .my-page__choice-field > div, .my-page__multi-choice > div { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); min-height: 44px; align-items: center; }
 .my-page__multi-choice { grid-column: 1 / -1; margin-top: var(--space-sm); padding-top: var(--space-md); border-top: 1px solid var(--color-border); }
 .my-page__form-help { margin: var(--space-sm) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); line-height: 1.45; }
@@ -189,6 +193,7 @@
     .my-page__banner { margin-top: var(--space-lg); padding: var(--space-lg); }
     .my-page__content { padding: var(--space-lg); }
     .my-page__content-header { align-items: flex-start; flex-direction: column; }
+    .my-page__favorites-controls { width: 100%; justify-content: space-between; }
     .my-page__menu-button { flex-direction: row; min-height: 58px; font-size: .7rem; }
     .my-page__info-grid, .my-page__account-grid, .my-page__profile-form-grid, .my-page__sensitive-options { grid-template-columns: 1fr; }
     .my-page__benefit-card { grid-template-columns: 1fr; gap: var(--space-md); }

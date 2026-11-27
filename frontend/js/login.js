@@ -12,7 +12,6 @@ class LoginHttpError extends Error {
     }
 }
 
-function showToast(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; window.clearTimeout(showToast.timer); showToast.timer = window.setTimeout(() => { toast.hidden = true; }, 3200); }
 function setMessage(message) { const target = $('#login-form-message'); target.textContent = message; if (message) target.focus(); }
 function setSubmitting(submitting) { const button = $('#login-submit'); button.disabled = submitting; button.textContent = submitting ? '로그인 확인 중…' : '로그인'; }
 function setKakaoLoginStarting(starting) {
@@ -156,10 +155,6 @@ function setupLoginForm() {
             toggle.setAttribute('aria-pressed', String(!visible));
             toggle.setAttribute('aria-label', visible ? '비밀번호 표시' : '비밀번호 숨기기');
             toggle.textContent = visible ? '◉' : '◌';
-            return;
-        }
-        if (event.target.closest('[data-password-help]')) {
-            showToast('비밀번호 재설정은 P1 기능으로 준비 중입니다.');
             return;
         }
         if (event.target.closest('[data-kakao-login]')) startKakaoLogin();

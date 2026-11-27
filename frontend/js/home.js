@@ -368,7 +368,7 @@ function chooseWeeklyBenefits(items, excludeIds = [], random = Math.random, limi
 }
 
 function activityBenefitLinks(items) {
-  return items.map((item) => `<a class="benefit-summary__link weekly-new-benefit" href="benefit-detail.html?id=${encodeURIComponent(String(item.benefitId))}" title="${escapeHtml(item.title)}"><span class="weekly-new-benefit__title">${escapeHtml(item.title)}</span>${item.newBadge ? '<span>새로 해당</span>' : ''}</a>`).join('');
+  return items.map((item) => `<a class="benefit-summary__link weekly-new-benefit" href="benefit-detail.html?id=${encodeURIComponent(String(item.benefitId))}&fromHomeActivity=1" title="${escapeHtml(item.title)}"><span class="weekly-new-benefit__title">${escapeHtml(item.title)}</span>${item.newBadge ? '<span>새로 해당</span>' : ''}</a>`).join('');
 }
 
 function newEligibleActivityMarkup(items) {
@@ -860,6 +860,10 @@ function setAuthenticationStatus(status) {
 
 window.addEventListener('bokdeongi:auth-state-change', (event) => {
   setAuthenticationStatus(event.detail && event.detail.status);
+});
+
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted && authState.status === 'authenticated') void loadHomeActivity({ force: true });
 });
 
 function bindEvents() {

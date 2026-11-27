@@ -20,7 +20,7 @@ function hooks(elements = {}) {
   };
   const context = { window, document, URLSearchParams, Date, Number, String, Array, Object, Error, Promise, console };
   vm.createContext(context);
-  vm.runInContext(`${source}\n;globalThis.__testHooks={isHomeSummaryResponse, isHomeActivityResponse, isHomeCalendarResponse, getSeoulDateParts, weeklyActivityMarkup, renderWeeklySummary, loadHomeActivity, chooseWeeklyBenefits, showOtherWeeklyBenefits, renderCalendar, renderSelectedSchedules, renderDateNotices, getSchedulesForDate, getEventTone, calendarEventInfo, changeCalendarMonth, loadHomeCalendar, applicationStatusLabel, escapeHtml, eligibilityStatisticsMarkup, benefitSummaryMode, getStateMarkup, formatBenefitDataUpdatedAt, benefitDataUpdatedAtText, authState, homeSummaryState, homeActivityState, weeklyViewState, calendarState, window};`, context);
+  vm.runInContext(`${source}\n;globalThis.__testHooks={isHomeSummaryResponse, isHomeActivityResponse, isHomeCalendarResponse, getSeoulDateParts, weeklyActivityMarkup, activityBenefitLinks, renderWeeklySummary, loadHomeActivity, chooseWeeklyBenefits, showOtherWeeklyBenefits, renderCalendar, renderSelectedSchedules, renderDateNotices, getSchedulesForDate, getEventTone, calendarEventInfo, changeCalendarMonth, loadHomeCalendar, applicationStatusLabel, escapeHtml, eligibilityStatisticsMarkup, benefitSummaryMode, getStateMarkup, formatBenefitDataUpdatedAt, benefitDataUpdatedAtText, authState, homeSummaryState, homeActivityState, weeklyViewState, calendarState, window};`, context);
   return context.__testHooks;
 }
 
@@ -212,6 +212,7 @@ test('renders HOME-02 counts, period, and linked newly eligible benefits from se
   assert.match(weekly.innerHTML, />1건</);
   assert.match(weekly.innerHTML, />3건</);
   assert.match(weekly.innerHTML, /benefit-detail\.html\?id=17/);
+  assert.match(weekly.innerHTML, /&fromHomeActivity=1/);
   assert.match(weekly.innerHTML, /청년 월세 지원/);
   assert.match(weekly.innerHTML, /새로 해당/);
   assert.match(weekly.innerHTML, /미확인 혜택 1건 · 현재 1건 표시/);
