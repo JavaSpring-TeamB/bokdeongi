@@ -11,15 +11,16 @@ function createHooks() {
     querySelector() { return null; },
     querySelectorAll() { return []; }
   };
+  const window = {};
   const context = vm.createContext({
     console,
     document,
-    window: {},
+    window,
     sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
     setTimeout() {}
   });
 
-  vm.runInContext(`${source}\nglobalThis.__profileApiHooks = { applyProfileResponse, changedProfileSteps, profileStepRequests, uniqueProfileCodes, putProfileStep, formatIncomeAmount };`, context);
+  vm.runInContext(`${source}\nglobalThis.__profileApiHooks = { applyProfileResponse, changedProfileSteps, profileStepRequests, uniqueProfileCodes, putProfileStep, formatIncomeAmount, renderProfile, renderProfileView, loadProfile, resetMyPageUserData, handleMyPageAuthenticationChange, myPageData, window, get profileEditorState() { return profileEditorState; }, get profileResponse() { return profileResponse; }, get profileLoadState() { return profileLoadState; }, setCurrentSection(value) { currentSection = value; } };`, context);
   return context.__profileApiHooks;
 }
 
@@ -45,6 +46,126 @@ function profile(overrides = {}) {
     ...overrides
   };
 }
+
+function apiResponse(status, payload) {
+  return { ok: status >= 200 && status < 300, status, async json() { return payload; } };
+}
+
+test('starts with neutral profile state and shows loading instead of example user data', () => {
+  const hooks = createHooks();
+  const markup = hooks.renderProfile();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(hooks.myPageData.profile)), { basics: [], settings: [] });
+  assert.equal(hooks.profileResponse, null);
+  assert.equal(hooks.profileEditorState.sido, '');
+  assert.equal(hooks.profileEditorState.householdSize, '');
+  assert.equal(hooks.profileEditorState.housingType, '');
+  assert.match(markup, /프로필을 불러오는 중/);
+  assert.doesNotMatch(markup, /김복덩|bokdeongi@email\.com|2004\.11\.04|중위소득 150%/);
+});
+
+test('maps only the actual profile response while retaining null, empty arrays, false, and zero', () => {
+  const hooks = createHooks();
+  hooks.applyProfileResponse(profile({
+    name: '실제 사용자', email: 'actual@example.com', birthDate: null,
+    householdSize: 0, incomeInputType: 'BRACKET', medianIncomePct: 0,
+    housingType: null, hasHouse: false, householdTypeCodes: [], statusCodes: [],
+    maritalStatus: null, childrenCount: 0, welfareStatus: null, profileCompleted: false
+  }));
+
+  const basics = hooks.myPageData.profile.basics;
+  const settings = hooks.myPageData.profile.settings;
+  const markup = hooks.renderProfileView();
+  assert.equal(basics.find(([, label]) => label === '이름')[2], '실제 사용자');
+  assert.equal(settings.find(([, label]) => label === '가구 형태')[2], '0인 가구');
+  assert.equal(settings.find(([, label]) => label === '소득 정보')[2], '중위소득 0%');
+  assert.equal(hooks.profileEditorState.hasHouse, 'false');
+  assert.equal(hooks.profileEditorState.childrenCount, '0');
+  assert.deepEqual(JSON.parse(JSON.stringify(hooks.profileEditorState.householdTypes)), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(hooks.profileEditorState.statusCodes)), []);
+  assert.match(markup, /미입력/);
+  assert.doesNotMatch(markup, /undefined|null/);
+});
+
+test('clears profile and favorite data when authentication becomes unauthenticated', () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  hooks.applyProfileResponse(profile());
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'unauthenticated' } });
+
+  assert.equal(hooks.profileResponse, null);
+  assert.equal(hooks.profileLoadState, 'unauthenticated');
+  assert.deepEqual(JSON.parse(JSON.stringify(hooks.myPageData.profile)), { basics: [], settings: [] });
+});
+
+test('loads My Page profile from the authenticated API and renders that account response', async () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  const actualProfile = profile({ name: '서버 사용자', email: 'server@example.com' });
+  const requested = [];
+  hooks.window.BokdeongiAuth = {
+    async refreshAuthentication() { return 'authenticated'; },
+    getAuthenticationState() { return 'authenticated'; },
+    async authenticatedFetch(url) {
+      requested.push(url);
+      return url === '/api/me/profile' ? apiResponse(200, actualProfile) : apiResponse(503, {});
+    }
+  };
+
+  await hooks.loadProfile();
+
+  assert.deepEqual(requested, ['/api/auth/consents', '/api/me/profile']);
+  assert.equal(hooks.profileLoadState, 'loaded');
+  assert.match(hooks.renderProfileView(), /서버 사용자/);
+  assert.match(hooks.renderProfileView(), /server@example\.com/);
+});
+
+test('does not substitute profile examples when the profile API fails', async () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  hooks.window.BokdeongiAuth = {
+    async refreshAuthentication() { return 'authenticated'; },
+    getAuthenticationState() { return 'authenticated'; },
+    async authenticatedFetch() { return apiResponse(503, {}); }
+  };
+
+  await hooks.loadProfile();
+
+  assert.equal(hooks.profileLoadState, 'error');
+  assert.equal(hooks.profileResponse, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(hooks.myPageData.profile)), { basics: [], settings: [] });
+  assert.match(hooks.renderProfile(), /프로필 정보를 불러오지 못했어요/);
+  assert.doesNotMatch(hooks.renderProfile(), /김복덩|bokdeongi@email\.com/);
+});
+
+test('ignores a late profile response after the authenticated account has logged out', async () => {
+  const hooks = createHooks();
+  hooks.setCurrentSection('legal');
+  let resolveProfile;
+  let notifyProfileRequest;
+  const profileRequestStarted = new Promise((resolve) => { notifyProfileRequest = resolve; });
+  hooks.window.BokdeongiAuth = {
+    async refreshAuthentication() { return 'authenticated'; },
+    getAuthenticationState() { return 'authenticated'; },
+    authenticatedFetch(url) {
+      if (url === '/api/auth/consents') return Promise.resolve(apiResponse(200, { consents: [] }));
+      notifyProfileRequest();
+      return new Promise((resolve) => { resolveProfile = resolve; });
+    }
+  };
+
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'authenticated' } });
+  const pendingLoad = hooks.loadProfile();
+  await profileRequestStarted;
+  hooks.handleMyPageAuthenticationChange({ detail: { status: 'unauthenticated' } });
+  resolveProfile(apiResponse(200, profile({ name: '이전 계정 사용자' })));
+  await pendingLoad;
+
+  assert.equal(hooks.profileLoadState, 'unauthenticated');
+  assert.equal(hooks.profileResponse, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(hooks.myPageData.profile)), { basics: [], settings: [] });
+});
 
 function draft(overrides = {}) {
   return {
