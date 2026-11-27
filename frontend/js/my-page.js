@@ -20,6 +20,7 @@ let profileCompleted = false;
 let profileResponse = null;
 let profileSaving = false;
 let profileLoadRequestId = 0;
+let profileLoadPendingRequestId = null;
 let profileSessionId = 0;
 let lastObservedAuthStatus = 'checking';
 let bookmarkPage = 1;
@@ -292,6 +293,7 @@ async function loadConsentStatus({ render = true } = {}) {
 function resetMyPageUserData(profileState) {
     profileSessionId += 1;
     profileLoadRequestId += 1;
+    profileLoadPendingRequestId = null;
     consentLoadRequestId += 1;
     profileLoadState = profileState;
     profileLoadErrorStatus = null;
@@ -331,19 +333,18 @@ function handleMyPageAuthenticationChange(event) {
     const previousStatus = lastObservedAuthStatus;
     lastObservedAuthStatus = status;
 
-    if (status !== 'authenticated') {
-        if (status === 'unauthenticated' || status === 'error'
-            || previousStatus === 'authenticated' || profileResponse) {
-            resetMyPageUserData(status === 'unauthenticated' ? 'unauthenticated' : status === 'error' ? 'error' : 'checking');
-        }
+    if (status === 'checking') return;
+
+    if (status === 'unauthenticated' || status === 'error') {
+        resetMyPageUserData(status);
         return;
     }
 
     if (previousStatus === 'unauthenticated' || previousStatus === 'error') {
         resetMyPageUserData('checking');
-        void loadProfile();
         if (currentSection === 'bookmarks') void loadFavorites();
     }
+    if (profileLoadState === 'checking' && profileLoadPendingRequestId === null) void loadProfile();
 }
 
 function renderProfileLoadState() {
@@ -763,7 +764,10 @@ function renderSection() {
 }
 
 async function loadProfile() {
+    if (profileLoadPendingRequestId !== null) return;
     const requestId = ++profileLoadRequestId;
+    profileLoadPendingRequestId = requestId;
+    try {
     const auth = window.BokdeongiAuth;
     if (!auth) {
         profileLoadState = 'error';
@@ -813,6 +817,9 @@ async function loadProfile() {
         if (requestId !== profileLoadRequestId) return;
         profileLoadState = 'error';
         if (currentSection === 'profile') renderSection();
+    }
+    } finally {
+        if (profileLoadPendingRequestId === requestId) profileLoadPendingRequestId = null;
     }
 }
 
@@ -1713,6 +1720,9 @@ function setupInteractions() {
             profileMode = 'view';
             renderSection();
             if (currentSection === 'bookmarks') void loadFavorites();
+            if (currentSection === 'profile' && profileLoadState === 'checking'
+                && profileLoadPendingRequestId === null
+                && window.BokdeongiAuth?.getAuthenticationState?.() === 'authenticated') void loadProfile();
             return;
         }
         if (event.target.closest('[data-retry-favorites]')) { void loadFavorites(); return; }

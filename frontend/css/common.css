@@ -71,17 +71,17 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 .skip-link:focus { transform: translateY(0); }
 
 .site-header { height: var(--header-height); border-bottom: 1px solid var(--color-border); background: var(--color-white); }
-.site-header__inner { display: flex; height: 100%; align-items: center; gap: var(--space-lg); }
-.site-brand { display: inline-flex; min-width: 174px; align-items: center; gap: 7px; line-height: 1.1; }
+.site-header__inner { display: grid; height: 100%; grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr); align-items: center; gap: var(--space-lg); }
+.site-brand { display: inline-flex; min-width: 174px; justify-self: start; align-items: center; gap: 7px; line-height: 1.1; }
 .site-brand__mark { width: 32px; height: 32px; flex: 0 0 32px; object-fit: contain; }
 .site-brand__text { display: grid; gap: 2px; }
 .site-brand__text strong { font-size: calc(1.25rem * var(--header-font-compensation)); }
 .site-brand__text small { color: var(--color-text-secondary); font-size: calc(var(--font-size-caption) * var(--header-font-compensation)); white-space: nowrap; }
-.site-nav { display: flex; flex: 1; justify-content: center; height: 100%; gap: calc(clamp(10px, 1.25vw, 20px) + 6.67px); }
+.site-nav { display: flex; justify-self: center; justify-content: center; height: 100%; gap: calc(clamp(10px, 1.25vw, 20px) + 6.67px); }
 .site-nav__link { display: inline-flex; position: relative; align-items: center; color: var(--color-text); font-size: calc(1.25rem * var(--header-font-compensation)); font-weight: 650; white-space: nowrap; }
 .site-nav__link:hover, .site-nav__link.is-active { color: var(--color-primary); }
 .site-nav__link.is-active::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--color-primary); content: ""; }
-.header-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; white-space: nowrap; }
+.header-tools { display: flex; flex: 0 0 auto; justify-self: end; align-items: center; gap: 6px; white-space: nowrap; }
 .header-tool { display: inline-flex; width: 36px; min-width: 36px; height: 36px; min-height: 36px; flex: 0 0 36px; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-white); color: var(--color-text-secondary); font-size: 20px; line-height: 1; white-space: nowrap; }
 .header-tool:not(:disabled):hover { border-color: var(--color-primary); color: var(--color-primary); }
 .header-tool:disabled { opacity: .45; cursor: not-allowed; }
@@ -102,7 +102,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 .mobile-auth-links { display: none; }
 .menu-toggle { display: none; }
 
-.card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-white); padding: var(--space-lg); }
+.card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-white); padding: 21px; }
 .btn { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: var(--space-sm); padding: 0 20px; border-radius: var(--radius-md); font-size: var(--font-size-button); font-weight: 600; }
 .btn-secondary { border: 1px solid var(--color-primary); background: var(--color-white); color: var(--color-primary); }
 .btn-secondary:hover { background: var(--color-primary-light); }
@@ -171,7 +171,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--color-info); ou
 .site-header:is(.has-account-nav, .is-nav-compact) .auth-links { margin-left: var(--space-xs); padding-left: 12px; }
 
 .site-header.is-nav-collapsed { position: relative; }
-.site-header.is-nav-collapsed .site-header__inner { justify-content: space-between; }
+.site-header.is-nav-collapsed .site-header__inner { display: flex; justify-content: space-between; }
 .site-header.is-nav-collapsed .menu-toggle { display: inline-flex; width: 40px; height: 40px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 0; background: transparent; }
 .site-header.is-nav-collapsed .menu-toggle span { display: block; width: 20px; height: 2px; background: var(--color-text); }
 .site-header.is-nav-collapsed .site-nav { display: none; position: absolute; z-index: 20; top: calc(100% + 1px); right: 0; left: 0; height: auto; flex-direction: column; gap: 0; padding: var(--space-sm) 24px var(--space-md); border-bottom: 1px solid var(--color-border); background: var(--color-white); box-shadow: 0 8px 10px rgb(0 0 0 / 4%); }
