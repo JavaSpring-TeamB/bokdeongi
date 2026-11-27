@@ -44,6 +44,9 @@
     background-size: cover;
 }
 
+.easy-translator-banner > h1,
+.easy-translator-banner > p { max-width: 60%; }
+
 .easy-translator-banner h1 {
     margin: 0;
     font-size: var(--font-size-page-title);

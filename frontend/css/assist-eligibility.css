@@ -3,6 +3,7 @@
 .assist-banner { padding: 28px 32px; border-radius: var(--radius-lg); background: linear-gradient(100deg, var(--color-primary-light), var(--color-mint-light)); }
 .assist-banner h1 { margin: 0; font-size: var(--font-size-page-title); }
 .assist-banner p { margin: 4px 0 0; color: var(--color-text-secondary); }
+.assist-banner:not(.guide-banner) { padding-right: 38%; }
 .assist-eligibility-stage .assist-banner {
     background-color: var(--color-primary-light);
     background-image: url("../img/assist01_banner.png");
@@ -54,3 +55,8 @@
 .assist-eligibility-stage .text-button { min-height: 34px; }
 .assist-actions { display: flex; justify-content: center; gap: var(--space-sm); margin-top: var(--space-xl); }
 @media (max-width: 767px) { .assist-banner { padding: 24px 20px; } .assist-eligibility-stage .assist-content { margin-top: var(--space-md); } .assist-eligibility-stage .assist-steps--icon { gap: var(--space-xs); margin-bottom: var(--space-lg); } .assist-eligibility-stage .assist-question fieldset { display: grid; grid-template-columns: 1fr; } .assist-eligibility-stage .assist-question label { width: 100%; } .assist-actions { flex-direction: column; } .assist-actions .bk-btn { width: 100%; } }
+@media (max-width: 1024px) {
+    .assist-banner:not(.guide-banner) { padding-right: 38%; }
+    .assist-banner:not(.guide-banner) h1 { font-size: var(--font-size-section-title); }
+    .assist-banner:not(.guide-banner) p { font-size: var(--font-size-caption); }
+}

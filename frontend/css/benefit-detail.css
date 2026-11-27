@@ -50,6 +50,12 @@
     transform: translateY(-50%);
 }
 
+@media (max-width: 1024px) {
+    .detail-banner { display: flex; min-height: 144px; align-items: center; aspect-ratio: auto; padding: 24px; }
+    .detail-banner img { position: absolute; inset: 0; }
+    .detail-banner__copy { position: relative; top: auto; left: auto; width: min(56%, 520px); transform: none; }
+}
+
 .detail-banner__copy h1 {
     margin: 0;
     font-size: var(--font-size-page-title);
@@ -1072,7 +1078,7 @@
 
     .detail-banner__copy {
         width: 56%;
-        left: 24px;
+        left: auto;
     }
 
     .detail-banner__copy h1 {
