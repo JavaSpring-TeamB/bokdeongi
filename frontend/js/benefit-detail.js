@@ -56,6 +56,7 @@ let favoriteController = null;
 let askRequestId = 0;
 let askController = null;
 let assistantStartPending = false;
+const homeActivitySeenRequests = new Set();
 
 class BenefitDetailRequestError extends Error {
     constructor(kind, message = '') {
@@ -1063,6 +1064,42 @@ async function readErrorMessage(response) {
     }
 }
 
+async function markHomeActivityBenefitAsSeen(id) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('fromHomeActivity') !== '1' || Number(params.get('id')) !== id) return false;
+    const key = String(id);
+    if (homeActivitySeenRequests.has(key)) return false;
+    homeActivitySeenRequests.add(key);
+
+    try {
+        const auth = window.BokdeongiAuth;
+        if (!auth || typeof auth.authenticatedFetch !== 'function'
+            || typeof auth.getCsrfToken !== 'function'
+            || typeof auth.refreshAuthentication !== 'function'
+            || await auth.refreshAuthentication() !== 'authenticated') {
+            homeActivitySeenRequests.delete(key);
+            return false;
+        }
+
+        const csrf = await auth.getCsrfToken();
+        const response = await auth.authenticatedFetch(
+            '/api/home/activity/benefits/' + encodeURIComponent(id) + '/seen',
+            { method: 'POST', headers: { [csrf.headerName]: csrf.token } }
+        );
+        if (!response.ok) throw new Error('HOME-02 seen request failed');
+        const payload = await response.json();
+        if (!payload || payload.updated !== true) throw new Error('HOME-02 seen state was not updated');
+
+        params.delete('fromHomeActivity');
+        const query = params.toString();
+        window.history.replaceState(null, document.title, window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+        return true;
+    } catch {
+        homeActivitySeenRequests.delete(key);
+        return false;
+    }
+}
+
 async function loadDetail(id) {
     const requestId = ++detailRequestId;
     if (activeController) activeController.abort();
@@ -1095,7 +1132,7 @@ async function loadDetail(id) {
         }
 
         const payload = await response.json();
-        if (!isBenefitDetailResponse(payload)) {
+        if (!isBenefitDetailResponse(payload) || Number(payload.id) !== id) {
             throw new BenefitDetailRequestError('SERVER', '혜택 상세 결과 형식이 올바르지 않습니다.');
         }
         if (requestId !== detailRequestId) return;
@@ -1107,6 +1144,7 @@ async function loadDetail(id) {
         resetAskState(id);
         state.screen = 'RESULT';
         render();
+        void markHomeActivityBenefitAsSeen(id);
         loadEasy();
         loadEligibility();
         loadFavorite();

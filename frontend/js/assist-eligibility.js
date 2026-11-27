@@ -1,3 +1,12 @@
+function formatEligibilityAmount(value) {
+    const numericAmount = typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+    return Number.isFinite(numericAmount) && numericAmount >= 0
+        ? numericAmount.toLocaleString('ko-KR') + '원'
+        : '지원 금액 정보 없음';
+}
+
 (() => {
     const $ = (selector) => document.querySelector(selector);
     const ANSWERS = Object.freeze([['Y', '예'], ['N', '아니오'], ['UNSURE', '아직 몰라요']]);
@@ -102,7 +111,7 @@
     }
     function render() {
         const benefitTitle = text(state.benefit.title, text(state.eligibility.title, '혜택 정보'));
-        const amount = Number.isFinite(Number(state.benefit.maxAmount)) ? Number(state.benefit.maxAmount).toLocaleString('ko-KR') + '원' : '지원 금액 정보 없음';
+        const amount = formatEligibilityAmount(state.benefit.maxAmount);
         const period = text(state.benefit.applyPeriodText, '신청 기간 정보 없음');
         $('#assist-content').innerHTML = '<div class="assist-steps assist-steps--icon" aria-label="신청 도우미 진행 단계">' + assistantSteps.map((step, index) => '<div class="assist-step ' + (index === 0 ? 'is-current' : '') + '"><span class="assist-step__icon">' + step[1] + '</span><span class="assist-step__label">' + step[0] + '</span></div>').join('') + '</div><div class="assist-info"><strong aria-hidden="true">i</strong><span><strong>' + escapeHtml(benefitTitle) + '</strong> · ' + escapeHtml(amount) + ' · ' + escapeHtml(period) + '</span></div><section class="card assist-card"><h2>자격 확인 결과</h2><p class="assist-answer-summary">' + escapeHtml(text(state.eligibility.summary, '자격 판정 요약 정보가 제공되지 않았습니다.')) + '</p><div class="assist-table-wrap"><table class="assist-table"><thead><tr><th>확인 항목</th><th>내 정보 및 판정</th><th>판정 상태</th><th>근거</th></tr></thead><tbody>' + rows() + '</tbody></table></div><section class="assist-question"><h2>추가 확인이 필요한 항목</h2>' + questionsMarkup() + '</section>' + progressInfo() + '</section><div class="assist-actions"><a class="bk-btn bk-btn--outline bk-btn--md" href="benefit-detail.html?id=' + encodeURIComponent(state.application.benefitId) + '">이전으로</a><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-complete-eligibility' + (canComplete() ? '' : ' disabled') + '>' + (state.completing ? '저장 중...' : '서류 준비로 이동') + '</button></div>';
     }

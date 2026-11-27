@@ -23,10 +23,9 @@ let profileLoadErrorStatus = null;
 let profileCompleted = false;
 let profileResponse = null;
 let profileSaving = false;
-let profileInterests = ['주거·생활', '취업·교육'];
 let bookmarkPage = 1;
 const BOOKMARK_PAGE_SIZE = 4;
-const FAVORITE_SORT = 'DEADLINE';
+let favoriteSort = 'DEADLINE';
 const favoriteListState = {
     screen: 'IDLE',
     response: null,
@@ -64,7 +63,7 @@ async function ensureMyPageRegions(retry = false) {
     }
     if (profileMode === 'edit') renderSection();
 }
-const profileAccordion = { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false };
+const profileAccordion = { basic: true, household: false, income: false, additional: false, sensitive: false };
 let profileEditorState = {
     gender: '', sido: '부산광역시', sigunguName: '', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
     maritalStatus: '', childrenCount: '', childrenExact: '', youngestYear: '', householdTypes: null, statusCodes: null, welfareStatus: ''
@@ -300,12 +299,10 @@ function infoItems(items) {
 }
 
 function renderProfileView() {
-    const interests = profileInterests.map((interest) => '<span class="my-page__topic-tag">' + escapeHtml(interest) + '</span>').join('');
     const profileStatus = profileCompleted ? '프로필 등록 완료' : '프로필 입력 중';
     return '<header class="my-page__content-header"><h2>내 정보</h2><span class="my-page__status">' + profileStatus + '</span></header>' +
         '<section class="my-page__section"><h3>기본 정보</h3><div class="my-page__info-grid">' + infoItems(myPageData.profile.basics) + '</div></section>' +
-        '<section class="my-page__section"><h3>맞춤 혜택 프로필</h3><div class="my-page__info-grid">' + infoItems(myPageData.profile.settings) +
-        '<div class="my-page__info-item"><span class="my-page__info-label">관심 분야</span><span class="my-page__topic-list">' + interests + '</span></div></div><div class="my-page__profile-action"><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-profile-edit>프로필 수정하기 <span aria-hidden="true">›</span></button></div></section>' +
+        '<section class="my-page__section"><h3>맞춤 혜택 프로필</h3><div class="my-page__info-grid">' + infoItems(myPageData.profile.settings) + '</div><div class="my-page__profile-action"><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-profile-edit>프로필 수정하기 <span aria-hidden="true">›</span></button></div></section>' +
         '<section class="my-page__section"><h3>계정 및 개인정보 관리</h3><div class="my-page__account-grid">' +
         '<button class="my-page__account-button" type="button" data-account-action="개인정보 동의 관리"><span><strong>개인정보 동의 관리</strong><small>현재 동의 내역을 확인하고 변경해요.</small></span><span aria-hidden="true">›</span></button>' +
         '<button class="my-page__account-button" type="button" data-account-action="비밀번호 변경"><span><strong>비밀번호 변경</strong><small>비밀번호를 안전하게 변경해요.</small></span><span aria-hidden="true">›</span></button>' +
@@ -362,7 +359,6 @@ function renderConsentManagement() {
 function renderProfileEditor() {
     const birthDate = profileValue('basics', '생년월일').replaceAll('.', '-');
     const field = (label, name, value, options = '') => '<label class="my-page__form-control"><span>' + label + (options.includes('required') ? ' <em aria-hidden="true">*</em>' : '') + '</span><input name="' + name + '" value="' + escapeHtml(value) + '" ' + options + '></label>';
-    const checked = (interest) => profileInterests.includes(interest) ? ' checked' : '';
     const selected = (value, expected) => value === expected ? ' selected' : '';
     const radio = (name, value, label, state) => '<label><input type="radio" name="' + name + '" value="' + value + '"' + (state === value ? ' checked' : '') + '> ' + label + '</label>';
     const checks = (group, items, values) => items.map(([value, label, none]) => '<label><input type="checkbox" value="' + value + '"' + (none ? ' data-none' : '') + (values && (none ? values.length === 0 : values.includes(value)) ? ' checked' : '') + '> ' + label + '</label>').join('');
@@ -407,7 +403,6 @@ function renderProfileEditor() {
         accordion('household', '가구 및 주거 정보', '<div class="my-page__profile-form-grid"><label class="my-page__form-control"><span>가구원 수 <em aria-hidden="true">*</em></span><select name="householdSize" required><option value="">선택해 주세요.</option>' + ['1', '2', '3', '4', '5'].map((value) => '<option value="' + value + '"' + selected(profileEditorState.householdSize, value) + '>' + (value === '5' ? '5명 이상' : value + '명') + '</option>').join('') + '</select></label><fieldset class="my-page__choice-field"><legend>주거 형태 <em aria-hidden="true">*</em></legend><div>' + radio('housingType', 'OWN', '자가', profileEditorState.housingType) + radio('housingType', 'JEONSE', '전세', profileEditorState.housingType) + radio('housingType', 'MONTHLY', '월세', profileEditorState.housingType) + radio('housingType', 'ETC', '기타', profileEditorState.housingType) + '</div></fieldset><fieldset class="my-page__choice-field"><legend>주택 보유 여부 <em aria-hidden="true">*</em></legend><div>' + radio('hasHouse', 'true', '보유', profileEditorState.hasHouse) + radio('hasHouse', 'false', '미보유', profileEditorState.hasHouse) + '</div></fieldset></div>') +
         accordion('income', '소득 정보', '<p class="my-page__form-help">금액 입력 시 서버가 기준 중위소득 비율과 기준 연도를 계산합니다. 중위소득 비율을 알고 있다면 직접 입력할 수 있어요.</p><fieldset class="my-page__choice-field"><legend>입력 방식 <em aria-hidden="true">*</em></legend><div>' + radio('incomeInputType', 'ANNUAL', '연소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'MONTHLY', '월소득', profileEditorState.incomeInputType) + radio('incomeInputType', 'BRACKET', '중위소득 비율', profileEditorState.incomeInputType) + radio('incomeInputType', 'UNKNOWN', '잘 모르겠어요', profileEditorState.incomeInputType) + '</div></fieldset><div class="my-page__profile-form-grid" data-income-amount-fields' + (incomeAmountVisible ? '' : ' hidden') + '>' + field('소득 금액', 'incomeAmount', profileEditorState.incomeAmount, 'type="text" inputmode="numeric" autocomplete="off" placeholder="예: 2,500,000"' + (incomeAmountVisible ? ' required' : ' disabled')) + '<label class="my-page__form-control"><span>현재 계산 비율</span><input value="' + escapeHtml(profileEditorState.medianIncomePct ? profileEditorState.medianIncomePct + '%' : '저장 후 표시') + '" type="text" readonly></label><label class="my-page__form-control"><span>서버 기준 연도</span><input value="' + escapeHtml(profileEditorState.incomeBaseYear || '저장 후 표시') + '" type="text" readonly></label></div><div class="my-page__profile-form-grid" data-income-bracket-fields' + (incomeBracketVisible ? '' : ' hidden') + '>' + field('중위소득 비율', 'medianIncomePct', profileEditorState.medianIncomePct, 'type="number" min="0" max="9999.9" step="0.1" inputmode="decimal"' + (incomeBracketVisible ? ' required' : ' disabled')) + '</div>') +
         accordion('additional', '추가 정보', '<div class="my-page__profile-form-grid"><fieldset class="my-page__choice-field"><legend>혼인 여부</legend><div>' + radio('maritalStatus', 'SINGLE', '미혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'MARRIED', '기혼', profileEditorState.maritalStatus) + radio('maritalStatus', 'ETC', '기타', profileEditorState.maritalStatus) + '</div></fieldset><label class="my-page__form-control"><span>자녀 수</span><select name="childrenCount"><option value="">선택해 주세요.</option><option value="0"' + selected(profileEditorState.childrenCount, '0') + '>없음</option><option value="1"' + selected(profileEditorState.childrenCount, '1') + '>1명</option><option value="2"' + selected(profileEditorState.childrenCount, '2') + '>2명</option><option value="3"' + selected(profileEditorState.childrenCount, '3') + '>3명</option><option value="4+"' + selected(profileEditorState.childrenCount, '4+') + '>4명 이상</option></select></label><label class="my-page__form-control" data-exact-children-field' + (exactChildrenVisible ? '' : ' hidden') + '><span>정확한 자녀 수</span><input name="childrenExact" type="number" min="4" inputmode="numeric" value="' + escapeHtml(profileEditorState.childrenExact) + '"' + (exactChildrenVisible ? ' required' : ' disabled') + '></label><label class="my-page__form-control" data-youngest-field' + (childVisible ? '' : ' hidden') + '><span>막내 자녀 출생연도</span><input name="youngestYear" type="number" min="1900" max="' + currentYear + '" inputmode="numeric" value="' + escapeHtml(profileEditorState.youngestYear) + '"' + (childVisible ? ' required' : ' disabled') + '></label></div><fieldset class="my-page__multi-choice" data-exclusive-group="householdTypes"><legend>가구 유형 <em aria-hidden="true">*</em></legend><div>' + checks('householdTypes', [['JA0404', '1인 가구'], ['JA0403', '한부모 가구'], ['JA0403', '조손 가구'], ['JA0411', '다자녀 가구'], ['JA0413', '신규 전입 가구'], ['JA0414', '확대가족'], ['NONE', '해당 없음', true]], profileEditorState.householdTypes) + '</div></fieldset>' + statusGroupFields + '<fieldset class="my-page__choice-field"><legend>복지 수급 상태</legend><div>' + radio('welfareStatus', 'BASIC', '기초생활수급자', profileEditorState.welfareStatus) + radio('welfareStatus', 'NEAR_POOR', '차상위계층', profileEditorState.welfareStatus) + radio('welfareStatus', 'NONE', '해당 없음', profileEditorState.welfareStatus) + radio('welfareStatus', 'UNKNOWN', '잘 모르겠어요', profileEditorState.welfareStatus) + '</div></fieldset>') +
-        accordion('interests', '관심 분야', '<fieldset class="my-page__interest-field"><legend>관심 분야</legend><div><label><input type="checkbox" name="interests" value="주거·생활"' + checked('주거·생활') + '> 주거·생활</label><label><input type="checkbox" name="interests" value="취업·교육"' + checked('취업·교육') + '> 취업·교육</label></div></fieldset>') +
         accordion('sensitive', '민감정보 관리 (선택)', sensitiveContent) +
         '<p class="my-page__form-error" data-profile-form-error role="alert" tabindex="-1"></p><div class="my-page__profile-form-actions"><button class="bk-btn bk-btn--outline bk-btn--md" type="button" data-profile-cancel' + (profileSaving ? ' disabled' : '') + '>취소</button><button class="bk-btn bk-btn--primary bk-btn--md" type="submit" data-profile-save' + (profileSaving ? ' disabled' : '') + '>' + (profileSaving ? '저장 중…' : '저장') + '</button></div></form>';
 }
@@ -491,12 +486,12 @@ function favoriteCard(item) {
 function renderBookmarks() {
     const header = '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2></header>';
     if (favoriteListState.screen === 'IDLE' || favoriteListState.screen === 'LOADING') {
-        return header + '<div class="my-page__empty" role="status">관심 혜택을 불러오고 있어요.</div>' + favoriteKeywordSection();
+        if (!favoriteListState.response) return header + '<div class="my-page__empty" role="status">관심 혜택을 불러오고 있어요.</div>' + favoriteKeywordSection();
     }
     if (favoriteListState.screen === 'UNAUTHENTICATED') {
         return header + '<div class="my-page__empty">관심 혜택은 로그인 후 확인할 수 있어요. <a href="login.html">로그인하기</a></div>' + favoriteKeywordSection();
     }
-    if (favoriteListState.screen === 'ERROR') {
+    if (favoriteListState.screen === 'ERROR' && !favoriteListState.response) {
         const message = favoriteListState.errorKind === 'NETWORK'
             ? '네트워크 연결을 확인한 뒤 다시 시도해 주세요.'
             : favoriteListState.errorKind === 'INVALID'
@@ -516,14 +511,22 @@ function renderBookmarks() {
     const pagination = window.BokdeongiPagination.markup({ totalCount: items.length, currentPage: bookmarkPage, pageSize: BOOKMARK_PAGE_SIZE, label: '저장한 관심 혜택' });
     const endedCards = ended.map(favoriteCard).join('');
     const endedSection = endedCards ? '<section class="my-page__section"><h3>종료된 혜택</h3><div class="my-page__benefit-list">' + endedCards + '</div></section>' : '';
-    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2><span class="my-page__status">총 ' + count + '건</span></header><div class="my-page__benefit-list">' + activeList + '</div>' + pagination + endedSection + favoriteKeywordSection();
+    const statusNote = favoriteListState.screen === 'LOADING'
+        ? '<p class="my-page__favorites-message" role="status">정렬된 목록을 불러오는 중이에요.</p>'
+        : favoriteListState.screen === 'ERROR'
+            ? '<div class="my-page__favorites-message" role="alert">목록을 새로 불러오지 못해 이전 결과를 표시하고 있어요. <button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-retry-favorites>다시 시도</button></div>'
+            : '';
+    const sortControl = '<label class="my-page__favorite-sort"><span>정렬</span><select data-favorite-sort aria-label="관심 혜택 정렬"><option value="DEADLINE"' + (favoriteSort === 'DEADLINE' ? ' selected' : '') + '>마감순</option><option value="SAVED"' + (favoriteSort === 'SAVED' ? ' selected' : '') + '>저장순</option></select></label>';
+    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2><div class="my-page__favorites-controls"><span class="my-page__status">총 ' + count + '건</span>' + sortControl + '</div></header>' + statusNote + '<div class="my-page__benefit-list">' + activeList + '</div>' + pagination + endedSection + favoriteKeywordSection();
 }
 
 function renderFavoritesIfVisible() {
     if (currentSection === 'bookmarks') renderSection();
 }
 
-async function loadFavorites() {
+async function loadFavorites(sort = favoriteSort) {
+    if (sort !== 'DEADLINE' && sort !== 'SAVED') return;
+    favoriteSort = sort;
     const requestId = ++favoriteListRequestId;
     if (favoriteListController) favoriteListController.abort();
     const controller = new AbortController();
@@ -548,7 +551,7 @@ async function loadFavorites() {
                 return;
             }
 
-            const response = await auth.authenticatedFetch('/api/me/favorites?sort=' + FAVORITE_SORT, { signal: controller.signal });
+            const response = await auth.authenticatedFetch('/api/me/favorites?sort=' + encodeURIComponent(favoriteSort), { signal: controller.signal });
             if (requestId !== favoriteListRequestId) return;
             if (response.status === 401) {
                 favoriteListState.screen = 'UNAUTHENTICATED';
@@ -567,6 +570,7 @@ async function loadFavorites() {
                 throw new FavoriteListRequestError('INVALID', '관심 혜택 응답 형식이 올바르지 않습니다.');
             }
             if (requestId !== favoriteListRequestId) return;
+            if (payload.sort !== favoriteSort) throw new FavoriteListRequestError('INVALID', '관심 혜택 정렬 결과를 확인하지 못했습니다.');
             favoriteListState.response = payload;
             favoriteListState.screen = 'RESULT';
             bookmarkPage = 1;
@@ -1687,7 +1691,7 @@ function setupInteractions() {
             }
             return;
         }
-        if (event.target.closest('[data-profile-edit]')) { Object.assign(profileAccordion, { basic: true, household: false, income: false, additional: false, interests: false, sensitive: false }); sensitiveEditState = { codes: null }; profileMode = 'edit'; renderSection(); if (regionLoadState !== 'ready') void ensureMyPageRegions(); return; }
+        if (event.target.closest('[data-profile-edit]')) { Object.assign(profileAccordion, { basic: true, household: false, income: false, additional: false, sensitive: false }); sensitiveEditState = { codes: null }; profileMode = 'edit'; renderSection(); if (regionLoadState !== 'ready') void ensureMyPageRegions(); return; }
         if (event.target.closest('[data-profile-cancel]')) { profileMode = 'view'; renderSection(); return; }
         if (event.target.closest('[data-password-change-cancel]')) { passwordChangeSubmitting = false; profileMode = 'view'; renderSection(); return; }
         const accountAction = event.target.closest('[data-account-action]');
@@ -1728,6 +1732,14 @@ function setupInteractions() {
         }
     });
     document.addEventListener('change', (event) => {
+        if (event.target.matches('[data-favorite-sort]')) {
+            const nextSort = event.target.value;
+            if (nextSort !== favoriteSort && ['DEADLINE', 'SAVED'].includes(nextSort)) {
+                bookmarkPage = 1;
+                void loadFavorites(nextSort);
+            }
+            return;
+        }
         const form = event.target.closest('[data-profile-form]');
         if (!form) return;
         if (event.target.name === 'sido') {

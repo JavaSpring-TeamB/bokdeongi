@@ -53,7 +53,7 @@ function createHarness({ authenticationState = 'authenticated', request } = {}) 
   };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(`${source}\nglobalThis.__favoriteHooks = { favoriteListState, favoriteCard, isFavoriteListResponse, isFavoriteToggleResponse, loadFavorites, removeFavorite, renderBookmarks };`, context);
+  vm.runInContext(`${source}\nglobalThis.__favoriteHooks = { favoriteListState, favoriteCard, isFavoriteListResponse, isFavoriteToggleResponse, loadFavorites, removeFavorite, renderBookmarks, get favoriteSort() { return favoriteSort; } };`, context);
   return { calls, hooks: context.__favoriteHooks };
 }
 
@@ -71,6 +71,23 @@ test('loads BEN-12 favorites with the server default sort and renders active and
   assert.match(markup, /종료된 혜택/);
   assert.match(markup, /국토교통부/);
   assert.match(markup, /#청년/);
+  assert.match(markup, /data-favorite-sort/);
+  assert.match(markup, /value="DEADLINE" selected/);
+});
+
+test('requests SAVED sort from the API and renders the server order without sorting locally', async () => {
+  const harness = createHarness({
+    request: (requestPath) => response(200, favoritesPayload({
+      sort: 'SAVED', count: 2, ended: [], items: [favorite(99, { title: '먼저 저장' }), favorite(12, { title: '나중 저장' })]
+    }))
+  });
+
+  await harness.hooks.loadFavorites('SAVED');
+
+  assert.equal(harness.calls[0].requestPath, '/api/me/favorites?sort=SAVED');
+  const markup = harness.hooks.renderBookmarks();
+  assert.ok(markup.indexOf('먼저 저장') < markup.indexOf('나중 저장'));
+  assert.match(markup, /value="SAVED" selected/);
 });
 
 test('does not send a favorites request when the user is not authenticated', async () => {
@@ -121,6 +138,40 @@ test('removes a favorite through DELETE with CSRF and reloads the server list', 
   assert.equal(harness.hooks.favoriteListState.screen, 'RESULT');
 });
 
+test('preserves the selected favorites sort after removing an item', async () => {
+  const harness = createHarness({
+    request: (requestPath, options) => options.method === 'DELETE'
+      ? response(200, { benefitId: 12, bookmarked: false })
+      : response(200, favoritesPayload({ sort: 'SAVED', ended: [], count: 1, items: [favorite(23)] }))
+  });
+  await harness.hooks.loadFavorites('SAVED');
+
+  await harness.hooks.removeFavorite(12);
+
+  assert.equal(harness.calls[2].requestPath, '/api/me/favorites?sort=SAVED');
+  assert.equal(harness.hooks.favoriteSort, 'SAVED');
+});
+
+test('keeps the last successful list visible and offers retry when a sorted reload fails', async () => {
+  let fail = false;
+  const harness = createHarness({
+    request: (requestPath) => {
+      if (fail) return response(503, {});
+      return response(200, favoritesPayload());
+    }
+  });
+  await harness.hooks.loadFavorites();
+  fail = true;
+
+  await harness.hooks.loadFavorites('SAVED');
+
+  const markup = harness.hooks.renderBookmarks();
+  assert.equal(harness.hooks.favoriteListState.screen, 'ERROR');
+  assert.match(markup, /이전 결과를 표시/);
+  assert.match(markup, /data-retry-favorites/);
+  assert.match(markup, /benefit-detail\.html\?id=12/);
+});
+
 test('keeps the rendered server list when favorite deletion fails', async () => {
   const harness = createHarness({
     request: (requestPath, options) => options.method === 'DELETE'
@@ -149,16 +200,17 @@ test('rejects malformed essential IDs and ignores a late favorites response', as
       requestCount += 1;
       return requestCount === 1
         ? new Promise((resolve) => { resolveFirst = resolve; })
-        : response(200, favoritesPayload({ count: 1, items: [favorite(99)], ended: [] }));
+        : response(200, favoritesPayload({ sort: 'SAVED', count: 1, items: [favorite(99)], ended: [] }));
     }
   });
   const first = raceHarness.hooks.loadFavorites();
   await new Promise((resolve) => setImmediate(resolve));
-  await raceHarness.hooks.loadFavorites();
+  await raceHarness.hooks.loadFavorites('SAVED');
   resolveFirst(response(200, favoritesPayload({ count: 1, items: [favorite(12)], ended: [] })));
   await first;
 
   assert.equal(raceHarness.hooks.favoriteListState.response.items[0].benefitId, 99);
+  assert.equal(raceHarness.hooks.favoriteListState.response.sort, 'SAVED');
 });
 
 test('checks that a favorite toggle response belongs to the requested benefit', () => {
