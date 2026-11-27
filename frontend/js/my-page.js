@@ -1,9 +1,5 @@
 const myPageData = {
-    profile: {
-        basics: [['♙', '이름', '김복덩'], ['▣', '생년월일', '2004.11.04'], ['⌖', '거주지역', '부산광역시'], ['✉', '이메일', 'bokdeongi@email.com']],
-        settings: [['♧', '가구 형태', '1인 가구'], ['⌂', '주거 형태', '월세'], ['▤', '소득 정보', '중위소득 150% 이하']]
-    },
-    keywords: ['청년', '지원금', '주거지원', '복지'],
+    profile: { basics: [], settings: [] },
     faqs: [
         ['복지 혜택은 어떤 기준으로 추천되나요?', '입력된 프로필 정보와 각 혜택의 공고 조건을 비교해 안내합니다. 실제 신청 가능 여부와 심사는 해당 기관의 최신 기준을 확인해 주세요.'],
         ['신청 현황은 어떻게 확인하나요?', '상단의 신청 현황 메뉴에서 진행 중인 신청의 단계와 다음 할 일을 확인할 수 있어요.'],
@@ -23,6 +19,9 @@ let profileLoadErrorStatus = null;
 let profileCompleted = false;
 let profileResponse = null;
 let profileSaving = false;
+let profileLoadRequestId = 0;
+let profileSessionId = 0;
+let lastObservedAuthStatus = 'checking';
 let bookmarkPage = 1;
 const BOOKMARK_PAGE_SIZE = 4;
 let favoriteSort = 'DEADLINE';
@@ -64,10 +63,15 @@ async function ensureMyPageRegions(retry = false) {
     if (profileMode === 'edit') renderSection();
 }
 const profileAccordion = { basic: true, household: false, income: false, additional: false, sensitive: false };
-let profileEditorState = {
-    gender: '', sido: '부산광역시', sigunguName: '', regionCode: '', householdSize: '1', housingType: 'MONTHLY', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: String(new Date().getFullYear()),
-    maritalStatus: '', childrenCount: '', childrenExact: '', youngestYear: '', householdTypes: null, statusCodes: null, welfareStatus: ''
-};
+function emptyProfileEditorState() {
+    return {
+        gender: '', sido: '', sigunguName: '', regionCode: '', householdSize: '',
+        housingType: '', hasHouse: '', incomeInputType: '', incomeAmount: '', incomeBaseYear: '',
+        maritalStatus: '', childrenCount: '', childrenExact: '', youngestYear: '',
+        householdTypes: null, statusCodes: null, welfareStatus: ''
+    };
+}
+let profileEditorState = emptyProfileEditorState();
 const SENSITIVE_OPTIONS = [
     ['JA0301', '예비부모·난임', '임신·출산 관련 지원 안내에 활용합니다.'], ['JA0302', '임산부', '임신 중 받을 수 있는 지원 안내에 활용합니다.'],
     ['JA0303', '출산·입양', '출산·입양 관련 지원 안내에 활용합니다.'], ['JA0328', '장애 관련', '장애 관련 지원 안내에 활용합니다.'],
@@ -82,6 +86,7 @@ const STATUS_GROUPS = [
 const CONSENT_TYPES = ['OPTIONAL_INFO', 'SENSITIVE', 'DOC_PROCESS', 'DOC_RECORD'];
 let consentLoadState = 'checking';
 let consentLoadErrorStatus = null;
+let consentLoadRequestId = 0;
 let consentSubmittingType = null;
 let sensitiveCodesSaving = false;
 let sensitiveWithdrawalOpener = null;
@@ -106,13 +111,8 @@ function escapeHtml(value) {
 }
 
 function profileValue(group, label) {
-    const item = myPageData.profile[group].find(([, itemLabel]) => itemLabel === label);
+    const item = (myPageData.profile[group] || []).find(([, itemLabel]) => itemLabel === label);
     return item ? item[2] : '';
-}
-
-function setProfileValue(group, label, value) {
-    const item = myPageData.profile[group].find(([, itemLabel]) => itemLabel === label);
-    if (item) item[2] = value;
 }
 
 function displayValue(value, fallback = '미입력') {
@@ -169,14 +169,19 @@ function applyProfileResponse(profile) {
         householdTypeCodes: Array.isArray(profile.householdTypeCodes) ? [...profile.householdTypeCodes] : null,
         statusCodes: Array.isArray(profile.statusCodes) ? [...profile.statusCodes] : null
     };
-    setProfileValue('basics', '이름', displayValue(profile.name));
-    setProfileValue('basics', '생년월일', formatBirthDate(profile.birthDate));
-    setProfileValue('basics', '거주지역', formatRegion(profile));
-    setProfileValue('basics', '이메일', displayValue(profile.email));
-
-    setProfileValue('settings', '가구 형태', profile.householdSize === null || profile.householdSize === undefined ? '미입력' : profile.householdSize + '인 가구');
-    setProfileValue('settings', '주거 형태', { OWN: '자가', JEONSE: '전세', MONTHLY: '월세', ETC: '기타' }[profile.housingType] || '미입력');
-    setProfileValue('settings', '소득 정보', formatIncome(profile));
+    myPageData.profile = {
+        basics: [
+            ['♙', '이름', displayValue(profile.name)],
+            ['▣', '생년월일', formatBirthDate(profile.birthDate)],
+            ['⌖', '거주지역', formatRegion(profile)],
+            ['✉', '이메일', displayValue(profile.email)]
+        ],
+        settings: [
+            ['♧', '가구 형태', profile.householdSize === null || profile.householdSize === undefined ? '미입력' : profile.householdSize + '인 가구'],
+            ['⌂', '주거 형태', { OWN: '자가', JEONSE: '전세', MONTHLY: '월세', ETC: '기타' }[profile.housingType] || '미입력'],
+            ['▤', '소득 정보', formatIncome(profile)]
+        ]
+    };
 
     // GET ProfileResponse는 hasHouse를 반환한다. noHouse 반전은 다음 단계의 step2 저장 요청에서만 적용한다.
     profileEditorState = {
@@ -232,6 +237,7 @@ function hasVerifiedSensitiveConsent() {
 }
 
 async function loadConsentStatus({ render = true } = {}) {
+    const requestId = ++consentLoadRequestId;
     const auth = window.BokdeongiAuth;
     if (!auth || auth.getAuthenticationState() !== 'authenticated') {
         consentLoadState = 'error';
@@ -246,8 +252,10 @@ async function loadConsentStatus({ render = true } = {}) {
 
     try {
         const response = await auth.authenticatedFetch('/api/auth/consents');
+        if (requestId !== consentLoadRequestId) return false;
         if (response.status === 401) {
             auth.clearAuthentication();
+            if (requestId !== consentLoadRequestId) return false;
             profileLoadState = 'unauthenticated';
             consentLoadState = 'error';
             consentLoadErrorStatus = 401;
@@ -262,6 +270,7 @@ async function loadConsentStatus({ render = true } = {}) {
         }
 
         const payload = await response.json();
+        if (requestId !== consentLoadRequestId) return false;
         if (!applyConsentResponse(payload)) {
             consentLoadState = 'error';
             if (render && currentSection === 'profile') renderSection();
@@ -272,10 +281,68 @@ async function loadConsentStatus({ render = true } = {}) {
         if (render && currentSection === 'profile') renderSection();
         return true;
     } catch (error) {
+        if (requestId !== consentLoadRequestId) return false;
         consentLoadState = 'error';
         consentLoadErrorStatus = null;
         if (render && currentSection === 'profile') renderSection();
         return false;
+    }
+}
+
+function resetMyPageUserData(profileState) {
+    profileSessionId += 1;
+    profileLoadRequestId += 1;
+    consentLoadRequestId += 1;
+    profileLoadState = profileState;
+    profileLoadErrorStatus = null;
+    profileCompleted = false;
+    profileResponse = null;
+    profileSaving = false;
+    profileMode = 'view';
+    myPageData.profile = { basics: [], settings: [] };
+    profileEditorState = emptyProfileEditorState();
+    sensitiveEditState = { codes: null };
+    consentState = Object.fromEntries(CONSENT_TYPES.map((type) => [type, null]));
+    consentLoadState = profileState === 'unauthenticated' ? 'error' : 'checking';
+    consentLoadErrorStatus = profileState === 'unauthenticated' ? 401 : null;
+    consentSubmittingType = null;
+    sensitiveCodesSaving = false;
+
+    favoriteListRequestId += 1;
+    if (favoriteListController) favoriteListController.abort();
+    favoriteListController = null;
+    favoriteListState.screen = profileState === 'unauthenticated'
+        ? 'UNAUTHENTICATED'
+        : profileState === 'error' ? 'ERROR' : 'IDLE';
+    favoriteListState.response = null;
+    favoriteListState.errorKind = profileState === 'error' ? 'NETWORK' : null;
+    favoriteListState.errorMessage = '';
+    favoriteListState.requestPromise = null;
+    favoriteRemovalRequestId += 1;
+    favoriteRemovalId = null;
+    bookmarkPage = 1;
+
+    if (currentSection === 'profile' || currentSection === 'bookmarks') renderSection();
+}
+
+function handleMyPageAuthenticationChange(event) {
+    const status = event.detail && event.detail.status;
+    if (!['checking', 'authenticated', 'unauthenticated', 'error'].includes(status)) return;
+    const previousStatus = lastObservedAuthStatus;
+    lastObservedAuthStatus = status;
+
+    if (status !== 'authenticated') {
+        if (status === 'unauthenticated' || status === 'error'
+            || previousStatus === 'authenticated' || profileResponse) {
+            resetMyPageUserData(status === 'unauthenticated' ? 'unauthenticated' : status === 'error' ? 'error' : 'checking');
+        }
+        return;
+    }
+
+    if (previousStatus === 'unauthenticated' || previousStatus === 'error') {
+        resetMyPageUserData('checking');
+        void loadProfile();
+        if (currentSection === 'bookmarks') void loadFavorites();
     }
 }
 
@@ -452,10 +519,6 @@ function favoriteStatusText(status) {
     return labels[value] || value;
 }
 
-function favoriteKeywordSection() {
-    return '<section class="my-page__section my-page__keyword-section"><h3>관심 키워드</h3><p class="my-page__keyword-description">관심 있는 키워드를 등록하고 관리할 수 있어요.</p><div class="my-page__keyword-list" data-keyword-list></div><form class="my-page__keyword-form" data-keyword-form><label class="sr-only" for="keyword-input">관심 키워드</label><input id="keyword-input" name="keyword" type="text" maxlength="20" placeholder="관심 키워드를 입력해 주세요. (예: 청년, 지원금, 주거지원)"><button class="bk-btn bk-btn--primary bk-btn--md" type="submit">추가</button></form></section>';
-}
-
 function favoriteCard(item) {
     const benefitId = favoriteBenefitId(item.benefitId);
     if (benefitId === null) return '';
@@ -486,10 +549,10 @@ function favoriteCard(item) {
 function renderBookmarks() {
     const header = '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2></header>';
     if (favoriteListState.screen === 'IDLE' || favoriteListState.screen === 'LOADING') {
-        if (!favoriteListState.response) return header + '<div class="my-page__empty" role="status">관심 혜택을 불러오고 있어요.</div>' + favoriteKeywordSection();
+        if (!favoriteListState.response) return header + '<div class="my-page__empty" role="status">관심 혜택을 불러오고 있어요.</div>';
     }
     if (favoriteListState.screen === 'UNAUTHENTICATED') {
-        return header + '<div class="my-page__empty">관심 혜택은 로그인 후 확인할 수 있어요. <a href="login.html">로그인하기</a></div>' + favoriteKeywordSection();
+        return header + '<div class="my-page__empty">관심 혜택은 로그인 후 확인할 수 있어요. <a href="login.html">로그인하기</a></div>';
     }
     if (favoriteListState.screen === 'ERROR' && !favoriteListState.response) {
         const message = favoriteListState.errorKind === 'NETWORK'
@@ -497,7 +560,7 @@ function renderBookmarks() {
             : favoriteListState.errorKind === 'INVALID'
                 ? '관심 혜택 응답 형식이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.'
                 : '관심 혜택을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
-        return header + '<div class="my-page__empty" role="alert">' + message + '<div><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-retry-favorites>다시 시도</button></div></div>' + favoriteKeywordSection();
+        return header + '<div class="my-page__empty" role="alert">' + message + '<div><button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-retry-favorites>다시 시도</button></div></div>';
     }
 
     const response = favoriteListState.response;
@@ -517,7 +580,7 @@ function renderBookmarks() {
             ? '<div class="my-page__favorites-message" role="alert">목록을 새로 불러오지 못해 이전 결과를 표시하고 있어요. <button class="bk-btn bk-btn--outline bk-btn--sm" type="button" data-retry-favorites>다시 시도</button></div>'
             : '';
     const sortControl = '<label class="my-page__favorite-sort"><span>정렬</span><select data-favorite-sort aria-label="관심 혜택 정렬"><option value="DEADLINE"' + (favoriteSort === 'DEADLINE' ? ' selected' : '') + '>마감순</option><option value="SAVED"' + (favoriteSort === 'SAVED' ? ' selected' : '') + '>저장순</option></select></label>';
-    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2><div class="my-page__favorites-controls"><span class="my-page__status">총 ' + count + '건</span>' + sortControl + '</div></header>' + statusNote + '<div class="my-page__benefit-list">' + activeList + '</div>' + pagination + endedSection + favoriteKeywordSection();
+    return '<header class="my-page__content-header"><h2>저장한 관심 혜택</h2><div class="my-page__favorites-controls"><span class="my-page__status">총 ' + count + '건</span>' + sortControl + '</div></header>' + statusNote + '<div class="my-page__benefit-list">' + activeList + '</div>' + pagination + endedSection;
 }
 
 function renderFavoritesIfVisible() {
@@ -686,32 +749,12 @@ function renderLegal() {
     return '<header class="my-page__content-header"><div><h2>법적 안내사항</h2><p class="my-page__content-intro">서비스 이용과 관련된 약관 및 개인정보 처리방침을 확인할 수 있어요.</p></div></header><div class="my-page__legal-list">' + documents + '</div><aside class="my-page__notice"><div><strong>안내드립니다</strong><p>복덩이는 공공기관의 복지 정보를 기반으로 제공하는 안내 서비스로, 실제 복지 신청 및 심사는 해당 기관의 규정에 따라 진행됩니다.<br>서비스 이용 전 반드시 최신 공고와 기관의 안내를 확인해 주세요.</p></div></aside>';
 }
 
-function renderKeywords() {
-    const target = $('[data-keyword-list]');
-    if (!target) return;
-    target.replaceChildren();
-    myPageData.keywords.forEach((keyword) => {
-        const tag = document.createElement('span');
-        tag.className = 'my-page__keyword';
-        tag.append('#' + keyword);
-        const removeButton = document.createElement('button');
-        removeButton.className = 'my-page__keyword-remove';
-        removeButton.type = 'button';
-        removeButton.dataset.removeKeyword = keyword;
-        removeButton.setAttribute('aria-label', keyword + ' 키워드 삭제');
-        removeButton.textContent = '×';
-        tag.append(removeButton);
-        target.append(tag);
-    });
-}
-
 function renderSection() {
     const target = $('#my-page-content');
     const renderer = { profile: renderProfile, bookmarks: renderBookmarks, guide: renderGuide, legal: renderLegal }[currentSection];
     document.body.dataset.section = currentSection;
     target.innerHTML = renderer();
     target.setAttribute('aria-label', document.querySelector('[data-section="' + currentSection + '"]').textContent.trim());
-    if (currentSection === 'bookmarks') renderKeywords();
     document.querySelectorAll('[data-section]').forEach((button) => {
         const active = button.dataset.section === currentSection;
         button.classList.toggle('is-active', active);
@@ -720,6 +763,7 @@ function renderSection() {
 }
 
 async function loadProfile() {
+    const requestId = ++profileLoadRequestId;
     const auth = window.BokdeongiAuth;
     if (!auth) {
         profileLoadState = 'error';
@@ -728,6 +772,7 @@ async function loadProfile() {
     }
 
     const authStatus = await auth.refreshAuthentication();
+    if (requestId !== profileLoadRequestId) return;
     if (authStatus !== 'authenticated') {
         profileLoadState = authStatus === 'unauthenticated' ? 'unauthenticated' : 'error';
         if (currentSection === 'profile') renderSection();
@@ -737,6 +782,7 @@ async function loadProfile() {
     const consentPromise = loadConsentStatus({ render: false });
     try {
         const response = await auth.authenticatedFetch('/api/me/profile');
+        if (requestId !== profileLoadRequestId) return;
         if (response.status === 401) {
             profileLoadState = 'unauthenticated';
             if (currentSection === 'profile') renderSection();
@@ -750,6 +796,7 @@ async function loadProfile() {
         }
 
         const profile = await response.json();
+        if (requestId !== profileLoadRequestId) return;
         if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
             profileLoadState = 'error';
             if (currentSection === 'profile') renderSection();
@@ -760,8 +807,10 @@ async function loadProfile() {
         profileLoadState = 'loaded';
         void ensureMyPageRegions();
         await consentPromise;
+        if (requestId !== profileLoadRequestId) return;
         if (currentSection === 'profile') renderSection();
     } catch (error) {
+        if (requestId !== profileLoadRequestId) return;
         profileLoadState = 'error';
         if (currentSection === 'profile') renderSection();
     }
@@ -1008,17 +1057,6 @@ async function submitPasswordChange(form) {
     }
 }
 
-function addKeyword(form) {
-    const input = form.elements.keyword;
-    const keyword = input.value.trim().replace(/^#/, '');
-    if (!keyword) { showToast('관심 키워드를 입력해 주세요.'); return; }
-    if (myPageData.keywords.some((item) => item.toLocaleLowerCase('ko-KR') === keyword.toLocaleLowerCase('ko-KR'))) { showToast('이미 등록한 관심 키워드예요.'); return; }
-    myPageData.keywords.push(keyword);
-    input.value = '';
-    renderKeywords();
-    showToast('관심 키워드를 추가했어요. 이 변경은 현재 브라우저에서만 유지됩니다.');
-}
-
 function currentConsentDocumentVersion(type) {
     // GET의 docVersion은 과거 동의 이력일 수 있으므로 PATCH 요청 버전으로 재사용하지 않는다.
     return window.BokdeongiConsentDocuments?.versionFor(type) || null;
@@ -1183,6 +1221,7 @@ async function saveSensitiveCodes(form) {
         return;
     }
 
+    const sessionId = profileSessionId;
     sensitiveCodesSaving = true;
     const button = form.querySelector('[data-sensitive-codes-save]');
     if (button) { button.disabled = true; button.textContent = '저장 중…'; }
@@ -1199,6 +1238,7 @@ async function saveSensitiveCodes(form) {
             })
         });
         const payload = await readProfilePayload(response);
+        if (sessionId !== profileSessionId) return;
 
         if (response.status === 200 && payload && typeof payload === 'object' && !Array.isArray(payload)) {
             applyProfileResponse(payload);
@@ -1227,6 +1267,7 @@ async function saveSensitiveCodes(form) {
             showToast('민감정보 코드를 저장하지 못했어요. 다시 시도해 주세요.');
         }
     } catch (error) {
+        if (sessionId !== profileSessionId) return;
         if (error && error.type === 'unauthenticated') {
             auth.clearAuthentication();
             profileLoadState = 'unauthenticated';
@@ -1491,6 +1532,7 @@ async function putProfileStep(auth, request, retriedAfterCsrfFailure = false) {
 
 async function saveProfile(form) {
     if (profileSaving || !profileResponse) return;
+    const sessionId = profileSessionId;
     const draft = buildProfileDraft(form);
     const changes = changedProfileSteps(draft);
     if (!changes.step1 && !changes.step2 && !changes.step3) {
@@ -1515,6 +1557,7 @@ async function saveProfile(form) {
     try {
         for (const request of profileStepRequests(draft, changes)) {
             const { response, payload } = await putProfileStep(auth, request);
+            if (sessionId !== profileSessionId) return;
             if (!response.ok || !payload || typeof payload !== 'object' || Array.isArray(payload)) {
                 const failure = new Error(profileErrorMessage(payload, '프로필 ' + request.step + '단계를 저장하지 못했어요.'));
                 failure.status = response.status;
@@ -1530,7 +1573,9 @@ async function saveProfile(form) {
         }
 
         const refreshed = await auth.authenticatedFetch('/api/me/profile');
+        if (sessionId !== profileSessionId) return;
         const profile = await readProfilePayload(refreshed);
+        if (sessionId !== profileSessionId) return;
         if (!refreshed.ok || !profile || typeof profile !== 'object' || Array.isArray(profile)) {
             const failure = new Error(profileErrorMessage(profile, '저장 결과를 다시 불러오지 못했어요. 새로고침 후 확인해 주세요.'));
             failure.status = refreshed.status;
@@ -1544,6 +1589,7 @@ async function saveProfile(form) {
         renderSection();
         showToast('프로필을 서버에 저장했어요.');
     } catch (failure) {
+        if (sessionId !== profileSessionId) return;
         const status = failure && Number.isInteger(failure.status) ? failure.status : null;
         let message = failure?.message || '네트워크 오류로 프로필을 저장하지 못했어요. 입력한 내용을 확인한 뒤 다시 시도해 주세요.';
         if (status === 401) message = '로그인 상태가 만료되었어요. 입력한 내용을 확인한 뒤 다시 로그인해 주세요.';
@@ -1672,8 +1718,6 @@ function setupInteractions() {
         if (event.target.closest('[data-retry-favorites]')) { void loadFavorites(); return; }
         const removeBookmark = event.target.closest('[data-remove-bookmark]');
         if (removeBookmark) { void removeFavorite(removeBookmark.dataset.removeBookmark); return; }
-        const removeKeyword = event.target.closest('[data-remove-keyword]');
-        if (removeKeyword) { myPageData.keywords = myPageData.keywords.filter((keyword) => keyword !== removeKeyword.dataset.removeKeyword); renderKeywords(); showToast('관심 키워드를 삭제했어요.'); return; }
         const faq = event.target.closest('[data-faq]');
         if (faq) { const answer = $('#' + faq.getAttribute('aria-controls')); const expanded = faq.getAttribute('aria-expanded') === 'true'; faq.setAttribute('aria-expanded', String(!expanded)); answer.hidden = expanded; return; }
         const guideFeature = event.target.closest('[data-guide-feature]');
@@ -1801,8 +1845,6 @@ function setupInteractions() {
         }
     });
     document.addEventListener('submit', (event) => {
-        const keywordForm = event.target.closest('[data-keyword-form]');
-        if (keywordForm) { event.preventDefault(); addKeyword(keywordForm); return; }
         const passwordChangeForm = event.target.closest('[data-password-change-form]');
         if (passwordChangeForm) { event.preventDefault(); submitPasswordChange(passwordChangeForm); return; }
         const profileForm = event.target.closest('[data-profile-form]');
@@ -1820,3 +1862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSection();
     loadProfile();
 });
+
+if (typeof window.addEventListener === 'function') {
+    window.addEventListener('bokdeongi:auth-state-change', handleMyPageAuthenticationChange);
+}

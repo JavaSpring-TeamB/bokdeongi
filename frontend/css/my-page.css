@@ -48,14 +48,13 @@
 .my-page__section h3 { margin: 0 0 var(--space-md); font-size: var(--font-size-card-title); }
 .my-page__section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
 
-.my-page__status, .my-page__benefit-status, .my-page__keyword { display: inline-flex; align-items: center; border-radius: 999px; font-size: var(--font-size-caption); font-weight: 600; }
+.my-page__status, .my-page__benefit-status { display: inline-flex; align-items: center; border-radius: 999px; font-size: var(--font-size-caption); font-weight: 600; }
 .my-page__status { padding: 4px 10px; background: var(--color-primary-light); color: var(--color-primary); white-space: nowrap; }
 .my-page__status::before { margin-right: 5px; content: "●"; font-size: .65rem; }
 .my-page__info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
 .my-page__info-item { display: grid; grid-template-columns: minmax(88px, .7fr) minmax(0, 1fr); align-items: center; gap: var(--space-sm); min-height: 48px; padding: 8px 12px; border-bottom: 1px solid var(--color-border); background: var(--color-white); }
 .my-page__info-label { color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .my-page__info-value { min-width: 0; font-size: var(--font-size-description); font-weight: 600; overflow-wrap: anywhere; }
-.my-page__keyword { padding: 4px 9px; background: var(--color-primary-light); color: var(--color-primary); }
 .my-page__profile-action { display: flex; justify-content: flex-end; margin-top: var(--space-md); }
 .my-page .btn { border: 1px solid var(--color-primary); background: var(--color-primary); color: var(--color-white); }
 .my-page .btn:hover { background: var(--color-primary-hover); }
@@ -146,15 +145,6 @@
 .my-page__benefit-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-sm); }
 .my-page__benefit-actions .bk-btn { min-width: 84px; }
 .my-page__empty { padding: var(--space-xl); border: 1px dashed var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); text-align: center; }
-.my-page__keyword-description { margin: -8px 0 var(--space-md); color: var(--color-text-secondary); font-size: var(--font-size-description); }
-.my-page__keyword-list { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
-.my-page__keyword { gap: 6px; padding: 5px 8px 5px 10px; border: 0; font-size: .875rem; }
-.my-page__keyword-remove { display: inline-grid; width: 24px; height: 24px; place-items: center; margin: -3px -4px -3px 0; padding: 0; border: 0; border-radius: 50%; background: transparent; color: currentColor; font-size: 1.1rem; line-height: 1; }
-.my-page__keyword-remove:hover, .my-page__keyword-remove:focus-visible { background: var(--color-white); }
-.my-page__keyword-form { display: flex; align-items: center; gap: var(--space-sm); }
-.my-page__keyword-form input { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); font-size: var(--font-size-description); }
-.my-page__keyword-form input:focus { outline: 2px solid var(--color-primary); outline-offset: 1px; border-color: var(--color-primary); }
-.my-page__keyword-form .bk-btn { flex: 0 0 auto; min-width: 72px; white-space: nowrap; }
 
 .my-page__guide-list { display: grid; gap: var(--space-sm); }
 .my-page__guide-item { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); }
