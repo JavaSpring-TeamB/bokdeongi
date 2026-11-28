@@ -118,7 +118,7 @@
 }
 
 .application-status-tab.is-active {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .application-status-tab.is-active::after {
@@ -201,6 +201,16 @@
     color: var(--color-success);
 }
 
+[data-theme="dark"] :is(.application-state-badge--in-progress, .application-state-badge--completed) {
+    background: var(--color-status-green-bg);
+    color: var(--color-status-green-text);
+}
+
+[data-theme="dark"] .application-state-badge--preparing {
+    background: var(--color-status-yellow-bg);
+    color: var(--color-status-yellow-text);
+}
+
 .application-card h3 {
     margin: var(--space-xs) 0;
     font-size: var(--font-size-body);
@@ -229,6 +239,11 @@
     background: var(--application-danger-light);
     color: var(--color-danger);
     font-weight: 700;
+}
+
+[data-theme="dark"] .application-card__d-day {
+    background: var(--color-status-red-bg);
+    color: var(--color-status-red-text);
 }
 
 .application-status-page .application-card-stepper.assist-steps--icon {
@@ -260,7 +275,7 @@
 }
 
 .application-status-page .application-card-stepper .assist-step.is-complete {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .application-status-page .application-card-stepper .assist-step.is-complete .assist-step__icon {
@@ -279,7 +294,7 @@
 }
 
 .application-progress-row strong {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-size: var(--font-size-card-title);
     font-weight: 700;
 }

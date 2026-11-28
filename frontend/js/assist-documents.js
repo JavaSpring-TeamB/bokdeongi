@@ -101,8 +101,8 @@
     function optionMarkup(entry) {
         const [label, className] = statusLabel(entry);
         const selected = entry.key === state.selectedKey;
-        const source = entry.kind === 'document' ? text(entry.group?.place, text(entry.item?.issuer, '발급처 확인 필요')) : entry.kind === 'form' ? '신청 양식' : '공고문 확인 필요';
-        return '<button type="button" class="assist-document-option ' + (selected ? 'is-selected' : '') + '" data-document-key="' + escapeHtml(entry.key) + '" aria-pressed="' + String(selected) + '"><span><h3>' + escapeHtml(entry.name) + '</h3><p>' + escapeHtml(source) + '</p></span><span class="doc-state ' + className + '">' + label + '</span></button>';
+        const support = entry.kind === 'document' ? (entry.item?.ocrSupported ? 'AI 서류 검토 지원' : '직접 준비·확인') : '별도 확인 필요';
+        return '<button type="button" class="assist-document-option ' + (selected ? 'is-selected' : '') + '" data-document-key="' + escapeHtml(entry.key) + '" aria-pressed="' + String(selected) + '"><span><h3>' + escapeHtml(entry.name) + '</h3><small class="document-ocr-label">' + support + '</small></span><span class="doc-state ' + className + '">' + label + '</span></button>';
     }
     function listMarkup() {
         let previousGroup = null;
@@ -135,12 +135,16 @@
                 + '<div><dt>발급 방법</dt><dd>' + escapeHtml(text(entry.item?.issueMethod, entry.item?.onlineAvailable ? '온라인 발급 가능' : '발급처 확인 필요')) + '</dd></div>'
                 + sourceName + (entry.item?.validityDays ? '<div><dt>유효 기간</dt><dd>발급 후 ' + escapeHtml(String(entry.item.validityDays)) + '일 이내</dd></div>' : '') + alternatives
             : '<div><dt>분류</dt><dd>' + (entry.kind === 'form' ? '신청 양식' : '공고문 원문 확인') + '</dd></div>';
+        const reviewNote = entry.kind === 'document'
+            ? entry.item?.ocrSupported ? 'AI 서류 검토 지원: 준비 완료 후 3단계에서 PDF 또는 이미지 파일을 첨부해 검토받을 수 있습니다.'
+                : 'AI 검토 미지원: 직접 서류를 준비하고 확인해 주세요. 준비 완료 체크는 파일 제출이나 OCR 검토 통과가 아닙니다.'
+            : '별도 확인 필요: 이 서류는 AI 파일 검토 대상이 아닙니다. 공고문이나 담당 기관에서 제출 방법을 확인해 주세요.';
         const checked = documentState.prepared ? ' checked' : '';
         const disabled = pending || state.moving ? ' disabled' : '';
-        const external = groupUrl ? '<a class="bk-btn bk-btn--outline bk-btn--sm" href="' + escapeHtml(groupUrl) + '" target="_blank" rel="noopener noreferrer">발급처 열기</a>' : '';
-        const review = documentState.reviewed ? '<p class="document-complete">검토 완료 상태입니다.</p>' : '';
+        const external = groupUrl ? '<a class="bk-btn bk-btn--outline bk-btn--md" href="' + escapeHtml(groupUrl) + '" target="_blank" rel="noopener noreferrer">발급처 열기</a>' : '';
+        const actions = '<div class="document-detail-actions"><label class="bk-btn bk-btn--outline bk-btn--md document-prepared-control"><input type="checkbox" data-document-prepared="' + escapeHtml(entry.key) + '"' + checked + disabled + '> 준비 완료</label>' + external + '</div>';
         const error = failed ? '<p class="assist-answer-summary" role="alert">' + escapeHtml(failed.message) + '</p><button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-retry-document="' + escapeHtml(entry.key) + '">저장 다시 시도</button>' : '';
-        return '<section class="assist-document-detail"><h2>서류 상세</h2><h3>' + escapeHtml(entry.name) + '</h3><dl class="selected-info">' + rows + '</dl><label class="document-complete"><input type="checkbox" data-document-prepared="' + escapeHtml(entry.key) + '"' + checked + disabled + '> 준비 완료</label>' + external + review + recordRegistrationMarkup(entry) + error + '</section>';
+        return '<section class="assist-document-detail"><h2>서류 상세</h2><h3>' + escapeHtml(entry.name) + '</h3><dl class="selected-info">' + rows + '</dl><p class="document-review-note">' + escapeHtml(reviewNote) + '</p>' + actions + recordRegistrationMarkup(entry) + error + '</section>';
     }
     function progressMarkup() {
         const percent = Math.max(0, Math.min(100, Number(state.application.progressPercent) || 0));
@@ -158,13 +162,16 @@
         return allPrepared() ? '모든 서류가 준비되었습니다.' : '모든 서류를 준비 완료로 표시하면 다음 단계로 이동할 수 있습니다.';
     }
     function render() {
+        const listScrollTop = $('[data-document-option-list]')?.scrollTop || 0;
         const entry = selectedEntry();
         if (entry) state.selectedKey = entry.key;
         const changedNotice = state.application.announcementChanged ? '<p class="assist-answer-summary" role="status">공고 정보가 신청을 시작한 뒤 변경되었습니다. 최신 공고 내용을 확인해 주세요.</p>' : '';
         $('#assist-content').innerHTML = stepsMarkup()
             + '<div class="assist-info"><strong aria-hidden="true">i</strong><span><strong>' + escapeHtml(text(state.benefit.title, '혜택 정보')) + '</strong>의 제출 서류와 준비 상태입니다.</span></div>'
-            + '<div class="assist-documents-layout"><section class="assist-document-list"><div class="document-list-heading"><h2>제출 서류</h2><div class="document-counts"><span>' + state.entries.filter((item) => displayState(item.key).prepared).length + ' / ' + state.entries.length + ' 준비</span></div></div>' + changedNotice + (state.entries.length ? listMarkup() : '<p class="assist-answer-summary">준비할 서류가 없습니다. 다음 단계로 이동할 수 있어요.</p>') + documentRecordsMarkup() + '</section><aside class="assist-documents-summary">' + detailMarkup(entry) + progressMarkup() + contactsMarkup() + '</aside></div>'
+            + '<div class="assist-documents-layout"><section class="assist-document-list"><div class="document-list-heading"><h2>제출 서류</h2><div class="document-counts"><span>' + state.entries.filter((item) => displayState(item.key).prepared).length + ' / ' + state.entries.length + ' 준비</span></div></div>' + changedNotice + (state.entries.length ? '<div class="document-option-list" data-document-option-list role="region" aria-label="제출 서류 목록" tabindex="0">' + listMarkup() + '</div>' : '<p class="assist-answer-summary">준비할 서류가 없습니다. 다음 단계로 이동할 수 있어요.</p>') + documentRecordsMarkup() + '</section><aside class="assist-documents-summary">' + detailMarkup(entry) + progressMarkup() + contactsMarkup() + '</aside></div>'
             + '<p class="assist-answer-summary" role="status">' + moveHint() + '</p>' + (state.failed.get('_next') ? '<p class="assist-answer-summary" role="alert">' + escapeHtml(state.failed.get('_next').message) + '</p>' : '') + '<div class="assist-actions"><a class="bk-btn bk-btn--outline bk-btn--md"' + (state.pending.size || state.moving ? ' aria-disabled="true" tabindex="-1"' : '') + ' href="' + window.BokdeongiApplication.assistantUrl(1, state.application.id) + '">이전 단계</a><button class="bk-btn bk-btn--primary bk-btn--md" type="button" data-next-step' + (canMoveNext() ? '' : ' disabled') + '>서류 검토로 이동</button></div>';
+        const optionList = $('[data-document-option-list]');
+        if (optionList) optionList.scrollTop = listScrollTop;
         bindEvents();
     }
     function bindEvents() {
@@ -348,17 +355,13 @@
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
-    const $ = (selector) => document.querySelector(selector);
-    let theme = localStorage.getItem('bokdeongi-theme') || 'light';
-    const themeButton = $('[data-theme-toggle]');
-    document.documentElement.dataset.theme = theme;
-    themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드';
-    themeButton.setAttribute('aria-pressed', String(theme === 'dark'));
     document.addEventListener('click', (event) => {
         const unavailable = event.target.closest('[data-unavailable-page]');
-        if (unavailable) { event.preventDefault(); $('#toast').textContent = '이 페이지는 현재 준비 중입니다.'; $('#toast').hidden = false; return; }
-        if (event.target.closest('[data-theme-toggle]')) { theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('bokdeongi-theme', theme); themeButton.textContent = theme === 'dark' ? '라이트 모드' : '다크 모드'; themeButton.setAttribute('aria-pressed', String(theme === 'dark')); document.documentElement.dataset.theme = theme; return; }
-        const menu = event.target.closest('.menu-toggle');
-        if (menu) { const navigation = $('#site-navigation'); const open = navigation.classList.toggle('is-open'); menu.setAttribute('aria-expanded', String(open)); menu.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기'); }
+        if (unavailable) {
+            event.preventDefault();
+            const toast = document.querySelector('#toast');
+            toast.textContent = '이 페이지는 현재 준비 중입니다.';
+            toast.hidden = false;
+        }
     });
 });

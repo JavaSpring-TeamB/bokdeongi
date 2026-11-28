@@ -88,12 +88,26 @@ function formatEligibilityAmount(value) {
     }
     function questionsMarkup() {
         const questions = questionList();
-        if (!questions.length) return '<p class="assist-answer-summary">추가로 답할 질문이 없습니다.</p>';
-        return questions.map((question, index) => {
+        const otherChecks = state.eligibility.groups.flatMap((group) => group.conditions)
+            .filter((condition) => condition.status === 'CHECK' && condition.checkType !== 'QUESTION');
+        const guidance = otherChecks.map((condition) => {
+            const type = condition.checkType;
+            const action = type === 'PROFILE' || type === 'SENSITIVE'
+                ? '<a class="bk-btn bk-btn--outline bk-btn--sm" href="my-page.html">프로필 정보 확인·수정</a>'
+                : type === 'AGENCY' ? '<p>신청 전에 담당 기관에 조건을 문의해 주세요.</p>'
+                    : '<p>공고 원문과 해당 조건을 직접 확인해 주세요.</p>';
+            return '<div class="assist-check-guidance"><strong>' + escapeHtml(text(condition.label, '확인할 조건')) + '</strong><p>'
+                + escapeHtml(text(condition.guide, '이 조건을 추가로 확인해 주세요.')) + '</p>'
+                + (text(condition.sourceQuote) ? '<p>공고문 근거: ' + escapeHtml(condition.sourceQuote) + '</p>' : '') + action + '</div>';
+        }).join('');
+        const questionMarkup = questions.map((question, index) => {
             const selected = currentAnswer(question.key);
             const radios = ANSWERS.map(([value, label]) => '<label><input type="radio" name="question-' + escapeHtml(question.key) + '" value="' + value + '" data-question-key="' + escapeHtml(question.key) + '"' + (selected === value ? ' checked' : '') + (state.answerSaving || state.completing ? ' disabled' : '') + '> ' + label + '</label>').join('');
             return '<section class="assist-question__item"><strong>' + escapeHtml(question.text) + '</strong>' + (text(question.sourceQuote) ? '<p class="assist-answer-summary">공고문 근거: ' + escapeHtml(question.sourceQuote) + '</p>' : '') + '<fieldset><legend class="sr-only">추가 질문 ' + (index + 1) + '</legend>' + radios + '</fieldset></section>';
-        }).join('') + '<button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-save-answers' + (state.answerSaving || state.completing ? ' disabled' : '') + '>' + (state.answerSaving ? '답변 저장 중...' : '선택한 답변 저장') + '</button><p class="assist-answer-summary" role="' + (state.answerError ? 'alert' : 'status') + '">' + escapeHtml(state.answerMessage || '선택한 답변은 저장 버튼을 눌러 서버에 반영해 주세요.') + '</p>';
+        }).join('');
+        const save = questions.length ? '<button class="bk-btn bk-btn--secondary bk-btn--sm" type="button" data-save-answers' + (state.answerSaving || state.completing ? ' disabled' : '') + '>' + (state.answerSaving ? '답변 저장 중...' : '선택한 답변 저장') + '</button><p class="assist-answer-summary" role="' + (state.answerError ? 'alert' : 'status') + '">' + escapeHtml(state.answerMessage || '선택한 답변은 저장 버튼을 눌러 서버에 반영해 주세요.') + '</p>' : '';
+        return questionMarkup + save + guidance + (!questions.length && !otherChecks.length
+            ? '<p class="assist-answer-summary">현재 답변하거나 추가로 확인할 항목이 없습니다.</p>' : '');
     }
     function eligibleToProceed() {
         const next = state.eligibility?.next;

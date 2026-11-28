@@ -59,6 +59,9 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent);
 }
 
+[data-theme="dark"] .search-form:hover { border-color: var(--color-text-secondary); }
+[data-theme="dark"] .search-form:focus-within { border-color: var(--color-primary-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-text) 25%, transparent); }
+
 .search-form__icon {
     display: grid;
     flex: 0 0 44px;
@@ -97,7 +100,7 @@
 .btn {
     border: 1px solid var(--color-primary);
     background: var(--color-primary);
-    color: var(--color-white);
+    color: var(--color-on-primary);
 }
 
 .btn:hover {
@@ -106,7 +109,7 @@
 
 .btn.btn-secondary {
     background: var(--color-white);
-    color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .btn.btn-secondary:hover {
@@ -128,7 +131,7 @@
 .search-message {
     min-height: 20px;
     margin: 4px 0 0;
-    color: var(--color-danger);
+    color: var(--color-danger-text);
     font-size: var(--font-size-caption);
 }
 
@@ -164,6 +167,9 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
+
+[data-theme="dark"] .sort-select select:hover:not(:disabled) { border-color: var(--color-text-secondary); }
+[data-theme="dark"] .sort-select select:focus-visible { border-color: var(--color-primary-text); outline-color: var(--color-primary-text); }
 
 .benefit-content {
     display: grid;
@@ -248,7 +254,7 @@
 .filter-group__selected {
     flex: 0 0 auto;
     margin-left: auto;
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-size: var(--font-size-caption);
     font-weight: 600;
 }
@@ -466,6 +472,10 @@
     color: var(--color-text-secondary);
 }
 
+[data-theme="dark"] .status-badge--available { background: var(--color-status-green-bg); color: var(--color-status-green-text); }
+[data-theme="dark"] :is(.status-badge--upcoming, .status-badge--urgent) { background: var(--color-status-yellow-bg); color: var(--color-status-yellow-text); }
+[data-theme="dark"] :is(.status-badge--closing, .status-badge--closed) { background: var(--color-status-red-bg); color: var(--color-status-red-text); }
+
 .benefit-card h3 {
     margin: 0;
     font-size: var(--font-size-card-title);
@@ -501,7 +511,7 @@
 .benefit-card__info dd {
     min-width: 0;
     margin: 0;
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-size: var(--font-size-description);
     font-weight: 700;
     line-height: 1.4;
@@ -533,6 +543,8 @@
 .hash-tag:hover {
     background: var(--color-primary-light);
 }
+
+[data-theme="dark"] :is(.hash-tag, .suggested-keywords button) { color: var(--color-status-green-text); }
 
 .bookmark-button {
     display: inline-grid;

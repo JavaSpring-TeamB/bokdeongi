@@ -6,7 +6,7 @@
 .assist-review-page .assist-banner { background-color: var(--color-primary-light); background-image: url("../img/assist03_banner.png"); background-position: center; background-repeat: no-repeat; background-size: cover; }
 
 .assist-review-page .assist-steps--icon .assist-step.is-complete {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .assist-review-page .assist-steps--icon .assist-step.is-complete .assist-step__icon {
@@ -22,8 +22,8 @@
 }
 
 .review-card {
-    --review-status-column: 100px;
-    --review-action-column: 112px;
+    --review-status-column: 148px;
+    --review-action-column: 148px;
     --review-column-gap: var(--space-md);
     padding: var(--space-lg);
     border: 1px solid var(--color-border);
@@ -66,7 +66,8 @@
 
 .review-counts {
     display: flex;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: var(--space-sm);
@@ -107,7 +108,10 @@
     border-bottom-color: var(--color-border);
     border-radius: 0;
     background: transparent;
+    cursor: pointer;
 }
+
+.review-document--no-action { grid-template-columns: minmax(0, 1fr) max-content; }
 
 .review-document.is-selected {
     border-color: var(--color-primary);
@@ -129,7 +133,7 @@
     align-items: center;
     justify-content: center;
     min-width: 0;
-    min-height: 44px;
+    min-height: 34px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -142,12 +146,16 @@
 
 .review-document__select:hover,
 .review-document__select:focus-visible {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .review-document__action {
-    justify-self: center;
+    width: 100%;
+    justify-self: stretch;
     margin: 0;
+    padding-inline: var(--space-sm);
+    text-align: center;
+    white-space: normal;
 }
 
 .review-document h3,
@@ -173,6 +181,17 @@
     white-space: nowrap;
 }
 
+.review-document__status .status-badge {
+    min-height: 26px;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
 .status-badge.danger {
     background: color-mix(in srgb, var(--color-danger) 10%, var(--color-white));
     color: var(--color-danger);
@@ -181,6 +200,11 @@
 .status-badge.pending {
     background: var(--color-warning-light);
     color: var(--color-warning);
+}
+
+.review-document:is([data-document-row^="form:"], [data-document-row^="unknown:"]) .status-badge.pending {
+    background: var(--color-surface);
+    color: var(--color-text);
 }
 
 .review-detail__file {
@@ -219,6 +243,13 @@
     gap: var(--space-sm);
     margin-top: var(--space-md);
 }
+.review-category { margin-top: var(--space-md); }
+.review-category h3 { margin: 0 0 var(--space-sm); font-size: var(--font-size-description); }
+.review-local-preview { margin-top: var(--space-lg); border-top: 1px solid var(--color-border); padding-top: var(--space-md); }
+.review-local-preview h3 { margin: 0; font-size: var(--font-size-description); }
+.review-local-preview p { color: var(--color-text-secondary); font-size: var(--font-size-caption); overflow-wrap: anywhere; }
+.review-local-preview img, .review-local-preview iframe { display: block; width: 100%; max-height: 360px; border: 1px solid var(--color-border); border-radius: var(--radius-md); object-fit: contain; }
+.review-local-preview iframe { height: 360px; }
 
 .review-summary {
     display: grid;
@@ -291,16 +322,10 @@
     }
 
     .review-card {
-        --review-status-column: 80px;
-        --review-action-column: 100px;
-        --review-column-gap: 0;
+        --review-column-gap: var(--space-sm);
     }
 
     .review-document__select {
-        padding-inline: var(--space-sm);
-    }
-
-    .review-document__action {
         padding-inline: var(--space-sm);
     }
 
@@ -312,4 +337,14 @@
     .review-summary-card {
         padding: var(--space-md);
     }
+}
+
+@media (max-width: 620px) {
+    .review-heading { align-items: flex-start; }
+    .review-heading h2 { flex-basis: 100%; }
+    .review-counts { justify-content: flex-start; }
+    .review-document { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: var(--space-sm); }
+    .review-document__select { flex: 1 0 100%; padding: 0; }
+    .review-document__status { min-height: 0; }
+    .review-document__action { width: auto; max-width: 100%; margin-left: auto; }
 }

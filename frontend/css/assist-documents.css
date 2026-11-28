@@ -1,20 +1,23 @@
 .assist-documents-page .assist-steps--icon { max-width: 760px; margin: var(--space-lg) auto var(--space-xl); }
 .assist-documents-page .assist-banner { background-color: var(--color-primary-light); background-image: url("../img/assist02_banner.png"); background-position: center; background-repeat: no-repeat; background-size: cover; }
-.assist-documents-page .assist-steps--icon .assist-step.is-complete { color: var(--color-primary); }
+.assist-documents-page .assist-steps--icon .assist-step.is-complete { color: var(--color-primary-text); }
 .assist-documents-page .assist-steps--icon .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-on-primary); }
 
 .assist-documents-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); gap: var(--space-lg); margin-top: var(--space-lg); }
 .assist-document-list, .assist-documents-summary { padding: var(--space-lg); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-white); }
+.assist-documents-summary { align-self: start; }
 .document-list-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-sm); }
 .document-list-heading h2, .assist-document-detail h2, .progress-card h2 { margin: 0; font-size: var(--font-size-card-title); font-weight: 700; }
 .document-counts { display: flex; gap: 6px; font-size: var(--font-size-caption); }
 .document-counts span { padding: 3px 7px; border-radius: 999px; background: var(--color-surface); }
 .document-counts span:first-child { background: var(--color-primary-light); color: var(--color-primary); }
-.assist-document-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-md); width: 100%; margin: 0; padding: var(--space-md); border: 1px solid transparent; border-bottom-color: var(--color-border); border-radius: 0; background: transparent; color: var(--color-text); text-align: left; }
+.document-option-list { max-height: 16rem; overflow-y: auto; }
+.document-option-list:focus-visible { outline: 2px solid var(--color-primary-text); outline-offset: 2px; }
+.assist-document-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-md); width: 100%; margin: 0; padding: var(--space-sm) var(--space-md); border: 1px solid transparent; border-bottom-color: var(--color-border); border-radius: 0; background: transparent; color: var(--color-text); text-align: left; }
+.assist-document-option > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .assist-document-option.is-selected { border-color: var(--color-primary); border-radius: var(--radius-md); background: var(--color-primary-light); }
-.assist-document-option h3, .assist-document-option p { margin: 0; }
-.assist-document-option h3 { font-size: var(--font-size-description); }
-.assist-document-option p { color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+.assist-document-option h3 { margin: 0; font-size: var(--font-size-description); }
+.document-ocr-label { display: block; margin-top: var(--space-xs); color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .doc-state { font-size: var(--font-size-description); font-weight: 700; white-space: nowrap; }
 .doc-state.ready { color: var(--color-primary); }
 .doc-state.needed { color: var(--color-danger); }
@@ -28,7 +31,14 @@
 .selected-info div { display: flex; justify-content: space-between; gap: var(--space-sm); }
 .selected-info dt { color: var(--color-text-secondary); }
 .selected-info dd { margin: 0; text-align: right; font-weight: 600; }
-.document-complete { display: inline-flex; margin: var(--space-md) 0 0; padding: var(--space-sm); border-radius: var(--radius-md); background: var(--color-primary-light); font-size: var(--font-size-description); }
+.document-review-note { margin: var(--space-md) 0 0; padding: var(--space-sm) var(--space-md); border-radius: var(--radius-md); background: var(--color-primary-light); color: var(--color-text); font-size: var(--font-size-caption); line-height: 1.5; }
+.document-detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-md); }
+.document-prepared-control { cursor: pointer; }
+.document-prepared-control input { width: 16px; height: 16px; margin: 0; accent-color: var(--color-primary); }
+.document-prepared-control:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-on-primary); }
+.document-prepared-control:has(input:checked):hover { border-color: var(--color-primary-hover); background: var(--color-primary-hover); }
+.document-prepared-control:has(input:focus-visible) { outline: 3px solid var(--color-focus-ring); outline-offset: 3px; }
+.document-prepared-control:has(input:disabled) { cursor: not-allowed; opacity: .52; pointer-events: none; transform: none; }
 .progress-card { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
 .progress-card p { margin: 0; font-size: var(--font-size-caption); }
 .remembered-records { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
@@ -37,7 +47,7 @@
 .remembered-records ul { display: grid; gap: var(--space-sm); margin: 0; padding: 0; list-style: none; }
 .remembered-records li { padding: var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .remembered-records li > strong { display: inline-block; margin-right: var(--space-sm); }
-.remembered-records__match { color: var(--color-primary); font-size: var(--font-size-caption); font-weight: 700; }
+.remembered-records__match { color: var(--color-primary-text); font-size: var(--font-size-caption); font-weight: 700; }
 .remembered-records dl { display: grid; gap: var(--space-xs); margin: var(--space-sm) 0 0; font-size: var(--font-size-caption); }
 .remembered-records dl div { display: flex; justify-content: space-between; gap: var(--space-sm); }
 .remembered-records dt { color: var(--color-text-secondary); }
@@ -47,11 +57,14 @@
 .record-registration h3 { margin: 0; font-size: var(--font-size-description); }
 .record-registration label { font-size: var(--font-size-caption); font-weight: 700; }
 .record-registration input[type="date"] { width: 100%; min-height: 42px; padding: 0 var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); font: inherit; }
+[data-theme="dark"] .record-registration input[type="date"]:hover:not(:disabled) { border-color: var(--color-text-secondary); }
+[data-theme="dark"] .record-registration input[type="date"]:focus { border-color: var(--color-primary-text); outline: 2px solid var(--color-primary-text); outline-offset: 1px; }
+[data-theme="dark"] .record-registration input[type="date"]:disabled { background: var(--color-surface); }
 .record-registration__help, .remembered-records__error, .remembered-records__notice { margin: 0; font-size: var(--font-size-caption); }
 .record-registration__help { color: var(--color-text-secondary); }
 .remembered-records__error { color: var(--color-danger); }
-.remembered-records__notice { color: var(--color-primary); }
+.remembered-records__notice { color: var(--color-primary-text); }
 .progress-track { height: 10px; margin: var(--space-sm) 0; overflow: hidden; border-radius: 999px; background: var(--color-surface); }
 .progress-track span { display: block; height: 100%; background: var(--color-primary); }
 
-@media (max-width: 767px) { .assist-documents-layout { grid-template-columns: 1fr; } .assist-documents-summary { order: 2; } .assist-document-option { gap: var(--space-sm); } .doc-state { font-size: var(--font-size-caption); } }
+@media (max-width: 767px) { .assist-documents-layout { grid-template-columns: 1fr; } .assist-documents-summary { order: 2; } .document-option-list { max-height: none; overflow-y: visible; } .assist-document-option { gap: var(--space-sm); } .doc-state { font-size: var(--font-size-caption); } }
