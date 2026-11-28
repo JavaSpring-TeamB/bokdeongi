@@ -132,6 +132,7 @@ test('trims a query, resets to page one, and renders only API response data', as
   assert.match(elements['#result-area'].innerHTML, /청년 주거 지원/);
   assert.match(elements['#result-area'].innerHTML, /benefit-detail\.html\?id=88/);
   assert.match(elements['#result-area'].innerHTML, /#주거지원/);
+  assert.doesNotMatch(elements['#result-area'].innerHTML, /benefit-card__description|월세를 지원합니다/);
   assert.match(elements['#result-summary'].textContent, /7건 · 2페이지/);
 });
 

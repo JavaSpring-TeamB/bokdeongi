@@ -1,5 +1,6 @@
 .signup-complete__shell { grid-template-columns: minmax(0, 840px); justify-content: center; }
 .signup-complete__card { min-height: 500px; padding: var(--space-lg); }
+#signup-flow-card > [data-signup-step="complete"] > .signup-steps { display: none; }
 .signup-complete__card .assist-step.is-complete { color: var(--color-primary); }
 .signup-complete__card .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-white); }
 .signup-complete__message { display: grid; max-width: 520px; min-height: 370px; place-content: center; justify-items: center; margin: 0 auto; text-align: center; }

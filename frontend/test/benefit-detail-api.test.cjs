@@ -88,8 +88,8 @@ function createHarness(fetchImplementation) {
   };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(`${source}\n;globalThis.__benefitDetailHooks = { amountText, getPageMarkup, isBenefitDetailResponse, isSafeExternalUrl, loadDetail, parseBenefitId, parseHashtags, periodText, setup, state };`, context);
-  return { elements, hooks: context.__benefitDetailHooks, requests, window };
+  vm.runInContext(`${source}\n;globalThis.__benefitDetailHooks = { amountText, applicationMethodSource, documentSource, favoriteButtonMarkup, favoriteState, getPageMarkup, isBenefitDetailResponse, isSafeExternalUrl, loadDetail, measureApplicationInfo, parseBenefitId, parseHashtags, periodText, setup, state, toggleApplicationInfo };`, context);
+  return { context, document, elements, hooks: context.__benefitDetailHooks, requests, window };
 }
 
 test('accepts only positive, safe benefit IDs from the URL', () => {
@@ -117,6 +117,52 @@ test('requests the public detail API for the real benefit ID and renders DTO fie
   assert.match(elements['#detail-page'].innerHTML, /2026-01-01 ~ 2026-12-31/);
   assert.match(elements['#detail-page'].innerHTML, /https:\/\/agency\.example\/notice/);
   assert.match(elements['#detail-page'].innerHTML, /https:\/\/apply\.example\/form/);
+});
+
+test('shows disclosure only beyond five rendered lines and keeps the two items independent', () => {
+  const { context, document, hooks } = createHarness(() => response(200, detailPayload()));
+  const markup = hooks.getPageMarkup(detailPayload());
+  assert.match(markup, /data-application-info-text="target"/);
+  assert.match(markup, /data-application-info-text="method"/);
+  assert.match(markup, /aria-controls="application-info-target"/);
+
+  const text = (key, height) => {
+    const classes = new Set();
+    return {
+      dataset: { applicationInfoText: key },
+      scrollHeight: height,
+      classList: {
+        contains: (name) => classes.has(name),
+        remove: (name) => classes.delete(name),
+        toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name)
+      }
+    };
+  };
+  const target = text('target', 140);
+  const method = text('method', 80);
+  const button = () => ({ hidden: true, attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } });
+  const buttons = { target: button(), method: button() };
+  let lineHeight = 20;
+  context.getComputedStyle = () => ({ lineHeight: `${lineHeight}px` });
+  document.querySelectorAll = () => [target, method];
+  document.querySelector = (selector) => selector.includes('"target"') ? buttons.target : selector.includes('"method"') ? buttons.method : null;
+
+  hooks.measureApplicationInfo();
+  assert.equal(target.classList.contains('is-collapsed'), true);
+  assert.equal(buttons.target.hidden, false);
+  assert.equal(buttons.method.hidden, true);
+  hooks.toggleApplicationInfo('target');
+  assert.equal(target.classList.contains('is-collapsed'), false);
+  assert.equal(buttons.target.attributes['aria-expanded'], 'true');
+  assert.equal(buttons.method.hidden, true);
+
+  lineHeight = 30;
+  hooks.measureApplicationInfo();
+  assert.equal(buttons.target.hidden, true);
+  lineHeight = 20;
+  hooks.measureApplicationInfo();
+  assert.equal(buttons.target.hidden, false);
+  assert.equal(buttons.target.attributes['aria-expanded'], 'true');
 });
 
 test('does not substitute mock data for missing values or unsafe links', () => {
@@ -149,6 +195,56 @@ test('disables the application link when the API marks a benefit as ended', () =
 
   assert.match(markup, /종료된 혜택입니다/);
   assert.doesNotMatch(markup, /href="https:\/\/apply\.example\/form"/);
+});
+
+test('omits the banner status badge and labels documented status codes in the application card', () => {
+  const { hooks } = createHarness(() => response(200, detailPayload()));
+  const cases = [
+    [{ status: 'ACTIVE', ended: false }, '종료 전'],
+    [{ status: 'EXPIRED', ended: true }, '신청 기간 만료'],
+    [{ status: 'ENDED', ended: true }, '공고 종료'],
+    [{ status: 'UNRECOGNIZED', ended: false }, '상태 확인 필요']
+  ];
+  for (const [overrides, label] of cases) {
+    const markup = hooks.getPageMarkup(detailPayload(overrides));
+    assert.doesNotMatch(markup, /detail-status|benefit-info-bar__main/);
+    assert.match(markup, new RegExp(`<dt>공고 상태</dt><dd>${label}</dd>`));
+    assert.match(markup, /#청년/);
+  }
+});
+
+test('renders matching icon-only bookmark and share controls with accessible names', () => {
+  const { hooks } = createHarness(() => response(200, detailPayload()));
+  hooks.favoriteState.screen = 'RESULT';
+  hooks.favoriteState.bookmarked = false;
+  const markup = hooks.getPageMarkup(detailPayload());
+  assert.match(markup, /id="save-button"[^>]*aria-pressed="false"[^>]*aria-label="관심 혜택 저장"/);
+  assert.match(markup, /id="share-button"[^>]*aria-label="공유하기"[^>]*><svg[^>]*aria-hidden="true"/);
+  assert.doesNotMatch(markup, /id="share-button"[^>]*>공유하기</);
+  assert.match(markup, /id="save-button" class="icon-button detail-action-button/);
+  assert.match(markup, /id="share-button" class="icon-button detail-action-button/);
+
+  hooks.favoriteState.screen = 'RESULT';
+  hooks.favoriteState.bookmarked = true;
+  assert.match(hooks.favoriteButtonMarkup(), /is-saved[^>]*aria-pressed="true"[^>]*aria-label="관심 혜택 저장 해제"/);
+});
+
+test('structures clearly separated documents and numbered steps without splitting ambiguous prose', () => {
+  const { hooks } = createHarness(() => response(200, detailPayload()));
+  const documents = hooks.documentSource('- 신청서\n- 소득 증빙 서류\n- 주민등록등본');
+  assert.match(documents, /^<ul class="source-list source-list--documents">/);
+  for (const item of ['신청서', '소득 증빙 서류', '주민등록등본']) assert.match(documents, new RegExp(item));
+  assert.match(hooks.documentSource('신청서\n소득 증빙 서류'), /^<ul class="source-list source-list--documents">/);
+  assert.match(hooks.documentSource('신청서; 소득 증빙 서류'), /^<ul class="source-list source-list--documents">/);
+  const steps = hooks.applicationMethodSource('1. 신청서 작성 2. 기관 제출 3. 결과 확인');
+  assert.match(steps, /^<ol class="source-list source-list--steps">/);
+  for (const step of ['신청서 작성', '기관 제출', '결과 확인']) assert.match(steps, new RegExp(step));
+  assert.equal(hooks.documentSource('신청서와 소득 증빙 서류를 준비하세요.'), '<p>신청서와 소득 증빙 서류를 준비하세요.</p>');
+  assert.equal(hooks.applicationMethodSource('온라인으로 신청하고 결과를 확인하세요.'), '<p>온라인으로 신청하고 결과를 확인하세요.</p>');
+  const conditionalSteps = hooks.applicationMethodSource('1. 작성\n추가 조건\n2. 제출');
+  assert.match(conditionalSteps, /^<ol/);
+  assert.match(conditionalSteps, /작성\n추가 조건/);
+  assert.match(hooks.documentSource('- 신청서\n- <script>'), /&lt;script&gt;/);
 });
 
 test('renders a not-found state for API 404 without a detail fallback', async () => {

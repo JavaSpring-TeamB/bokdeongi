@@ -45,6 +45,7 @@
 .benefit-highlight span { color: var(--color-primary); }
 .benefit-description { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .benefit-summary__section { display: grid; gap: 5px; }
+.benefit-summary__list { display: grid; min-width: 0; max-height: 180px; gap: 5px; overflow-y: auto; }
 .benefit-summary__link { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-sm); color: var(--color-text); font-size: var(--font-size-caption); font-weight: 600; }
 .benefit-summary__link:hover { color: var(--color-primary); }
 .benefit-summary__link span { color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: 400; text-align: right; }
@@ -65,6 +66,7 @@ button.weekly-item { cursor: pointer; }
 .weekly-item--result { background: color-mix(in srgb, var(--color-info) 10%, var(--color-white)); }
 .weekly-item--result .weekly-item__count { color: var(--color-info); }
 .weekly-new-benefits { display: grid; margin-top: var(--space-sm); gap: 5px; }
+.weekly-new-benefits__list { display: grid; min-width: 0; max-height: 180px; gap: 5px; overflow-y: auto; }
 .weekly-list-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs); }
 .weekly-list-count, .weekly-list-empty { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .weekly-list-empty { padding: var(--space-sm); border-radius: var(--radius-sm); background: var(--color-surface); text-align: center; }
@@ -150,6 +152,7 @@ button.weekly-item { cursor: pointer; }
 }
 
 @media (max-width: 767px) {
+  .benefit-summary__list, .weekly-new-benefits__list { max-height: none; overflow-y: visible; }
   .home-hero { min-height: auto; margin-top: var(--space-lg); background-image: none; }
   .home-hero::before { position: absolute; top: 0; right: 0; width: 100%; height: 170px; background: url("../img/index_banner.png") center top / auto 170px no-repeat; content: ""; opacity: .34; }
   .home-hero__content { min-height: auto; flex-direction: column; align-items: stretch; padding: 28px 20px 20px; }

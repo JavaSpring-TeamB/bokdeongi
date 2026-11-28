@@ -569,6 +569,9 @@
     }
 
     function showState(message, options = {}) {
+        const updating = $('[data-recommend-update-status]');
+        updating.replaceChildren();
+        updating.hidden = true;
         $('[data-recommend-list]').replaceChildren(createState(message, options.role, options.retry));
         clearPagination();
     }
@@ -662,7 +665,7 @@
         return { top, content };
     }
 
-    function createCommonDetails(item, className = 'recommend-card__eligible-reason') {
+    function createCommonDetails(item, className = 'recommend-card__eligible-reason', includeHashtags = true) {
         const details = document.createElement('div');
         details.className = className;
 
@@ -676,7 +679,7 @@
         const tags = Array.isArray(item.hashtags)
             ? item.hashtags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => '#' + tag.trim())
             : [];
-        if (tags.length) {
+        if (includeHashtags && tags.length) {
             const tagLine = document.createElement('p');
             tagLine.className = 'recommend-card__description';
             tagLine.textContent = tags.join(' ');
@@ -697,7 +700,7 @@
             infoItem('신청 기간', item.period && item.period.text, '기간 정보 없음')
         );
 
-        const details = createCommonDetails(item);
+        const details = createCommonDetails(item, 'recommend-card__eligible-reason', false);
         const reasonTitle = document.createElement('strong');
         reasonTitle.textContent = '추천 이유';
         const reason = document.createElement('p');
@@ -1087,7 +1090,7 @@
         reasonText.textContent = text(nearMiss.reason, text(item.reason, '공고 조건을 확인해 주세요.'));
         reason.append(reasonTitle, reasonText);
 
-        const details = createCommonDetails(item, 'recommend-card__near-miss-reason');
+        const details = createCommonDetails(item, 'recommend-card__near-miss-reason', false);
         const actions = document.createElement('div');
         actions.className = 'recommend-card__actions';
         actions.append(createAction(item));
@@ -1140,10 +1143,10 @@
         queryState.page = responseInfo.page;
         pageRecoveryScope = null;
 
-        const fragment = document.createDocumentFragment();
+        const updating = $('[data-recommend-update-status]');
+        updating.replaceChildren();
+        updating.hidden = payload.updating !== true;
         if (payload.updating === true) {
-            const updating = document.createElement('div');
-            updating.className = 'recommend-update-status';
             const message = document.createElement('p');
             message.className = 'recommend-update-status__message';
             message.setAttribute('role', 'status');
@@ -1154,8 +1157,8 @@
             refresh.textContent = '결과 새로고침';
             refresh.addEventListener('click', () => refreshRecommendationsManually(refresh, message));
             updating.append(message, refresh);
-            fragment.append(updating);
         }
+        const fragment = document.createDocumentFragment();
         if (!payload.items.length) {
             fragment.append(createState(TABS[tabKey].empty));
             $('[data-recommend-list]').replaceChildren(fragment);

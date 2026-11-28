@@ -174,11 +174,20 @@
 }
 
 .filter-panel {
+    display: flex;
+    max-height: max(300px, calc(100dvh - 290px));
+    flex-direction: column;
     padding: 14px;
+}
+
+#filter-groups {
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .filter-panel__heading {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: space-between;
     padding-bottom: 10px;
@@ -216,6 +225,48 @@
     font-size: var(--font-size-caption);
 }
 
+.filter-group__toggle {
+    display: flex;
+    width: 100%;
+    min-height: 28px;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+}
+
+.filter-group__toggle > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.filter-group__selected {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--color-primary);
+    font-size: var(--font-size-caption);
+    font-weight: 600;
+}
+
+.filter-group__toggle::after {
+    flex: 0 0 auto;
+    content: "⌄";
+}
+
+.filter-group__toggle[aria-expanded="true"]::after {
+    transform: rotate(180deg);
+}
+
+.filter-group__toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
 .filter-options {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -238,6 +289,11 @@
     height: 16px;
     margin: 0;
     accent-color: var(--color-primary);
+}
+
+.filter-option span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .benefit-results {
@@ -341,13 +397,14 @@
 .benefit-list {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
     gap: var(--space-md);
 }
 
 .benefit-card {
     display: flex;
     min-width: 0;
-    min-height: 390px;
+    min-height: 0;
     flex-direction: column;
     padding: var(--space-md);
     border: 1px solid var(--color-border);
@@ -410,25 +467,14 @@
 }
 
 .benefit-card h3 {
-    display: -webkit-box;
     margin: 0;
-    overflow: hidden;
     font-size: var(--font-size-card-title);
     line-height: 1.4;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
 }
 
-.benefit-card__description {
-    display: -webkit-box;
-    min-height: calc(1.55em * 2);
-    margin: var(--space-sm) 0 0;
-    overflow: hidden;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-caption);
-    line-height: 1.55;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+.benefit-card__organization {
+    overflow-wrap: anywhere;
 }
 
 .benefit-card__info {
@@ -465,12 +511,12 @@
 .benefit-card__hashtags {
     min-width: 0;
     gap: 6px;
-    min-height: 34px;
-    padding-top: var(--space-sm);
-    border-top: 1px solid var(--color-border);
+    align-content: flex-start;
+    margin-top: var(--space-sm);
 }
 
 .hash-tag {
+    max-width: 100%;
     min-height: 26px;
     padding: 2px 9px;
     border: 1px solid transparent;
@@ -479,6 +525,8 @@
     color: var(--color-primary);
     font-size: 0.8125rem;
     font-weight: 600;
+    overflow-wrap: anywhere;
+    white-space: normal;
     cursor: pointer;
 }
 
@@ -527,7 +575,7 @@
 .benefit-card__actions {
     display: grid;
     margin-top: auto;
-    padding-bottom: var(--space-md);
+    padding-top: var(--space-md);
 }
 
 .benefit-card__detail {
@@ -567,7 +615,12 @@
     }
 
     .filter-panel {
+        max-height: none;
         padding: var(--space-md);
+    }
+
+    #filter-groups {
+        overflow-y: visible;
     }
 
     .result-controls {
@@ -585,6 +638,11 @@
     .state-panel p {
         font-size: var(--font-size-caption);
     }
+}
+
+@media (max-height: 600px) {
+    .filter-panel { max-height: none; }
+    #filter-groups { overflow-y: visible; }
 }
 
 @media (max-width: 430px) {
