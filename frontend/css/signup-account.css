@@ -53,3 +53,14 @@
 @media (max-width: 767px) { .signup-account__card .signup-steps .assist-step__label { font-size: 1.02rem; } }
 @media (max-width: 600px) { .signup-account { padding: var(--space-lg) 0 var(--space-xl); } .signup-account__shell { padding: var(--space-lg); } .signup-account__benefits { grid-template-columns: 1fr; } .signup-account__benefit { grid-template-columns: 42px minmax(0, 1fr); } .signup-account__card { padding: var(--space-lg); } .signup-account__card .signup-steps { margin-bottom: var(--space-lg); } .signup-form-row { grid-template-columns: 1fr; gap: var(--space-xs); } .signup-form-row > label { min-height: 34px; padding: 0; background: transparent; } .signup-account__form-heading { flex-direction: column; } .signup-account__required-note { padding-top: 0; } }
 @media (max-width: 400px) { .signup-account__shell { padding: var(--space-md); } .signup-account__card { padding: var(--space-md); } .signup-form-control__inline { flex-direction: column; } .signup-check-button { width: 100%; } }
+
+.signup-account:has(#signup-flow-card > :is([data-signup-step="account"], [data-signup-step="consent"], [data-signup-step="complete"]):not([hidden])),
+.signup-account:has(> .signup-account__shell > :is(.signup-consent, .signup-complete__card)) { padding: var(--space-md) 0; }
+#signup-flow-card > [data-signup-step="account"] { padding: 16px 18px; }
+#signup-flow-card > [data-signup-step="account"] .signup-steps { margin-bottom: 20px; }
+#signup-flow-card > [data-signup-step="account"] .signup-account__form-heading { padding-bottom: 12px; }
+#signup-account-form { gap: 12px; margin-top: var(--space-md); }
+
+.signup-account__shell:has(> :is(#signup-flow-card, .signup-consent, .signup-complete__card)) { grid-template-columns: minmax(0, 1fr); }
+.signup-account__shell:has(> :is(#signup-flow-card, .signup-consent, .signup-complete__card)) > .signup-account__intro { display: none; }
+.signup-account__shell:has(> :is(#signup-flow-card, .signup-consent, .signup-complete__card)) > :is(#signup-flow-card, .signup-consent, .signup-complete__card) { width: min(100%, 720px); justify-self: center; }

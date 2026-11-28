@@ -107,6 +107,8 @@ test('uses authenticatedFetch with the actual benefit ID and renders rule-engine
   assert.equal(requests[0].requestPath, '/api/benefits/123/eligibility');
   assert.equal(hooks.eligibilityState.screen, 'RESULT');
   assert.match(elements['#eligibility-panel'].innerHTML, /해당 가능성이 있어요/);
+  assert.match(elements['#eligibility-panel'].innerHTML, /class="eligibility-result" data-result="ELIGIBLE"/);
+  assert.match(elements['#eligibility-panel'].innerHTML, /class="eligibility-badge" data-status="MET"/);
   assert.match(elements['#eligibility-panel'].innerHTML, /모든 조건을 충족해요/);
   assert.match(elements['#eligibility-panel'].innerHTML, /나이/);
   assert.match(elements['#eligibility-panel'].innerHTML, /충족/);
@@ -138,6 +140,9 @@ test('renders CONDITIONAL, profile checks, and actual group condition statuses',
   await hooks.loadEligibility();
 
   assert.match(elements['#eligibility-panel'].innerHTML, /추가 확인이 필요해요/);
+  assert.match(elements['#eligibility-panel'].innerHTML, /class="eligibility-result" data-result="CONDITIONAL"/);
+  assert.match(elements['#eligibility-panel'].innerHTML, /class="eligibility-badge" data-status="CHECK"/);
+  assert.match(elements['#eligibility-panel'].innerHTML, /class="eligibility-badge" data-status="NOT_MET"/);
   assert.match(elements['#eligibility-panel'].innerHTML, /확인 필요/);
   assert.match(elements['#eligibility-panel'].innerHTML, /미충족/);
   assert.match(elements['#eligibility-panel'].innerHTML, /프로필 입력으로 이동/);
@@ -153,6 +158,7 @@ test('renders INELIGIBLE from the API without recalculating it in the client', a
   await hooks.loadEligibility();
 
   assert.equal(hooks.eligibilityState.response.result, 'INELIGIBLE');
+  assert.match(elements['#eligibility-panel'].innerHTML, /class="eligibility-result" data-result="INELIGIBLE"/);
   assert.match(elements['#eligibility-panel'].innerHTML, /현재 조건에서는 해당하지 않아요/);
 });
 

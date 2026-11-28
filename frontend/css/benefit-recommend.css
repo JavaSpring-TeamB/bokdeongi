@@ -226,10 +226,12 @@
 
 .recommend-update-status {
     display: flex;
+    width: 100%;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-sm);
-    margin: 0;
+    margin: 0 0 var(--space-sm);
     padding: var(--space-sm) var(--space-md);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -482,6 +484,38 @@
     line-height: 1.5;
 }
 
+.recommend-card--eligible .recommend-card__detail {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 96px) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-sm);
+}
+
+.recommend-card--eligible .recommend-card__eligible-reason > .recommend-card__detail:first-of-type {
+    margin-top: var(--space-md);
+}
+
+.recommend-card--eligible .recommend-card__detail strong,
+.recommend-card--eligible .recommend-card__detail span {
+    min-width: 0;
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.recommend-card--eligible .recommend-card__detail strong {
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    text-align: left;
+}
+
+.recommend-card--eligible .recommend-card__detail span {
+    color: var(--color-text);
+    font-weight: 600;
+    text-align: right;
+}
+
 .recommend-card--eligible .recommend-card__actions {
     margin-top: auto;
 }
@@ -610,6 +644,25 @@
 .conditional-question__submission {
     display: grid;
     gap: var(--space-xs);
+}
+
+.recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary {
+    border-color: var(--color-warning-light);
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+}
+
+.recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary:hover:not(:disabled) {
+    border-color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning-light) 80%, var(--color-warning));
+}
+
+.recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary:active:not(:disabled) {
+    background: var(--color-warning-light);
+}
+
+.recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary:focus-visible {
+    outline-color: var(--color-warning);
 }
 
 .conditional-question__submission-status {
@@ -751,8 +804,59 @@
     border-top: 1px solid var(--color-border);
 }
 
+.recommend-card--near-miss .recommend-card__near-miss-reason > .recommend-card__detail:first-child {
+    margin-top: var(--space-sm);
+}
+
+.recommend-card--near-miss .recommend-card__detail {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 96px) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-sm);
+}
+
+.recommend-card--near-miss .recommend-card__detail strong,
+.recommend-card--near-miss .recommend-card__detail span {
+    min-width: 0;
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.recommend-card--near-miss .recommend-card__detail strong {
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    text-align: left;
+}
+
+.recommend-card--near-miss .recommend-card__detail span {
+    color: var(--color-text);
+    font-weight: 600;
+    text-align: right;
+}
+
 .recommend-card--near-miss .recommend-card__actions {
     margin-top: auto;
+}
+
+.recommend-card--near-miss .recommend-card__action-links .bk-btn--primary {
+    border-color: var(--color-danger);
+    background: var(--color-danger);
+    color: var(--color-on-primary);
+}
+
+.recommend-card--near-miss .recommend-card__action-links .bk-btn--primary:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-danger) 85%, var(--color-text));
+    background: color-mix(in srgb, var(--color-danger) 85%, var(--color-text));
+}
+
+.recommend-card--near-miss .recommend-card__action-links .bk-btn--primary:focus-visible {
+    outline-color: var(--color-danger);
+}
+
+.recommend-card--near-miss .recommend-card__action-links .bk-btn--primary:active:not(:disabled) {
+    background: var(--color-danger);
 }
 
 .recommend-empty-state {

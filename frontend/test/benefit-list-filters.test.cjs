@@ -26,7 +26,8 @@ function createHarness(search = '', searchFetch = () => response(200, searchPayl
     '#toast': element(), '#result-summary': element(), '#result-area': element(),
     '#benefit-search-input': element(), '#search-message': element(),
     '#filter-groups': element(), '#filter-reset': element(), '#sort-order': element(),
-    '#benefit-search-form': element(), '#hashtag-suggestions': element()
+    '#benefit-search-form': element(), '#hashtag-suggestions': element(),
+    '#filter-group-content-status': element(), '#filter-group-content-field': element(), '#filter-group-content-target': element()
   };
   const requests = [];
   const historyCalls = [];
@@ -50,7 +51,7 @@ function createHarness(search = '', searchFetch = () => response(200, searchPayl
   };
   context.globalThis = context;
   vm.createContext(context);
-  vm.runInContext(`${source}\n;globalThis.__filterHooks = { applyKeywordFromUrl, buildRequestPath, hashtagState, renderFilters, requestBenefits, runSearch, searchByHashtag, state, updateFilterSelection };`, context);
+  vm.runInContext(`${source}\n;globalThis.__filterHooks = { applyKeywordFromUrl, buildRequestPath, filterGroupExpanded, hashtagState, renderFilters, requestBenefits, runSearch, searchByHashtag, state, toggleFilterGroup, updateFilterSelection };`, context);
   return { elements, historyCalls, hooks: context.__filterHooks, requests, window };
 }
 
@@ -111,6 +112,28 @@ test('restores URL filter selections without issuing a request until the caller 
   assert.deepEqual([...hooks.state.targets], ['노인']);
   assert.equal(elements['#benefit-search-input'].value, '청년');
   assert.equal(requests.length, 0);
+  assert.equal(hooks.filterGroupExpanded.target, true);
+});
+
+test('toggles filter groups independently without clearing selections or requesting benefits', () => {
+  const { elements, hooks, requests } = createHarness();
+  hooks.state.fields = ['주거'];
+  hooks.renderFilters();
+  assert.match(elements['#filter-groups'].innerHTML, /data-filter-toggle="target" aria-expanded="false"/);
+
+  const attributes = {};
+  const button = { dataset: { filterToggle: 'field' }, setAttribute: (name, value) => { attributes[name] = value; } };
+  hooks.toggleFilterGroup(button);
+  assert.equal(elements['#filter-group-content-field'].hidden, true);
+  assert.equal(attributes['aria-expanded'], 'false');
+  assert.deepEqual([...hooks.state.fields], ['주거']);
+  assert.equal(requests.length, 0);
+
+  hooks.renderFilters();
+  assert.match(elements['#filter-groups'].innerHTML, /data-filter-toggle="field" aria-expanded="false"[^>]*>.*선택 1/);
+  hooks.toggleFilterGroup(button);
+  assert.equal(elements['#filter-group-content-field'].hidden, false);
+  assert.equal(hooks.filterGroupExpanded.target, false);
 });
 
 test('keeps status filters usable but asks an unauthenticated visitor to log in for server tag filters', () => {

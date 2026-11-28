@@ -2,14 +2,17 @@
 .signup-consent .assist-step.is-complete { color: var(--color-primary); }
 .signup-consent .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-white); }
 
-#signup-consent-form { margin-top: var(--space-lg); }
+.signup-consent { padding: 16px 18px; }
+.signup-consent .signup-steps { margin-bottom: 20px; }
+.signup-consent .signup-account__form-heading { padding-bottom: 12px; }
+#signup-consent-form { margin-top: var(--space-md); }
 .signup-consent__fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
-.signup-consent__all { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--radius-md); background: var(--color-primary-light); }
+.signup-consent__all { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-primary-light); }
 .signup-consent input { width: 20px; height: 20px; flex: 0 0 auto; margin: 0; accent-color: var(--color-primary); }
 .signup-consent__all label { display: grid; cursor: pointer; line-height: 1.35; }
 .signup-consent__all label span { margin-top: 2px; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .signup-consent__list { margin: var(--space-sm) 0 0; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); list-style: none; }
-.signup-consent__item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 58px; padding: 9px 14px; border-bottom: 1px solid var(--color-border); }
+.signup-consent__item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 54px; padding: 9px 14px; border-bottom: 1px solid var(--color-border); }
 .signup-consent__item:last-child { border-bottom: 0; }
 .signup-consent__item label { display: flex; min-width: 0; align-items: center; gap: var(--space-sm); cursor: pointer; font-size: var(--font-size-description); font-weight: 600; overflow-wrap: anywhere; }
 .signup-consent__badge { flex: 0 0 auto; color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: 500; }

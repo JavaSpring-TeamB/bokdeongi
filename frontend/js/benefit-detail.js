@@ -47,6 +47,8 @@ const askState = {
 
 let detailRequestId = 0;
 let activeController = null;
+let applicationInfoObserver = null;
+const applicationInfoExpanded = { target: false, method: false };
 let easyRequestId = 0;
 let easyController = null;
 let eligibilityRequestId = 0;
@@ -248,6 +250,10 @@ function bookmarkIcon() {
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12v17l-6-3.8-6 3.8z"></path></svg>';
 }
 
+function shareIcon() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2"></circle><circle cx="6" cy="12" r="2"></circle><circle cx="18" cy="19" r="2"></circle><path d="m8 11 8-5M8 13l8 5"></path></svg>';
+}
+
 function favoriteButtonMarkup() {
     const saved = favoriteState.screen === 'RESULT' && favoriteState.bookmarked === true;
     const loading = ['IDLE', 'LOADING', 'PENDING'].includes(favoriteState.screen);
@@ -266,7 +272,16 @@ function favoriteButtonMarkup() {
     const disabled = loading ? ' disabled aria-disabled="true"' : '';
     const busy = loading ? ' aria-busy="true"' : '';
     const stateClass = saved ? ' is-saved' : '';
-    return '<button id="save-button" class="icon-button icon-button--bookmark' + stateClass + '" type="button" aria-pressed="' + String(saved) + '" aria-label="' + label + '" title="' + title + '"' + busy + disabled + '>' + bookmarkIcon() + '</button><span id="favorite-status" class="sr-only" aria-live="polite"></span>';
+    return '<button id="save-button" class="icon-button detail-action-button icon-button--bookmark' + stateClass + '" type="button" aria-pressed="' + String(saved) + '" aria-label="' + label + '" title="' + title + '"' + busy + disabled + '>' + bookmarkIcon() + '</button><span id="favorite-status" class="sr-only" aria-live="polite"></span>';
+}
+
+function benefitStatusLabel(detail) {
+    const status = hasText(detail.status) ? detail.status.trim() : '';
+    if (status === 'EXPIRED') return '신청 기간 만료';
+    if (status === 'ENDED') return '공고 종료';
+    if (detail.ended) return '종료';
+    if (status === 'ACTIVE') return '종료 전';
+    return '상태 확인 필요';
 }
 
 function getPageMarkup(detail) {
@@ -274,13 +289,12 @@ function getPageMarkup(detail) {
     const tags = hashtags.length
         ? '<div class="benefit-info-bar__tags">' + hashtags.map((tag) => '<button class="detail-tag" type="button" data-hashtag="' + escapeHtml(tag) + '">#' + escapeHtml(tag) + '</button>').join('') + '</div>'
         : '';
-    const status = detail.ended ? '종료' : (hasText(detail.status) ? detail.status.trim() : '상태 정보 없음');
     const title = hasText(detail.title) ? detail.title.trim() : '혜택 상세';
 
     return [
         '<section class="detail-title-row">',
-        '<div class="benefit-info-bar"><div class="benefit-info-bar__main"><span class="detail-status">' + escapeHtml(status) + '</span></div>' + tags + '<small>데이터 기준: ' + escapeHtml(syncedAtText(detail.syncedAt)) + '</small></div>',
-        '<div class="detail-actions">' + favoriteButtonMarkup() + '<button id="share-button" class="icon-button" type="button">공유하기</button></div></section>',
+        '<div class="benefit-info-bar">' + tags + '<small>데이터 기준: ' + escapeHtml(syncedAtText(detail.syncedAt)) + '</small></div>',
+        '<div class="detail-actions">' + favoriteButtonMarkup() + '<button id="share-button" class="icon-button detail-action-button" type="button" aria-label="공유하기" title="공유하기">' + shareIcon() + '</button></div></section>',
         '<div class="detail-layout"><section class="detail-main">',
         '<div class="tabs" role="tablist" aria-label="혜택 상세 정보">',
         '<button class="tab-button" role="tab" id="tab-easy" aria-selected="true" aria-controls="panel-easy" data-tab="easy">쉬운 말 보기</button>',
@@ -406,7 +420,7 @@ function eligibilityPanelContent() {
     const next = hasText(response.next?.message)
         ? '<p class="eligibility-notice">' + escapeHtml(response.next.message.trim()) + '</p>'
         : '';
-    return '<div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2><span class="eligibility-result">' + escapeHtml(eligibilityResultLabel(response.result)) + '</span></div><p class="small-copy">' + escapeHtml(hasText(response.summary) ? response.summary.trim() : '판정 요약 정보가 제공되지 않았습니다.') + '</p>' + profileAction + groups + next;
+    return '<div class="eligibility-card__heading"><h2>내 자격 확인 결과</h2><span class="eligibility-result" data-result="' + escapeHtml(response.result) + '">' + escapeHtml(eligibilityResultLabel(response.result)) + '</span></div><p class="small-copy">' + escapeHtml(hasText(response.summary) ? response.summary.trim() : '판정 요약 정보가 제공되지 않았습니다.') + '</p>' + profileAction + groups + next;
 }
 
 function eligibilityGroupMarkup(group) {
@@ -415,7 +429,7 @@ function eligibilityGroupMarkup(group) {
         const expected = hasText(condition.expected) ? condition.expected.trim() : '요구 조건 정보 없음';
         const sourceQuote = hasText(condition.sourceQuote) ? condition.sourceQuote.trim() : '근거 확인 필요';
         const guide = hasText(condition.guide) ? '<p class="evidence-copy">' + escapeHtml(condition.guide.trim()) + '</p>' : '';
-        return '<tr class="eligibility-row"><th scope="row">' + escapeHtml(hasText(condition.label) ? condition.label.trim() : '조건') + '</th><td>' + escapeHtml(expected) + '</td><td><span class="eligibility-badge">' + escapeHtml(eligibilityConditionLabel(condition.status)) + '</span></td><td>' + escapeHtml(sourceQuote) + guide + '</td></tr>';
+        return '<tr class="eligibility-row"><th scope="row">' + escapeHtml(hasText(condition.label) ? condition.label.trim() : '조건') + '</th><td>' + escapeHtml(expected) + '</td><td><span class="eligibility-badge" data-status="' + escapeHtml(condition.status) + '">' + escapeHtml(eligibilityConditionLabel(condition.status)) + '</span></td><td>' + escapeHtml(sourceQuote) + guide + '</td></tr>';
     }).join('');
     return '<section class="eligibility-group"><h3>' + escapeHtml(title) + ' · ' + escapeHtml(eligibilityConditionLabel(group.status)) + '</h3><div class="eligibility-table-wrap"><table class="eligibility-table"><colgroup><col class="eligibility-table__condition"><col class="eligibility-table__detail"><col class="eligibility-table__status"><col class="eligibility-table__evidence"></colgroup><thead><tr><th>조건</th><th>요구 조건</th><th>판정</th><th>공고문 근거</th></tr></thead><tbody>' + conditions + '</tbody></table></div></section>';
 }
@@ -991,11 +1005,44 @@ function originalPanel(detail) {
     return '<section class="tab-panel" id="panel-original" role="tabpanel" aria-labelledby="tab-original" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래 내용은 공고에서 제공된 원문 정보입니다. 최신 내용은 공식 공고문을 확인해주세요.</p></div><div class="notice-heading"><h2>공고문 원문</h2><div class="notice-heading__actions"><span>공식 공고 자료</span><div class="detail-actions">' + externalLink(detail.detailUrl, '공고문 바로가기', '공식 공고문 없음') + '<button class="icon-button" type="button" disabled aria-disabled="true">PDF 자료 없음</button></div></div></div><div class="notice-viewer"><article class="notice-document">' + content + '</article></div></section>';
 }
 
+function numberedSourceItems(text) {
+    const markers = [...text.matchAll(/(?:^|\s)(\d+)[.)]\s+/g)];
+    if (markers.length < 2 || markers[0].index !== 0) return null;
+    if (!markers.every((marker, index) => Number(marker[1]) === index + 1)) return null;
+    const items = markers.map((marker, index) => text.slice(marker.index + marker[0].length, markers[index + 1]?.index ?? text.length).trim());
+    return items.every(Boolean) ? items : null;
+}
+
+function sourceList(items, ordered) {
+    const tag = ordered ? 'ol' : 'ul';
+    const style = ordered ? 'source-list source-list--steps' : 'source-list source-list--documents';
+    return '<' + tag + ' class="' + style + '">' + items.map((item) => '<li>' + escapeHtml(item) + '</li>').join('') + '</' + tag + '>';
+}
+
+function documentSource(text) {
+    const numbered = numberedSourceItems(text);
+    if (numbered) return sourceList(numbered, true);
+    const lines = text.split(/\r\n|\r|\n/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length < 2) {
+        const separated = text.split(/\s*;\s*/).map((item) => item.trim());
+        return separated.length > 1 && separated.every(Boolean) ? sourceList(separated, false) : '<p>' + escapeHtml(text) + '</p>';
+    }
+    const bullets = lines.map((line) => line.match(/^[-*•●]\s+(.+)$/));
+    if (bullets.every(Boolean)) return sourceList(bullets.map((match) => match[1]), false);
+    if (lines.every((line) => !/^(?:[-*•●]|\d+[.)])\s+/.test(line))) return sourceList(lines, false);
+    return '<p>' + escapeHtml(text) + '</p>';
+}
+
+function applicationMethodSource(text) {
+    const steps = numberedSourceItems(text);
+    return steps ? sourceList(steps, true) : '<p>' + escapeHtml(text) + '</p>';
+}
+
 function documentsPanel(detail) {
     if (isMissing(detail, 'requiredDocsText')) {
         return '<section class="tab-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden>' + panelNotice('신청에 필요한 서류', '필요 서류 정보가 제공되지 않았습니다. 공식 공고문에서 확인해 주세요.') + '</section>';
     }
-    return '<section class="tab-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래는 공고에 제공된 필요 서류 원문입니다.</p></div><section class="source-card"><h2>신청에 필요한 서류</h2><p>' + escapeHtml(detail.requiredDocsText.trim()) + '</p></section></section>';
+    return '<section class="tab-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래는 공고에 제공된 필요 서류 원문입니다.</p></div><section class="source-card"><h2>신청에 필요한 서류</h2>' + documentSource(detail.requiredDocsText.trim()) + '</section></section>';
 }
 
 function applyPanel(detail) {
@@ -1004,7 +1051,14 @@ function applyPanel(detail) {
     const applicationButton = hasApplyLink
         ? '<a class="btn primary-button" href="' + escapeHtml(detail.onlineApplyUrl) + '" target="_blank" rel="noopener noreferrer">공식 신청 사이트 바로가기 ↗</a>'
         : '<button class="btn primary-button" type="button" disabled aria-disabled="true">' + (detail.ended ? '종료된 혜택입니다' : '공식 신청 링크 없음') + '</button>';
-    return '<section class="tab-panel" id="panel-apply" role="tabpanel" aria-labelledby="tab-apply" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래는 공고에 제공된 신청 방법 원문입니다.</p></div><section class="source-card"><h2>신청 방법</h2><p>' + escapeHtml(method) + '</p></section><section class="application-cta"><div><h3>공식 사이트에서 신청하기</h3><p>' + (detail.ended ? '이 혜택은 종료되어 신청할 수 없습니다.' : '신청 가능 여부와 제출 방법은 공식 공고를 확인해주세요.') + '</p></div>' + applicationButton + '</section></section>';
+    return '<section class="tab-panel" id="panel-apply" role="tabpanel" aria-labelledby="tab-apply" hidden><div class="notice-intro"><span class="notice-intro__icon" aria-hidden="true">i</span><p>아래는 공고에 제공된 신청 방법 원문입니다.</p></div><section class="source-card"><h2>신청 방법</h2>' + applicationMethodSource(method) + '</section><section class="application-cta"><div><h3>공식 사이트에서 신청하기</h3><p>' + (detail.ended ? '이 혜택은 종료되어 신청할 수 없습니다.' : '신청 가능 여부와 제출 방법은 공식 공고를 확인해주세요.') + '</p></div>' + applicationButton + '</section></section>';
+}
+
+function expandableApplicationInfo(label, text, key) {
+    const textId = 'application-info-' + key;
+    return '<div><dt>' + label + '</dt><dd><span class="application-info__text" id="' + textId + '" data-application-info-text="' + key + '">' + escapeHtml(text)
+        + '</span><button class="application-info__toggle" type="button" data-application-info-toggle="' + key
+        + '" aria-controls="' + textId + '" aria-expanded="false" hidden>전체 내용 보기 <span aria-hidden="true">▼</span></button></dd></div>';
 }
 
 function sidebar(detail) {
@@ -1013,7 +1067,7 @@ function sidebar(detail) {
     const assistantButton = detail.ended
         ? '<button id="assistant-button" class="btn primary-button" type="button" disabled aria-disabled="true">종료된 혜택입니다</button>'
         : '<button id="assistant-button" class="btn primary-button" type="button">AI 신청 도우미로 시작하기</button>';
-    return '<aside class="detail-sidebar"><section class="card"><h2>신청 정보</h2><dl class="application-info"><div><dt>공고 상태</dt><dd>' + escapeHtml(detail.ended ? '종료' : (detail.status || '정보 제공되지 않음')) + '</dd></div><div><dt>지원 대상</dt><dd>' + escapeHtml(target) + '</dd></div><div><dt>지원 금액</dt><dd>' + escapeHtml(amountText(detail)) + '</dd></div><div><dt>신청 기간</dt><dd>' + escapeHtml(periodText(detail)) + '</dd></div><div><dt>신청 방법</dt><dd>' + escapeHtml(method) + '</dd></div></dl>' + assistantButton + '</section>' + askPanel() + '</aside>';
+    return '<aside class="detail-sidebar"><section class="card"><h2>신청 정보</h2><dl class="application-info"><div><dt>공고 상태</dt><dd>' + escapeHtml(benefitStatusLabel(detail)) + '</dd></div>' + expandableApplicationInfo('지원 대상', target, 'target') + '<div><dt>지원 금액</dt><dd>' + escapeHtml(amountText(detail)) + '</dd></div><div><dt>신청 기간</dt><dd>' + escapeHtml(periodText(detail)) + '</dd></div>' + expandableApplicationInfo('신청 방법', method, 'method') + '</dl>' + assistantButton + '</section>' + askPanel() + '</aside>';
 }
 
 function loadingMarkup() {
@@ -1033,7 +1087,31 @@ function errorMarkup() {
     return '<section class="card empty-state"><h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(description) + '</p>' + retry + '<a class="btn btn-secondary" href="benefit-list.html">목록으로 돌아가기</a></section>';
 }
 
+function measureApplicationInfo() {
+    document.querySelectorAll('[data-application-info-text]').forEach((text) => {
+        const key = text.dataset.applicationInfoText;
+        const button = $('[data-application-info-toggle="' + key + '"]');
+        if (!button) return;
+        text.classList.remove('is-collapsed');
+        const lineHeight = parseFloat(getComputedStyle(text).lineHeight);
+        const isLong = Number.isFinite(lineHeight) && text.scrollHeight > lineHeight * 5 + 1;
+        const expanded = isLong && applicationInfoExpanded[key];
+        text.classList.toggle('is-collapsed', isLong && !expanded);
+        button.hidden = !isLong;
+        button.setAttribute('aria-expanded', String(Boolean(expanded)));
+        button.innerHTML = expanded ? '접기 <span aria-hidden="true">▲</span>' : '전체 내용 보기 <span aria-hidden="true">▼</span>';
+    });
+}
+
+function toggleApplicationInfo(key) {
+    if (!Object.hasOwn(applicationInfoExpanded, key)) return;
+    applicationInfoExpanded[key] = !applicationInfoExpanded[key];
+    measureApplicationInfo();
+}
+
 function render() {
+    if (applicationInfoObserver) applicationInfoObserver.disconnect();
+    applicationInfoObserver = null;
     const page = $('#detail-page');
     const banner = $('#detail-banner-copy');
     if (state.screen === 'LOADING') {
@@ -1052,6 +1130,12 @@ function render() {
     const summary = summaryLines(detail)[0] || '공고 상세 정보를 확인하세요.';
     banner.innerHTML = '<h1>' + escapeHtml(title) + '</h1><p>' + escapeHtml(summary) + '</p>';
     page.innerHTML = getPageMarkup(detail);
+    measureApplicationInfo();
+    const info = $('.application-info');
+    if (info && typeof ResizeObserver !== 'undefined') {
+        applicationInfoObserver = new ResizeObserver(() => measureApplicationInfo());
+        applicationInfoObserver.observe(info);
+    }
 }
 
 async function readErrorMessage(response) {
@@ -1103,6 +1187,8 @@ async function markHomeActivityBenefitAsSeen(id) {
 async function loadDetail(id) {
     const requestId = ++detailRequestId;
     if (activeController) activeController.abort();
+    applicationInfoExpanded.target = false;
+    applicationInfoExpanded.method = false;
     resetEasyState(null);
     resetEligibilityState(null);
     resetFavoriteState(null);
@@ -1226,6 +1312,11 @@ async function startAssistant() {
 function setup() {
     const id = parseBenefitId(new URLSearchParams(window.location.search).get('id'));
     document.addEventListener('click', (event) => {
+        const infoToggle = event.target.closest('[data-application-info-toggle]');
+        if (infoToggle) {
+            toggleApplicationInfo(infoToggle.dataset.applicationInfoToggle);
+            return;
+        }
         const tab = event.target.closest('.tab-button');
         if (tab) selectTab(tab);
 

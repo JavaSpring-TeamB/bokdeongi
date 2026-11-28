@@ -318,12 +318,12 @@ function renderBenefitSummary(data) {
   const closingSoon = data.closingSoon.slice(0, 5);
   const sections = [];
   if (recommendations.length) {
-    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">맞춤 추천</p>${recommendations.map((item) => benefitLink(item, item.reason)).join('')}</section>`);
+    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">맞춤 추천</p><div class="benefit-summary__list">${recommendations.map((item) => benefitLink(item, item.reason)).join('')}</div></section>`);
   } else if (nearMiss.length) {
-    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">조금만 더 확인하면 신청할 수 있어요.</p>${nearMiss.map((item) => benefitLink(item, item.reason)).join('')}</section>`);
+    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">조금만 더 확인하면 신청할 수 있어요.</p><div class="benefit-summary__list">${nearMiss.map((item) => benefitLink(item, item.reason)).join('')}</div></section>`);
   }
   if (closingSoon.length) {
-    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">마감 임박 혜택</p>${closingSoon.map((item) => benefitLink(item, item.applyEnd ? `${item.applyEnd} · D-${item.dDay}` : '')).join('')}</section>`);
+    sections.push(`<section class="benefit-summary__section"><p class="benefit-description">마감 임박 혜택</p><div class="benefit-summary__list">${closingSoon.map((item) => benefitLink(item, item.applyEnd ? `${item.applyEnd} · D-${item.dDay}` : '')).join('')}</div></section>`);
   }
   target.innerHTML = sections.length
     ? `${statistics}${sections.join('')}`
@@ -379,7 +379,7 @@ function newEligibleActivityMarkup(items) {
   const more = items.length > 4
     ? '<button type="button" class="weekly-more-button" data-weekly-more>다른 혜택 보기</button>'
     : '';
-  return `<section class="weekly-new-benefits"><div class="weekly-list-heading"><p class="benefit-description">미확인 새로 해당 혜택</p><a class="weekly-more-link" href="benefit-recommend.html">맞춤 혜택 더 보기</a></div>${countNote}${links || empty}${more}</section>`;
+  return `<section class="weekly-new-benefits"><div class="weekly-list-heading"><p class="benefit-description">미확인 새로 해당 혜택</p><a class="weekly-more-link" href="benefit-recommend.html">맞춤 혜택 더 보기</a></div>${countNote}${links ? `<div class="weekly-new-benefits__list">${links}</div>` : empty}${more}</section>`;
 }
 
 function closingSoonActivityMarkup(summary) {
@@ -397,7 +397,7 @@ function closingSoonActivityMarkup(summary) {
     ? `<p class="weekly-list-count">주간 집계 ${count}건 · 상세 ${current.length}건 표시</p>`
     : `<p class="weekly-list-count">주간 집계 ${count}건 · 서버가 제공한 상세 목록 ${available.length}건 중 ${current.length}건 표시</p>`;
   const links = available.slice(0, 4).map((item) => `<a class="benefit-summary__link weekly-new-benefit" href="benefit-detail.html?id=${encodeURIComponent(String(item.benefitId))}" title="${escapeHtml(item.title)}"><span class="weekly-new-benefit__title">${escapeHtml(item.title)}</span><span>${escapeHtml(item.applyEnd || '')}</span></a>`).join('');
-  return `<section class="weekly-new-benefits">${heading}${countNote}${links}</section>`;
+  return `<section class="weekly-new-benefits">${heading}${countNote}<div class="weekly-new-benefits__list">${links}</div></section>`;
 }
 
 function showOtherWeeklyBenefits() {

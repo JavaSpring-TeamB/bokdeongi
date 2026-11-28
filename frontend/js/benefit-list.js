@@ -38,6 +38,7 @@ const hashtagState = {
 };
 let hashtagRequestId = 0;
 let hashtagController = null;
+const filterGroupExpanded = { status: true, field: true, target: false };
 
 class BenefitListRequestError extends Error {
     constructor(kind, message) {
@@ -313,20 +314,28 @@ function filterOption(group, value, label, count, checked) {
     return '<label class="filter-option"><input type="checkbox" data-filter-group="' + group + '" value="' + escapeHtml(value) + '"' + (checked ? ' checked' : '') + '><span>' + escapeHtml(label) + countMarkup + '</span></label>';
 }
 
+function filterGroupMarkup(group, title, content, selectedCount) {
+    const expanded = filterGroupExpanded[group];
+    const selected = selectedCount ? '<span class="filter-group__selected">선택 ' + selectedCount + '</span>' : '';
+    return '<section class="filter-group"><h3><button class="filter-group__toggle" type="button" data-filter-toggle="' + group
+        + '" aria-expanded="' + expanded + '" aria-controls="filter-group-content-' + group + '"><span>' + title + '</span>' + selected
+        + '</button></h3><div id="filter-group-content-' + group + '" class="filter-group__content"' + (expanded ? '' : ' hidden') + '>' + content + '</div></section>';
+}
+
 function tagFilterGroup(group, title, category, selected) {
     if (hashtagState.screen === 'LOADING' || hashtagState.screen === 'IDLE') {
-        return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">필터를 불러오는 중이에요.</p></section>';
+        return filterGroupMarkup(group, title, '<p class="filter-panel__notice">필터를 불러오는 중이에요.</p>', selected.length);
     }
     if (hashtagState.screen === 'UNAUTHENTICATED') {
-        return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">로그인하면 실제 ' + title + ' 필터를 사용할 수 있어요. <a href="login.html">로그인하기</a></p></section>';
+        return filterGroupMarkup(group, title, '<p class="filter-panel__notice">로그인하면 실제 ' + title + ' 필터를 사용할 수 있어요. <a href="login.html">로그인하기</a></p>', selected.length);
     }
     if (hashtagState.screen === 'ERROR') {
-        return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">필터를 불러오지 못했어요. <button type="button" data-retry-filter-tags>다시 시도</button></p></section>';
+        return filterGroupMarkup(group, title, '<p class="filter-panel__notice">필터를 불러오지 못했어요. <button type="button" data-retry-filter-tags>다시 시도</button></p>', selected.length);
     }
     const tags = displayableHashtags((hashtagState.response?.tags || []).filter((tag) => tag.category === category));
-    if (!tags.length) return '<section class="filter-group"><h3>' + title + '</h3><p class="filter-panel__notice">표시할 ' + title + ' 필터가 없어요.</p></section>';
-    return '<section class="filter-group"><h3>' + title + '</h3><div class="filter-options">'
-        + tags.map((tag) => filterOption(group, tag.name, tag.name, tag.count, selected.includes(tag.name))).join('') + '</div></section>';
+    if (!tags.length) return filterGroupMarkup(group, title, '<p class="filter-panel__notice">표시할 ' + title + ' 필터가 없어요.</p>', selected.length);
+    return filterGroupMarkup(group, title, '<div class="filter-options">'
+        + tags.map((tag) => filterOption(group, tag.name, tag.name, tag.count, selected.includes(tag.name))).join('') + '</div>', selected.length);
 }
 
 function renderFilters() {
@@ -335,9 +344,18 @@ function renderFilters() {
         + STATUS_FILTERS.map((filter) => filterOption('status', filter.value, filter.label, null, state.statuses.includes(filter.value))).join('');
     const container = $('#filter-groups');
     if (!container) return;
-    container.innerHTML = '<section class="filter-group"><h3>신청 상태</h3><div class="filter-options">' + statusOptions + '</div></section>'
+    container.innerHTML = filterGroupMarkup('status', '신청 상태', '<div class="filter-options">' + statusOptions + '</div>', state.statuses.length)
         + tagFilterGroup('field', '분야', '분야', state.fields)
         + tagFilterGroup('target', '대상', '대상', state.targets);
+}
+
+function toggleFilterGroup(button) {
+    const group = button.dataset.filterToggle;
+    const content = $('#filter-group-content-' + group);
+    if (!content || !Object.hasOwn(filterGroupExpanded, group)) return;
+    filterGroupExpanded[group] = !filterGroupExpanded[group];
+    content.hidden = !filterGroupExpanded[group];
+    button.setAttribute('aria-expanded', String(filterGroupExpanded[group]));
 }
 
 function suggestedKeywords(hashtags = []) {
@@ -375,9 +393,7 @@ function card(item) {
 
     const title = hasText(item.title) ? item.title.trim() : '';
     const titleMarkup = title ? '<h3>' + escapeHtml(title) + '</h3>' : '';
-    const summary = summaryText(item);
     const organization = hasText(item.orgName) ? '<p class="benefit-card__organization">' + escapeHtml(item.orgName.trim()) + '</p>' : '';
-    const description = summary ? '<p class="benefit-card__description">' + escapeHtml(summary) + '</p>' : '';
     const period = applyPeriod(item);
     const periodInfo = period ? '<dl class="benefit-card__info"><div><dt>신청 기간</dt><dd>' + escapeHtml(period) + '</dd></div></dl>' : '';
     const hashtags = parseHashtags(item.hashtags);
@@ -388,7 +404,7 @@ function card(item) {
         ? '<span class="status-badge status-badge--unknown">' + escapeHtml(eligibilityLabel(item.eligibilityResult.trim())) + '</span>'
         : '';
 
-    return '<article class="benefit-card"><div class="benefit-card__top">' + eligibility + favoriteButtonMarkup(item.id) + '</div><div class="benefit-card__body">' + titleMarkup + organization + description + '</div>' + periodInfo + '<div class="benefit-card__actions"><a class="bk-btn bk-btn--primary bk-btn--md benefit-card__detail" href="benefit-detail.html?id=' + encodeURIComponent(item.id) + '">상세 보기 <span aria-hidden="true">›</span></a></div>' + hashtagMarkup + '</article>';
+    return '<article class="benefit-card"><div class="benefit-card__top">' + eligibility + favoriteButtonMarkup(item.id) + '</div><div class="benefit-card__body">' + titleMarkup + organization + '</div>' + periodInfo + hashtagMarkup + '<div class="benefit-card__actions"><a class="bk-btn bk-btn--primary bk-btn--md benefit-card__detail" href="benefit-detail.html?id=' + encodeURIComponent(item.id) + '">상세 보기 <span aria-hidden="true">›</span></a></div></article>';
 }
 
 function paginationMarkup(response) {
@@ -757,6 +773,9 @@ function applyKeywordFromUrl(request = true) {
     state.statuses = [...new Set(parameters.getAll('status').map((value) => value.trim().toUpperCase()).filter((value) => STATUS_FILTERS.some((filter) => filter.value === value)))];
     state.fields = [...new Set(parameters.getAll('field').map(normalizeQuery).filter(Boolean))].slice(0, 20);
     state.targets = [...new Set(parameters.getAll('target').map(normalizeQuery).filter(Boolean))].slice(0, 20);
+    if (state.statuses.length) filterGroupExpanded.status = true;
+    if (state.fields.length) filterGroupExpanded.field = true;
+    if (state.targets.length) filterGroupExpanded.target = true;
     $('#benefit-search-input').value = keyword || hashtag;
     syncSortControl();
     renderFilters();
@@ -797,6 +816,11 @@ function setup() {
         requestBenefits(page);
     });
     document.addEventListener('click', (event) => {
+        const filterToggle = event.target.closest('[data-filter-toggle]');
+        if (filterToggle) {
+            toggleFilterGroup(filterToggle);
+            return;
+        }
         if (event.target.closest('#filter-reset')) {
             state.statuses = [];
             state.fields = [];
