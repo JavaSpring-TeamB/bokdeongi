@@ -3,8 +3,8 @@
 .signup-account__shell:has(.signup-profile:not([hidden])) > .signup-account__intro { display: none; }
 .signup-account__shell:has(.signup-profile:not([hidden])) > :is(#signup-flow-card, .signup-profile) { width: min(100%, 720px); justify-self: center; }
 .signup-profile { display: grid; grid-template-rows: auto auto minmax(0, 1fr); height: min(760px, calc(100dvh - var(--header-height) - 32px - 52px)); min-height: 0; }
-.signup-profile .assist-step.is-complete { color: var(--color-primary); }
-.signup-profile .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-white); }
+.signup-profile .assist-step.is-complete { color: var(--color-primary-text); }
+.signup-profile .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-on-primary); }
 #signup-profile-form { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--space-md); min-height: 0; margin-top: var(--space-lg); overflow: hidden; }
 .signup-profile__form-scroll { display: grid; min-height: 0; align-content: start; gap: var(--space-md); overflow-y: auto; padding-right: var(--space-xs); scrollbar-width: none; -ms-overflow-style: none; }
 .signup-profile__form-scroll::-webkit-scrollbar { width: 0; height: 0; }
@@ -14,9 +14,13 @@
 .signup-profile__section legend small { color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: 500; }
 .signup-profile__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
 .signup-profile .signup-form-control > label, .signup-profile__choice > span, .signup-profile__code-group > span { display: block; margin-bottom: var(--space-xs); font-size: var(--font-size-caption); font-weight: 700; }
-.signup-profile b { color: var(--color-danger); }
+.signup-profile b { color: var(--color-danger-text); }
 .signup-profile .signup-form-control input, .signup-profile select { width: 100%; min-height: 42px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-white); color: var(--color-text); font-size: var(--font-size-description); }
 .signup-profile .signup-form-control input:focus, .signup-profile select:focus { border-color: var(--color-primary); outline: 2px solid var(--color-primary); outline-offset: 1px; }
+[data-theme="dark"] .signup-profile :is(.signup-form-control input, select):hover:not(:disabled):not([aria-invalid="true"]) { border-color: var(--color-text-secondary); }
+[data-theme="dark"] .signup-profile :is(.signup-form-control input, select):focus { border-color: var(--color-primary-text); outline-color: var(--color-primary-text); }
+[data-theme="dark"] .signup-profile .signup-form-control input[aria-invalid="true"]:focus { border-color: var(--color-danger-text); outline-color: var(--color-danger-text); }
+[data-theme="dark"] .signup-profile :is(.signup-form-control input, select):disabled { background: var(--color-surface); }
 .signup-profile select:disabled { cursor: not-allowed; color: var(--color-text-secondary); }
 .signup-profile__choice { grid-column: span 2; }
 .signup-profile__choice > div, .signup-profile__code-group > div { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); }
@@ -37,7 +41,7 @@
 .signup-profile__notice { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-secondary); font-size: var(--font-size-caption); }
 .signup-profile__unavailable { color: var(--color-text-secondary); }
 .signup-profile__unavailable small { font-size: .75rem; }
-.signup-profile__error { min-height: 22px; margin: 0; color: var(--color-danger); font-size: var(--font-size-caption); }
+.signup-profile__error { min-height: 22px; margin: 0; color: var(--color-danger-text); font-size: var(--font-size-caption); }
 .signup-profile__actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
 .signup-profile__actions .bk-btn { width: 100%; }
 .signup-profile__actions .signup-account__submit { margin-top: 0; }

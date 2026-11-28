@@ -79,12 +79,24 @@ test('maps only the actual profile response while retaining null, empty arrays, 
   assert.equal(basics.find(([, label]) => label === '이름')[2], '실제 사용자');
   assert.equal(settings.find(([, label]) => label === '가구 형태')[2], '0인 가구');
   assert.equal(settings.find(([, label]) => label === '소득 정보')[2], '중위소득 0%');
+  assert.equal(settings.find(([, label]) => label === '혼인 여부')[2], '미입력');
   assert.equal(hooks.profileEditorState.hasHouse, 'false');
   assert.equal(hooks.profileEditorState.childrenCount, '0');
   assert.deepEqual(JSON.parse(JSON.stringify(hooks.profileEditorState.householdTypes)), []);
   assert.deepEqual(JSON.parse(JSON.stringify(hooks.profileEditorState.statusCodes)), []);
   assert.match(markup, /미입력/);
   assert.doesNotMatch(markup, /undefined|null/);
+});
+
+test('marital status follows the latest profile response in the fourth settings cell', () => {
+  const hooks = createHooks();
+  for (const [code, label] of [['SINGLE', '미혼'], ['MARRIED', '기혼'], ['ETC', '기타'], [null, '미입력']]) {
+    hooks.applyProfileResponse(profile({ maritalStatus: code }));
+    const settings = hooks.myPageData.profile.settings;
+    assert.deepEqual(Array.from(settings, ([, name]) => name), ['가구 형태', '주거 형태', '소득 정보', '혼인 여부']);
+    assert.equal(settings[3][2], label);
+    assert.match(hooks.renderProfileView(), new RegExp('혼인 여부[\\s\\S]*?' + label));
+  }
 });
 
 test('clears profile and favorite data when authentication becomes unauthenticated', () => {

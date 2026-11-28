@@ -1,12 +1,12 @@
 .signup-complete__shell { grid-template-columns: minmax(0, 840px); justify-content: center; }
 .signup-complete__card { min-height: 500px; padding: var(--space-lg); }
 #signup-flow-card > [data-signup-step="complete"] > .signup-steps { display: none; }
-.signup-complete__card .assist-step.is-complete { color: var(--color-primary); }
-.signup-complete__card .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-white); }
+.signup-complete__card .assist-step.is-complete { color: var(--color-primary-text); }
+.signup-complete__card .assist-step.is-complete .assist-step__icon { background: var(--color-primary); color: var(--color-on-primary); }
 .signup-complete__message { display: grid; max-width: 520px; min-height: 370px; place-content: center; justify-items: center; margin: 0 auto; text-align: center; }
 .signup-complete__check { display: grid; width: 64px; height: 64px; place-items: center; margin-bottom: var(--space-md); border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); font-size: 2rem; font-weight: 700; }
 .signup-complete__message h1 { margin: 0; font-size: var(--font-size-page-title); }
 .signup-complete__message p { margin: var(--space-sm) 0 var(--space-xl); color: var(--color-text-secondary); font-size: var(--font-size-description); }
-.signup-complete__home { min-width: min(100%, 340px); border: 1px solid var(--color-primary); background: var(--color-primary); color: var(--color-white); }
+.signup-complete__home { min-width: min(100%, 340px); border: 1px solid var(--color-primary); background: var(--color-primary); color: var(--color-on-primary); }
 .signup-complete__home:hover { background: var(--color-primary-hover); }
 @media (max-width: 600px) { .signup-complete__card { min-height: 440px; } .signup-complete__message { min-height: 310px; } .signup-complete__message h1 { font-size: var(--font-size-card-title); } .signup-complete__check { width: 56px; height: 56px; font-size: 1.75rem; } .signup-complete__home { width: 100%; } }

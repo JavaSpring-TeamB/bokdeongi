@@ -112,7 +112,7 @@
 .translator-input-tab.is-active,
 .translator-result-tab.is-active {
     background: var(--color-primary-light);
-    color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .translator-input-panel {
@@ -144,6 +144,10 @@
     outline-offset: 1px;
     border-color: var(--color-primary);
 }
+
+[data-theme="dark"] .translator-input-panel textarea:hover:not(:disabled) { border-color: var(--color-text-secondary); }
+[data-theme="dark"] .translator-input-panel textarea:focus { border-color: var(--color-primary-text); outline-color: var(--color-primary-text); }
+[data-theme="dark"] .translator-input-panel textarea:disabled { background: var(--color-surface); }
 
 .translator-privacy-guidance {
     margin: 0 0 var(--space-sm);
@@ -280,7 +284,7 @@
 }
 
 .translator-masked-notice {
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-weight: 700;
 }
 

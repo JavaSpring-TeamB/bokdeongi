@@ -213,6 +213,24 @@
     color: var(--recommend-theme);
 }
 
+[data-theme="dark"] .benefit-recommend-page[data-status="eligible"] .recommend-hashtag-chip[aria-pressed="true"] {
+    border-color: var(--color-status-green-text);
+    background: var(--color-status-green-bg);
+    color: var(--color-status-green-text);
+}
+
+[data-theme="dark"] .benefit-recommend-page[data-status="conditional"] .recommend-hashtag-chip[aria-pressed="true"] {
+    border-color: var(--color-status-yellow-text);
+    background: var(--color-status-yellow-bg);
+    color: var(--color-status-yellow-text);
+}
+
+[data-theme="dark"] .benefit-recommend-page[data-status="near-miss"] .recommend-hashtag-chip[aria-pressed="true"] {
+    border-color: var(--color-status-red-text);
+    background: var(--color-status-red-bg);
+    color: var(--color-status-red-text);
+}
+
 .recommend-hashtag-chip:focus-visible {
     outline: 2px solid var(--recommend-theme);
     outline-offset: 2px;
@@ -319,6 +337,21 @@
     color: var(--recommend-theme);
 }
 
+[data-theme="dark"] .recommend-card--eligible .recommend-status-badge {
+    background: var(--color-status-green-bg);
+    color: var(--color-status-green-text);
+}
+
+[data-theme="dark"] .recommend-card--conditional .recommend-status-badge {
+    background: var(--color-status-yellow-bg);
+    color: var(--color-status-yellow-text);
+}
+
+[data-theme="dark"] .recommend-card--near-miss .recommend-status-badge {
+    background: var(--color-status-red-bg);
+    color: var(--color-status-red-text);
+}
+
 .recommend-category-badge {
     background: var(--color-surface);
     color: var(--color-text-secondary);
@@ -353,7 +386,7 @@
 
 .recommend-card__detail span:first-child {
     flex: 0 0 auto;
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-weight: 700;
 }
 
@@ -461,7 +494,7 @@
 
 .recommend-card__eligible-info dd {
     margin: 0;
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-size: var(--font-size-description);
     font-weight: 700;
     line-height: 1.4;
@@ -565,7 +598,7 @@
 
 .recommend-card__conditional-meta dd {
     margin: 0;
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     font-size: var(--font-size-description);
     font-weight: 700;
     text-align: right;
@@ -580,6 +613,14 @@
 .recommend-card__conditional-notice strong {
     color: var(--color-warning);
     font-size: var(--font-size-description);
+}
+
+[data-theme="dark"] .recommend-card__conditional-notice {
+    background: var(--color-status-yellow-bg);
+}
+
+[data-theme="dark"] .recommend-card__conditional-notice strong {
+    color: var(--color-status-yellow-text);
 }
 
 .recommend-card__conditional-notice p {
@@ -633,7 +674,7 @@
 .conditional-question__choices .bk-btn.is-selected {
     border-color: var(--color-primary);
     background: var(--color-primary-light);
-    color: var(--color-primary);
+    color: var(--color-primary-text);
 }
 
 .conditional-question__selection {
@@ -665,6 +706,24 @@
     outline-color: var(--color-warning);
 }
 
+[data-theme="dark"] .recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary {
+    border-color: var(--color-status-yellow-text);
+    background: var(--color-status-yellow-bg);
+    color: var(--color-status-yellow-text);
+}
+
+[data-theme="dark"] .recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning) 40%, var(--color-white));
+}
+
+[data-theme="dark"] .recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary:active:not(:disabled) {
+    background: var(--color-status-yellow-bg);
+}
+
+[data-theme="dark"] .recommend-card--conditional :is(.recommend-card__action-links, .conditional-question__submission) .bk-btn--primary:focus-visible {
+    outline-color: var(--color-status-yellow-text);
+}
+
 .conditional-question__submission-status {
     margin: 0;
     color: var(--color-text-secondary);
@@ -673,7 +732,7 @@
 }
 
 .conditional-question__submission-status.is-error {
-    color: var(--color-danger);
+    color: var(--color-danger-text);
 }
 
 .conditional-question__result {
@@ -720,6 +779,13 @@
 .conditional-question__result--unsure p span {
     color: var(--color-warning);
 }
+
+[data-theme="dark"] .conditional-question__result--yes { background: var(--color-status-green-bg); }
+[data-theme="dark"] .conditional-question__result--yes :is(strong, p span) { color: var(--color-status-green-text); }
+[data-theme="dark"] .conditional-question__result--no { background: var(--color-status-red-bg); }
+[data-theme="dark"] .conditional-question__result--no :is(strong, p span) { color: var(--color-status-red-text); }
+[data-theme="dark"] .conditional-question__result--unsure { background: var(--color-status-yellow-bg); }
+[data-theme="dark"] .conditional-question__result--unsure :is(strong, p span) { color: var(--color-status-yellow-text); }
 
 .conditional-question + .conditional-question {
     border-top: 1px solid var(--color-border);
@@ -777,6 +843,10 @@
 .recommend-card__near-miss-reason strong {
     color: var(--color-danger);
     font-size: var(--font-size-caption);
+}
+
+[data-theme="dark"] :is(.recommend-card__near-miss-condition, .recommend-card__near-miss-reason) strong {
+    color: var(--color-status-red-text);
 }
 
 .recommend-card__near-miss-condition p,
@@ -859,6 +929,15 @@
     background: var(--color-danger);
 }
 
+[data-theme="dark"] .recommend-card--near-miss .recommend-card__action-links .bk-btn--primary:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-danger) 85%, var(--color-white));
+    background: color-mix(in srgb, var(--color-danger) 85%, var(--color-white));
+}
+
+[data-theme="dark"] .recommend-card--near-miss .recommend-card__action-links .bk-btn--primary:focus-visible {
+    outline-color: var(--color-status-red-text);
+}
+
 .recommend-empty-state {
     display: grid;
     grid-column: 1 / -1;
@@ -919,7 +998,7 @@
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-md);
     background: var(--color-primary);
-    color: var(--color-white);
+    color: var(--color-on-primary);
     font-size: var(--font-size-caption);
     font-weight: 600;
     white-space: nowrap;
